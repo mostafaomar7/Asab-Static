@@ -1158,13 +1158,23 @@ type ExceptionSeverity = "critical"|"high"|"medium";
 interface ExceptionItem {
   severity:    ExceptionSeverity;
   icon:        string;
-  label:       string;   // what is wrong
+  label:       string;
   count:       number;
-  owner:       string;   // who currently owns / must act on it
-  action:      string;   // the specific action required to resolve
-  age:         string;   // how long it has been unresolved
-  impact:      string;   // financial or operational consequence if left unresolved
-  detail?:     string;   // extra supporting context
+  owner:       string;
+  action:      string;
+  age:         string;
+  impact:      string;
+  navTarget:   PageId;   // exact page to navigate to for resolution
+  navLabel:    string;   // CTA label on the navigate button
+  detail?:     string;
+}
+
+// derive the module key with the most matching ops, return a nav page
+function topModulePage(targetOps: Op[], prefix: string, fallback: string): PageId {
+  const freq: Record<string,number> = {};
+  targetOps.forEach(o=>{ freq[o.moduleKey]=(freq[o.moduleKey]||0)+1; });
+  const top = Object.entries(freq).sort(([,a],[,b])=>b-a)[0];
+  return (top ? `${prefix}${top[0]}` : fallback) as PageId;
 }
 
 function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionItem[] {
@@ -1178,6 +1188,7 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
   if(stuck.length > 0) {
     const oldestAge = stuck.map(o=>o.timeAgo).sort().pop() || "";
     const totalAmt  = stuck.reduce((s,o)=>s+o.amount,0);
+    const navTarget = forRole==="head" ? "head-pending" as PageId : topModulePage(stuck,"acc-","acc-sales");
     items.push({
       severity:"high", icon:"⏰",
       label:"بيانات معلقة منذ أكثر من يومين بدون مراجعة",
@@ -1186,14 +1197,16 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
       action: "افتح كل عملية معلقة وأكمل المراجعة أو ارفضها بسبب واضح",
       age:    `أطول تأخير: ${oldestAge} — تجاوز الحد المقبول`,
       impact: `${fmtAmt(totalAmt)} ر.س لم تدخل دورة الاعتماد — تعطل التجميع الشهري`,
+      navTarget, navLabel: forRole==="head" ? "عرض المعلقة" : "فتح الموديول",
       detail: stuck.map(o=>`${o.branch} · ${o.moduleLabel}`).slice(0,3).join(" | "),
     });
   }
 
-  // 2. Unresolved quantity/price differences — critical risk
+  // 2. Unresolved quantity/price differences — critical risk (blocks consolidation)
   const diffs = ops.filter(o=>o.match==="diff" && o.status==="pending");
   if(diffs.length > 0) {
     const totalDiff = diffs.reduce((s,o)=>s+o.amount,0);
+    const navTarget = forRole==="head" ? "head-pending" as PageId : topModulePage(diffs,"acc-","acc-purchases");
     items.push({
       severity:"critical", icon:"⚠",
       label:"فروق في الكميات أو الأسعار لم تُحل بعد",
@@ -1201,7 +1214,8 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
       owner:  forRole==="head" ? "المحاسب المُكلَّف — يتطلب تدخل رئيس الحسابات للحالات المعقدة" : "أنت — الفرق يستوجب قرارك",
       action: "راجع الفرق، أصدر عملية تعديل، أو احتسب الفرق وأقفل البيان",
       age:    diffs.map(o=>o.timeAgo).join(" · "),
-      impact: `${fmtAmt(totalDiff)} ر.س في بيانات تحتوي فروقاً — لا يمكن تجميعها حتى تُحل`,
+      impact: `${fmtAmt(totalDiff)} ر.س في بيانات مع فروق — لا يمكن تجميعها حتى تُحل`,
+      navTarget, navLabel: "عرض البيانات المُختلفة",
       detail: diffs.map(o=>o.diff||"").filter(Boolean).slice(0,2).join(" | "),
     });
   }
@@ -1217,8 +1231,9 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
         count:pendingErp.length,
         owner:  "رئيس الحسابات — يملك صلاحية تشغيل دفعة الترحيل",
         action: "انتقل إلى التصدير لـ ERP وأنشئ دفعة ترحيل لهذه العمليات",
-        age:    "مُعتمدة — لم تُرحَّل بعد",
-        impact: `${fmtAmt(pendingAmt)} ر.س غائبة عن ERP — التقارير المالية للمالك ناقصة`,
+        age:    "مُعتمدة — في انتظار الدفعة",
+        impact: `${fmtAmt(pendingAmt)} ر.س غائبة عن ERP — تقارير المالك ناقصة`,
+        navTarget:"head-erp", navLabel:"فتح صفحة التصدير لـ ERP",
       });
     }
   }
@@ -1226,6 +1241,7 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
   // 4. Corrective operations pending review
   const corrections = ops.filter(o=>o.isCorrection && o.status==="pending");
   if(corrections.length > 0) {
+    const navTarget = forRole==="head" ? "head-pending" as PageId : topModulePage(corrections,"acc-","acc-sales");
     items.push({
       severity:"medium", icon:"🔄",
       label:"عمليات تعديل مُرتبطة بعمليات سابقة تنتظر المراجعة",
@@ -1233,7 +1249,8 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
       owner:  forRole==="head" ? "المحاسب المُصدِر للتعديل" : "أنت — التعديل مرتبط ببيان أصدرته",
       action: "راجع عملية التعديل وتحقق من صحة المبالغ المُصحَّحة قبل الموافقة",
       age:    corrections.map(o=>o.timeAgo).slice(0,2).join(" · "),
-      impact: "عدم الموافقة على التعديل يُبقي الرصيد الأصلي مغلوطاً في قيد التجميع",
+      impact: "عدم الموافقة على التعديل يُبقي الرصيد الأصلي مغلوطاً في القيد المحاسبي",
+      navTarget, navLabel: "فتح عمليات التعديل",
       detail: corrections.map(o=>`${o.id} ← ${o.correctiveRef||""}`).slice(0,2).join(" | "),
     });
   }
@@ -1253,8 +1270,10 @@ function deriveExceptions(ops: Op[], forRole: "accountant"|"head"): ExceptionIte
       count:problemBranches.length,
       owner:  "مدير الفرع + " + (forRole==="head" ? "رئيس الحسابات" : "أنت"),
       action: "تواصل مع مدير الفرع لتحديد سبب الأخطاء المتكررة وتصحيح منهجية الرفع",
-      age:    `نمط متكرر — ليس حادثة معزولة`,
-      impact: `${fmtAmt(totalRejected)} ر.س في بيانات مرفوضة — مؤشر على مشكلة بيانات هيكلية`,
+      age:    "نمط متكرر — ليس حادثة معزولة",
+      impact: `${fmtAmt(totalRejected)} ر.س في بيانات مرفوضة — مؤشر على مشكلة هيكلية`,
+      navTarget: forRole==="head" ? "head-rejected" : "acc-sales" as PageId,
+      navLabel: "عرض المرفوضة",
       detail: problemBranches.map(([b,v])=>`${b} (${v.count} مرفوضة)`).join(" | "),
     });
   }
@@ -1268,7 +1287,7 @@ const EXCEPTION_SEV_CFG: Record<ExceptionSeverity,{ cls:string; barCls:string; d
   medium:   { cls:"border-sky-200 bg-sky-50/60",     barCls:"bg-sky-400",    dot:"bg-sky-400",    badgeCls:"bg-sky-100 text-sky-700 border-sky-200",     titleCls:"text-sky-800",   label:"متوسط" },
 };
 
-function ExceptionPanel({ ops, forRole }: { ops: Op[]; forRole:"accountant"|"head" }) {
+function ExceptionPanel({ ops, forRole, navigate }: { ops: Op[]; forRole:"accountant"|"head"; navigate:(p:PageId)=>void }) {
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<number|null>(null);
   const exceptions = deriveExceptions(ops, forRole);
@@ -1368,6 +1387,17 @@ function ExceptionPanel({ ops, forRole }: { ops: Op[]; forRole:"accountant"|"hea
                           </div>
                         </div>
                       )}
+                      {/* Navigation CTA — routes directly to the affected records/queue */}
+                      <div className="pt-2 border-t border-white/60 flex items-center justify-between">
+                        <p className="text-[10px] text-gray-400">انتقل مباشرةً إلى السجلات المُتأثرة للتدخل</p>
+                        <button
+                          onClick={(e)=>{ e.stopPropagation(); navigate(ex.navTarget); }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
+                            ${sev.badgeCls} border hover:opacity-80`}>
+                          <ChevronsRight size={12}/>
+                          {ex.navLabel}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1397,7 +1427,11 @@ const MODULE_META = [
 // Pipeline step labels shown in the legend
 const EXPORT_PIPELINE_STEPS: ModuleAggState[] = ["incomplete","ready_consolidation","consolidated","ready_erp","exported","erp_imported"];
 
-function ModuleAggregationGrid({ ops }: { ops: Op[]; navigate:(p:PageId)=>void }) {
+function ModuleAggregationGrid({ ops, navigate }: { ops: Op[]; navigate:(p:PageId)=>void }) {
+  const [selectedKey, setSelectedKey] = useState<string|null>(null);
+  const selectedMeta = selectedKey ? MODULE_META.find(m=>(m.key||m.label)===selectedKey) : null;
+  const selectedOps  = selectedMeta?.key ? ops.filter(o=>o.moduleKey===selectedMeta.key) : [];
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" dir="rtl">
 
@@ -1406,10 +1440,9 @@ function ModuleAggregationGrid({ ops }: { ops: Op[]; navigate:(p:PageId)=>void }
         <div className="flex items-center justify-between mb-2.5">
           <div>
             <h3 className="font-bold text-gray-900 text-sm">جاهزية التجميع المحاسبي — مسار التصدير لـ ERP</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">كل موديول يمثل حزمة قيود محاسبية · المسار: مراجعة ← تجميع ← اعتماد نهائي ← ERP</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">كل موديول يمثل حزمة قيود محاسبية · اضغط على موديول لفحص محتوى الحزمة</p>
           </div>
         </div>
-        {/* Pipeline step legend */}
         <div className="flex items-center gap-0 overflow-x-auto">
           {EXPORT_PIPELINE_STEPS.map((s,i)=>{
             const cfg = MODULE_AGG_CFG[s];
@@ -1431,38 +1464,36 @@ function ModuleAggregationGrid({ ops }: { ops: Op[]; navigate:(p:PageId)=>void }
       {/* Module cards */}
       <div className="p-4 grid grid-cols-4 gap-3">
         {MODULE_META.map(m=>{
-          const mOps  = m.key ? ops.filter(o=>o.moduleKey===m.key) : [];
-          const state = getModuleAggState(mOps);
-          const cfg   = MODULE_AGG_CFG[state];
-          const counts = {
+          const cardKey = m.key||m.label;
+          const mOps    = m.key ? ops.filter(o=>o.moduleKey===m.key) : [];
+          const state   = getModuleAggState(mOps);
+          const cfg     = MODULE_AGG_CFG[state];
+          const counts  = {
             pending:  mOps.filter(o=>o.status==="pending").length,
             approved: mOps.filter(o=>o.status==="approved").length,
             final:    mOps.filter(o=>o.status==="final-approved").length,
             erp:      mOps.filter(o=>o.erpPosted).length,
           };
-          const total   = mOps.reduce((s,o)=>s+o.amount,0);
+          const total    = mOps.reduce((s,o)=>s+o.amount,0);
           const stepNum  = cfg.step;
-          const maxStep  = 5; // erp_imported is step 6 but aspirational
+          const maxStep  = 5;
+          const isSelected = selectedKey===cardKey;
 
           return (
-            <div key={m.key||m.label} className={`rounded-xl border ${cfg.cls} overflow-hidden`}>
-              {/* Step progress bar */}
+            <button key={cardKey} onClick={()=>setSelectedKey(isSelected?null:cardKey)}
+              className={`rounded-xl border text-right overflow-hidden transition-all
+                ${cfg.cls} ${isSelected?"ring-2 ring-offset-1 ring-purple-400 shadow-md":"hover:brightness-95"}`}>
               <div className="h-1 bg-gray-200/60">
-                <div className={`h-1 ${cfg.dot} transition-all`} style={{width:`${Math.min((stepNum/maxStep)*100,100)}%`}}/>
+                <div className={`h-1 ${cfg.dot}`} style={{width:`${Math.min((stepNum/maxStep)*100,100)}%`}}/>
               </div>
               <div className="p-3.5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xl">{m.icon}</span>
-                  <div className="text-right">
-                    <span className={`text-[9px] font-bold ${cfg.headerCls}`}>
-                      {stepNum>0?`م${stepNum}/5`:""} 
-                    </span>
-                  </div>
+                  <span className={`text-[9px] font-bold ${cfg.headerCls}`}>{stepNum>0?`م${stepNum}/5`:""}</span>
                 </div>
                 <p className="font-bold text-sm text-gray-800 mb-0.5">{m.label}</p>
-                <p className={`text-[10px] font-semibold mb-2 ${cfg.headerCls}`}>{cfg.label}</p>
+                <p className={`text-[10px] font-semibold mb-1 ${cfg.headerCls}`}>{cfg.label}</p>
                 <p className="text-[9px] text-gray-400 mb-2 leading-tight">{cfg.sublabel}</p>
-
                 {mOps.length > 0 ? (
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-1 flex-wrap">
@@ -1477,10 +1508,170 @@ function ModuleAggregationGrid({ ops }: { ops: Op[]; navigate:(p:PageId)=>void }
                   <span className="text-[10px] text-gray-300">لا توجد بيانات</span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
+
+      {/* Accounting package drill-down — shown when a module card is selected */}
+      {selectedMeta && (
+        <div className="border-t border-gray-100 bg-gray-50/60 p-5" dir="rtl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{selectedMeta.icon}</span>
+              <div>
+                <h4 className="font-bold text-gray-900 text-sm">الحزمة المحاسبية — {selectedMeta.label}</h4>
+                <p className="text-[10px] text-gray-400">محتوى الحزمة: ما هو مُدرَج، ما هو مُستبعد، ما يمنع التجميع، ما هو جاهز لـ ERP</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedMeta.key && (
+                <button onClick={()=>navigate(`head-${selectedMeta.key}` as PageId)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-[11px] font-bold hover:bg-purple-700 transition-colors">
+                  <ChevronsRight size={11}/>
+                  فتح الموديول
+                </button>
+              )}
+              <button onClick={()=>setSelectedKey(null)} className="text-gray-400 hover:text-gray-600 text-xs px-2 py-1 rounded-lg hover:bg-white border border-transparent hover:border-gray-200">
+                ✕ إغلاق
+              </button>
+            </div>
+          </div>
+
+          {selectedOps.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">لا توجد بيانات في هذا الموديول</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left column: included + blocking */}
+              <div className="space-y-3">
+                {/* Final-approved (in the package) */}
+                {selectedOps.filter(o=>o.status==="final-approved").length > 0 && (
+                  <div className="bg-white rounded-xl border border-emerald-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span className="text-[11px] font-bold text-emerald-800">مُدرَجة في الحزمة — قيود مُعتمدة نهائياً</span>
+                      <span className="text-[10px] text-emerald-600 mr-auto font-mono font-bold">
+                        {fmtAmt(selectedOps.filter(o=>o.status==="final-approved").reduce((s,o)=>s+o.amount,0))} ر.س
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {selectedOps.filter(o=>o.status==="final-approved").slice(0,4).map((o,i)=>(
+                        <div key={i} className="px-4 py-2 flex items-center gap-3 text-xs">
+                          <span className="font-mono text-gray-400 flex-shrink-0">{o.id}</span>
+                          <span className="text-gray-600 flex-shrink-0">{o.branch}</span>
+                          <span className="flex-1"></span>
+                          <span className="font-mono font-bold text-gray-700">{fmtAmt(o.amount)} ر.س</span>
+                          {o.erpPosted
+                            ? <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-bold">ERP ✓</span>
+                            : <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">جاهز</span>}
+                        </div>
+                      ))}
+                      {selectedOps.filter(o=>o.status==="final-approved").length > 4 &&
+                        <p className="px-4 py-1.5 text-[10px] text-gray-400">+ {selectedOps.filter(o=>o.status==="final-approved").length-4} عمليات أخرى</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending (blocking consolidation) */}
+                {selectedOps.filter(o=>o.status==="pending").length > 0 && (
+                  <div className="bg-white rounded-xl border border-red-100 overflow-hidden">
+                    <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      <span className="text-[11px] font-bold text-red-800">معلقة — تمنع اكتمال التجميع</span>
+                      <span className="text-[10px] text-red-600 mr-auto font-mono font-bold">
+                        {fmtAmt(selectedOps.filter(o=>o.status==="pending").reduce((s,o)=>s+o.amount,0))} ر.س
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {selectedOps.filter(o=>o.status==="pending").slice(0,3).map((o,i)=>(
+                        <div key={i} className="px-4 py-2 flex items-center gap-3 text-xs">
+                          <span className="font-mono text-gray-400 flex-shrink-0">{o.id}</span>
+                          <span className="text-gray-600 flex-shrink-0">{o.branch}</span>
+                          {o.match==="diff" && <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">⚠ فرق</span>}
+                          <span className="flex-1"></span>
+                          <span className="font-mono font-bold text-gray-700">{fmtAmt(o.amount)} ر.س</span>
+                          <span className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">{o.timeAgo}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right column: ERP-ready + batches */}
+              <div className="space-y-3">
+                {/* Ready for ERP export */}
+                {(() => {
+                  const readyForErp = selectedOps.filter(o=>o.status==="final-approved" && !o.erpPosted);
+                  if(readyForErp.length === 0) return null;
+                  return (
+                    <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden">
+                      <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-[11px] font-bold text-emerald-800">جاهز للإرسال لـ ERP</span>
+                        <span className="text-[10px] text-emerald-600 mr-auto font-mono font-bold">
+                          {fmtAmt(readyForErp.reduce((s,o)=>s+o.amount,0))} ر.س
+                        </span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-xs text-gray-500">{readyForErp.length} عملية مُعتمدة نهائياً لم تُضَم لدفعة ERP بعد</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">ادمجها في الدفعة القادمة من صفحة التصدير لـ ERP</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ERP batch membership */}
+                {(() => {
+                  const posted = selectedOps.filter(o=>o.erpPosted);
+                  if(posted.length === 0) return null;
+                  const bm: Record<string,{total:number;count:number}> = {};
+                  posted.forEach(o=>{ const b=o.erpBatchId||"—"; if(!bm[b]) bm[b]={total:0,count:0}; bm[b].total+=o.amount; bm[b].count++; });
+                  return (
+                    <div className="bg-white rounded-xl border border-indigo-100 overflow-hidden">
+                      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        <span className="text-[11px] font-bold text-indigo-800">مُرحَّلة في ERP — دفعات مُغلقة</span>
+                        <span className="text-[10px] text-indigo-600 mr-auto font-mono font-bold">
+                          {fmtAmt(posted.reduce((s,o)=>s+o.amount,0))} ر.س
+                        </span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {Object.entries(bm).map(([bid,{total,count}],i)=>(
+                          <div key={i} className="px-4 py-2 flex items-center gap-3">
+                            <span className="font-mono text-[10px] text-indigo-700 font-bold">{bid}</span>
+                            <span className="flex-1"></span>
+                            <span className="text-[10px] text-gray-500">{count} بيان</span>
+                            <span className="font-mono text-xs font-bold text-indigo-800">{fmtAmt(total)} ر.س</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Excluded: rejected */}
+                {selectedOps.filter(o=>o.status==="rejected").length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                      <span className="text-[11px] font-bold text-gray-600">مُستبعدة — مرفوضة، خارج الحزمة</span>
+                      <span className="text-[10px] text-gray-500 mr-auto font-mono">
+                        {selectedOps.filter(o=>o.status==="rejected").length} بيانات
+                      </span>
+                    </div>
+                    <div className="px-4 py-2">
+                      {selectedOps.filter(o=>o.status==="rejected").slice(0,2).map((o,i)=>(
+                        <p key={i} className="text-[10px] text-gray-400 py-0.5">{o.id} · {o.branch} · {o.rejectionReason||"—"}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1493,6 +1684,18 @@ function ModuleAggregationGrid({ ops }: { ops: Op[]; navigate:(p:PageId)=>void }
 // The owner layer has zero workflow elements, zero action buttons,
 // and presents the financial position as a closed, unambiguous statement.
 // ─────────────────────────────────────────────
+// September 2025 baseline — simulated previous-period ERP-verified amounts for comparison
+const SEPT_BASELINE: Partial<Record<ModuleKey,number>> = {
+  sales:     185000,
+  expenses:   42000,
+  purchases:  88000,
+  inventory:  31000,
+  shifts:     22000,
+  employees:  54000,
+  cash:        8500,
+};
+const SEPT_NET = (SEPT_BASELINE.sales||0) - (SEPT_BASELINE.expenses||0) - (SEPT_BASELINE.purchases||0);
+
 function OwnerReportsPage({ ops }: PageProps) {
   const [tab, setTab] = useState<"internal"|"owner">("owner");
 
@@ -1503,7 +1706,15 @@ function OwnerReportsPage({ ops }: PageProps) {
   const purPosted    = postedOps.filter(o=>o.moduleKey==="purchases").reduce((s,o)=>s+o.amount,0);
   const netPosition  = salesPosted - expPosted - purPosted;
 
-  // Category breakdown for owner — ERP-posted amounts only
+  // Period comparison vs September 2025 baseline
+  const netPctChange = SEPT_NET > 0 ? Math.round(((netPosition - SEPT_NET) / SEPT_NET) * 100) : null;
+
+  // Branch rankings from ERP-posted ops — descending by amount
+  const branchAmts: Record<string,number> = {};
+  postedOps.forEach(o=>{ branchAmts[o.branch]=(branchAmts[o.branch]||0)+o.amount; });
+  const branchRankings = Object.entries(branchAmts).sort(([,a],[,b])=>b-a).slice(0,5);
+
+  // Category breakdown for owner — ERP-posted amounts only, with period comparison
   const ownerCategories = [
     { key:"sales"     as ModuleKey, label:"الإيرادات",        icon:"💰", color:"bg-emerald-500", textColor:"text-emerald-700", isIncome:true  },
     { key:"expenses"  as ModuleKey, label:"المصروفات",        icon:"💸", color:"bg-red-500",     textColor:"text-red-700",     isIncome:false },
@@ -1513,11 +1724,29 @@ function OwnerReportsPage({ ops }: PageProps) {
     { key:"employees" as ModuleKey, label:"مستحقات الموظفين", icon:"👥", color:"bg-indigo-500",  textColor:"text-indigo-700",  isIncome:false },
     { key:"cash"      as ModuleKey, label:"العهد النقدية",    icon:"💼", color:"bg-purple-500",  textColor:"text-purple-700",  isIncome:false },
   ].map(c=>{
-    const amt = postedOps.filter(o=>o.moduleKey===c.key).reduce((s,o)=>s+o.amount,0);
-    return {...c, amount:amt};
-  }).filter(c=>c.amount>0);
+    const amt  = postedOps.filter(o=>o.moduleKey===c.key).reduce((s,o)=>s+o.amount,0);
+    const prev = SEPT_BASELINE[c.key]||0;
+    const pct  = prev > 0 ? Math.round(((amt-prev)/prev)*100) : null;
+    return {...c, amount:amt, prev, pct};
+  }).filter(c=>c.amount>0 || c.prev>0);
 
-  const maxCatAmt = Math.max(...ownerCategories.map(c=>c.amount), 1);
+  const maxCatAmt = Math.max(...ownerCategories.map(c=>Math.max(c.amount,c.prev)), 1);
+
+  // Auto-commentary: 3-4 insight bullets derived from ERP-verified data only
+  const commentary: {icon:string; text:string; color:string}[] = [];
+  const incomeChange = SEPT_BASELINE.sales ? salesPosted - (SEPT_BASELINE.sales||0) : null;
+  if(incomeChange !== null) {
+    if(incomeChange > 0) commentary.push({icon:"↑", text:`ارتفعت الإيرادات بمقدار ${fmtAmt(incomeChange)} ر.س مقارنةً بسبتمبر 2025`, color:"text-emerald-700"});
+    else if(incomeChange < 0) commentary.push({icon:"↓", text:`انخفضت الإيرادات بمقدار ${fmtAmt(Math.abs(incomeChange))} ر.س مقارنةً بسبتمبر 2025`, color:"text-red-700"});
+  }
+  if(netPctChange !== null) {
+    if(netPctChange >= 0) commentary.push({icon:"✓", text:`صافي المركز المالي تحسَّن ${netPctChange}% مقارنةً بالشهر السابق`, color:"text-emerald-700"});
+    else commentary.push({icon:"⚠", text:`صافي المركز المالي تراجع ${Math.abs(netPctChange)}% مقارنةً بالشهر السابق — يستوجب المتابعة`, color:"text-amber-700"});
+  }
+  const topBranch = branchRankings[0];
+  if(topBranch) commentary.push({icon:"🏆", text:`${topBranch[0]} هو الفرع الأعلى إيراداً في ERP بمقدار ${fmtAmt(topBranch[1])} ر.س`, color:"text-indigo-700"});
+  const highExpPct = SEPT_BASELINE.expenses && expPosted > (SEPT_BASELINE.expenses||0)*1.1;
+  if(highExpPct) commentary.push({icon:"!", text:"المصروفات تجاوزت مستوى سبتمبر بأكثر من 10% — يُوصى بمراجعة بنود الإنفاق", color:"text-red-700"});
 
   // ERP batch log — source of truth
   const batchMap: Record<string,{id:string; total:number; modules:Set<string>}> = {};
@@ -1672,23 +1901,135 @@ function OwnerReportsPage({ ops }: PageProps) {
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">توزيع المبالغ المُعتمدة في ERP حسب الفئة</p>
                   <div className="space-y-3">
                     {ownerCategories.map((c,i)=>{
-                      const pct = Math.round((c.amount/maxCatAmt)*100);
+                      const octPct  = Math.round((c.amount/maxCatAmt)*100);
+                      const septPct = Math.round((c.prev/maxCatAmt)*100);
+                      const isUp    = c.pct !== null && c.pct > 0;
+                      const isDown  = c.pct !== null && c.pct < 0;
+                      const isFlat  = c.pct === 0;
                       return (
                         <div key={i} className="flex items-center gap-3">
                           <span className="text-base flex-shrink-0 w-6 text-center">{c.icon}</span>
                           <span className="text-xs font-semibold text-gray-600 w-24 flex-shrink-0 text-right">{c.label}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                            <div className={`h-2.5 rounded-full ${c.color}`} style={{width:`${pct}%`}}/>
+                          <div className="flex-1 space-y-1">
+                            {/* Oct bar */}
+                            <div className="bg-gray-100 rounded-full h-2.5">
+                              <div className={`h-2.5 rounded-full ${c.color}`} style={{width:`${octPct}%`}}/>
+                            </div>
+                            {/* Sep comparison bar — lighter */}
+                            {c.prev > 0 && (
+                              <div className="bg-gray-100 rounded-full h-1.5 opacity-50">
+                                <div className={`h-1.5 rounded-full ${c.color}`} style={{width:`${septPct}%`}}/>
+                              </div>
+                            )}
                           </div>
                           <span className={`text-xs font-mono font-extrabold tabular-nums w-20 text-left flex-shrink-0 ${c.textColor}`}>
                             {(c.amount/1000).toFixed(1)}K ر.س
                           </span>
+                          {c.pct !== null && (
+                            <span className={`text-[10px] font-bold w-10 text-left flex-shrink-0
+                              ${isUp?"text-emerald-600":isDown?"text-red-600":"text-gray-400"}`}>
+                              {isUp?"↑":isDown?"↓":"→"}
+                              {isUp||isDown?`${Math.abs(c.pct)}%`:"—"}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <p className="text-[10px] text-gray-300 pt-1">الشريط العلوي: أكتوبر 2025 · الشريط السفلي: سبتمبر 2025 (للمقارنة)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ─── Period comparison summary ─── */}
+              {netPctChange !== null && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-900">مقارنة الفترة — أكتوبر مقابل سبتمبر 2025</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">مبنية على بيانات ERP المُعتمدة في كلا الفترتين · أرقام غير مُعتمدة مُستبعدة</p>
+                  </div>
+                  <div className="px-6 py-4 grid grid-cols-4 gap-4">
+                    {[
+                      { label:"صافي المركز المالي", oct:netPosition, sep:SEPT_NET, isIncome:true },
+                      { label:"الإيرادات",           oct:salesPosted, sep:SEPT_BASELINE.sales||0, isIncome:true  },
+                      { label:"المصروفات",           oct:expPosted,   sep:SEPT_BASELINE.expenses||0, isIncome:false },
+                      { label:"المشتريات",           oct:purPosted,   sep:SEPT_BASELINE.purchases||0, isIncome:false },
+                    ].map((row,i)=>{
+                      const diff    = row.oct - row.sep;
+                      const pct     = row.sep > 0 ? Math.round((diff/row.sep)*100) : null;
+                      const isPos   = diff > 0;
+                      const isNeg   = diff < 0;
+                      const isGood  = row.isIncome ? isPos : isNeg;
+                      return (
+                        <div key={i} className="text-center">
+                          <p className="text-[10px] font-semibold text-gray-400 mb-2">{row.label}</p>
+                          <p className="text-lg font-black tabular-nums text-gray-900">{(row.oct/1000).toFixed(1)}K</p>
+                          <p className="text-[10px] text-gray-400 mb-1">سبتمبر: {(row.sep/1000).toFixed(1)}K</p>
+                          {pct !== null && (
+                            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full
+                              ${isGood?"bg-emerald-50 text-emerald-700 border border-emerald-100":isPos?"bg-red-50 text-red-700 border border-red-100":"bg-amber-50 text-amber-700 border border-amber-100"}`}>
+                              {isPos?"↑":"↓"} {Math.abs(pct)}%
+                            </span>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* ─── Branch comparison ─── */}
+              {branchRankings.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-gray-900">ترتيب الفروع — حسب المبالغ المُعتمدة في ERP</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">بيانات ERP مُعتمدة فقط — فروع بدون ترحيل ERP غير مُدرجة</p>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+                      {branchRankings.length} فرع نشط
+                    </span>
+                  </div>
+                  <div className="px-6 py-3 space-y-3">
+                    {branchRankings.map(([branch,total],i)=>{
+                      const maxBranch = branchRankings[0][1];
+                      const pct = Math.round((total/maxBranch)*100);
+                      const medalColors = ["text-yellow-500","text-gray-400","text-amber-600","text-gray-500","text-gray-500"];
+                      const medals = ["🥇","🥈","🥉","④","⑤"];
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className={`text-sm flex-shrink-0 ${medalColors[i]}`}>{medals[i]}</span>
+                          <span className="text-sm font-semibold text-gray-700 w-28 flex-shrink-0">{branch}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                            <div className="h-2.5 rounded-full bg-indigo-500" style={{width:`${pct}%`}}/>
+                          </div>
+                          <span className="font-mono font-extrabold text-xs text-indigo-700 tabular-nums w-24 text-left flex-shrink-0">
+                            {fmtAmt(total)} ر.س
+                          </span>
+                          <span className="text-[10px] text-gray-400 w-8 text-left flex-shrink-0">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Executive commentary ─── */}
+              {commentary.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-900">الملاحظات التنفيذية</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">مُشتقَّة تلقائياً من بيانات ERP المُعتمدة فقط · لا توجد بيانات تقديرية</p>
+                  </div>
+                  <div className="px-6 py-4 space-y-2.5">
+                    {commentary.map((c,i)=>(
+                      <div key={i} className="flex items-start gap-3">
+                        <span className={`font-bold text-base flex-shrink-0 mt-0.5 ${c.color}`}>{c.icon}</span>
+                        <p className={`text-sm font-semibold ${c.color}`}>{c.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ERP batch provenance log */}
               {batches.length > 0 && (
@@ -1794,7 +2135,7 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
       <PipelineOverview ops={ops} navigate={navigate}/>
 
-      <ExceptionPanel ops={ops} forRole="accountant"/>
+      <ExceptionPanel ops={ops} forRole="accountant" navigate={navigate}/>
 
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2">
@@ -2646,7 +2987,7 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
         <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
       <PipelineOverview ops={ops} navigate={navigate}/>
-      <ExceptionPanel ops={ops} forRole="head"/>
+      <ExceptionPanel ops={ops} forRole="head" navigate={navigate}/>
       <ModuleAggregationGrid ops={ops} navigate={navigate}/>
       <div className="flex gap-2 border-b border-gray-200">
         {[{id:"approval" as const,label:"✅ الاعتماد النهائي"},{id:"performance" as const,label:"👥 أداء المحاسبين"},{id:"erp" as const,label:"🔗 الترحيل لـ ERP"}].map(t=>(
