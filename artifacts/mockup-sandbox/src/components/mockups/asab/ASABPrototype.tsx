@@ -37,7 +37,8 @@ interface Op {
   erpPosted?: boolean;
   erpBatchId?: string;        // e.g. ERP-BATCH-20251014-001
   erpPostedAt?: string;
-  // Audit lifecycle actors (set when status transitions occur)
+  // Origin: where the operation entered the system
+  origin: "mobile" | "procurement" | "system";
   submittedBy?: string;
   reviewedBy?: string;
   approvedBy?: string;
@@ -78,24 +79,24 @@ function isSection(e: NavEntry): e is NavSection { return "section" in e; }
 // INITIAL OPERATIONS DATASET  (18 ops)
 // ─────────────────────────────────────────────
 const INITIAL_OPS: Op[] = [
-  { id:"OPS-2401", branch:"فرع الرياض - العليا",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:18340, timeAgo:"قبل ساعة",    match:"exact",  attachments:3, status:"pending" },
-  { id:"OPS-2400", branch:"فرع جدة - الحمراء",      moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:12500, timeAgo:"قبل 3 ساعات", match:"review", attachments:2, status:"pending" },
-  { id:"OPS-2399", branch:"فرع مكة - المعابدة",     moduleKey:"purchases", moduleLabel:"مشتريات",        amount:8200,  timeAgo:"قبل 5 ساعات", match:"diff",   attachments:4, status:"pending", diff:"فرق في الكمية: 5 كجم" },
-  { id:"OPS-2398", branch:"فرع الدمام - الكورنيش",  moduleKey:"sales",     moduleLabel:"مبيعات",         amount:45230, timeAgo:"قبل 6 ساعات", match:"exact",  attachments:3, status:"pending" },
-  { id:"OPS-2397", branch:"فرع الرياض - النزهة",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:3800,  timeAgo:"أمس",          match:"review", attachments:1, status:"pending" },
-  { id:"OPS-2396", branch:"فرع الطائف - المحطة",    moduleKey:"inventory", moduleLabel:"مخزون",          amount:6100,  timeAgo:"أمس",          match:"exact",  attachments:2, status:"pending" },
-  { id:"OPS-2395", branch:"فرع الرياض - النزهة",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:22100, timeAgo:"قبل يومين",    match:"exact",  attachments:3, status:"pending" },
-  { id:"OPS-2394", branch:"فرع جدة - العزيزية",     moduleKey:"purchases", moduleLabel:"مشتريات",        amount:5600,  timeAgo:"قبل يومين",    match:"diff",   attachments:2, status:"pending", diff:"فرق في السعر: 120 ر.س" },
-  { id:"OPS-2393", branch:"فرع مكة - العزيزية",     moduleKey:"shifts",    moduleLabel:"شفتات",          amount:2800,  timeAgo:"قبل 3 أيام",  match:"review", attachments:1, status:"pending" },
-  { id:"OPS-2392", branch:"فرع الرياض - العليا",    moduleKey:"employees", moduleLabel:"كشف الحساب",     amount:9400,  timeAgo:"قبل 3 أيام",  match:"exact",  attachments:2, status:"pending" },
-  { id:"OPS-2391", branch:"فرع الدمام - الدانة",    moduleKey:"cash",      moduleLabel:"عهدة نقدية",     amount:3000,  timeAgo:"قبل 4 أيام",  match:"exact",  attachments:1, status:"pending" },
-  { id:"OPS-2390", branch:"فرع جدة - الحمراء",      moduleKey:"sales",     moduleLabel:"مبيعات",         amount:31800, timeAgo:"قبل 4 أيام",  match:"exact",  attachments:3, status:"approved" },
-  { id:"OPS-2389", branch:"فرع الرياض - العليا",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:1250,  timeAgo:"قبل 5 أيام",  match:"exact",  attachments:2, status:"approved" },
-  { id:"OPS-2388", branch:"فرع مكة - المعابدة",     moduleKey:"inventory", moduleLabel:"مخزون",          amount:8500,  timeAgo:"قبل 5 أيام",  match:"review", attachments:2, status:"approved" },
-  { id:"OPS-2387", branch:"فرع الدمام - الكورنيش",  moduleKey:"purchases", moduleLabel:"مشتريات",        amount:4800,  timeAgo:"قبل أسبوع",   match:"exact",  attachments:2, status:"approved" },
-  { id:"OPS-2386", branch:"فرع الرياض - النزهة",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:19200, timeAgo:"قبل أسبوع",   match:"exact",  attachments:3, status:"final-approved" },
-  { id:"OPS-2385", branch:"فرع جدة - العزيزية",     moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:2100,  timeAgo:"قبل أسبوع",   match:"exact",  attachments:1, status:"final-approved" },
-  { id:"OPS-2384", branch:"فرع الطائف - المحطة",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:3400,  timeAgo:"قبل أسبوع",   match:"diff",   attachments:1, status:"rejected", rejectReason:"فاتورة مفقودة" },
+  { id:"OPS-2401", branch:"فرع الرياض - العليا",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:18340, timeAgo:"قبل ساعة",    match:"exact",  attachments:3, status:"pending",         origin:"mobile" },
+  { id:"OPS-2400", branch:"فرع جدة - الحمراء",      moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:12500, timeAgo:"قبل 3 ساعات", match:"review", attachments:2, status:"pending",         origin:"mobile" },
+  { id:"OPS-2399", branch:"فرع مكة - المعابدة",     moduleKey:"purchases", moduleLabel:"مشتريات",        amount:8200,  timeAgo:"قبل 5 ساعات", match:"diff",   attachments:4, status:"pending",         origin:"procurement", diff:"فرق في الكمية: 5 كجم" },
+  { id:"OPS-2398", branch:"فرع الدمام - الكورنيش",  moduleKey:"sales",     moduleLabel:"مبيعات",         amount:45230, timeAgo:"قبل 6 ساعات", match:"exact",  attachments:3, status:"pending",         origin:"mobile" },
+  { id:"OPS-2397", branch:"فرع الرياض - النزهة",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:3800,  timeAgo:"أمس",          match:"review", attachments:1, status:"pending",         origin:"mobile" },
+  { id:"OPS-2396", branch:"فرع الطائف - المحطة",    moduleKey:"inventory", moduleLabel:"مخزون",          amount:6100,  timeAgo:"أمس",          match:"exact",  attachments:2, status:"pending",         origin:"mobile" },
+  { id:"OPS-2395", branch:"فرع الرياض - النزهة",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:22100, timeAgo:"قبل يومين",    match:"exact",  attachments:3, status:"pending",         origin:"mobile" },
+  { id:"OPS-2394", branch:"فرع جدة - العزيزية",     moduleKey:"purchases", moduleLabel:"مشتريات",        amount:5600,  timeAgo:"قبل يومين",    match:"diff",   attachments:2, status:"pending",         origin:"procurement", diff:"فرق في السعر: 120 ر.س" },
+  { id:"OPS-2393", branch:"فرع مكة - العزيزية",     moduleKey:"shifts",    moduleLabel:"شفتات",          amount:2800,  timeAgo:"قبل 3 أيام",  match:"review", attachments:1, status:"pending",         origin:"mobile" },
+  { id:"OPS-2392", branch:"فرع الرياض - العليا",    moduleKey:"employees", moduleLabel:"كشف الحساب",     amount:9400,  timeAgo:"قبل 3 أيام",  match:"exact",  attachments:2, status:"pending",         origin:"mobile" },
+  { id:"OPS-2391", branch:"فرع الدمام - الدانة",    moduleKey:"cash",      moduleLabel:"عهدة نقدية",     amount:3000,  timeAgo:"قبل 4 أيام",  match:"exact",  attachments:1, status:"pending",         origin:"mobile" },
+  { id:"OPS-2390", branch:"فرع جدة - الحمراء",      moduleKey:"sales",     moduleLabel:"مبيعات",         amount:31800, timeAgo:"قبل 4 أيام",  match:"exact",  attachments:3, status:"approved",        origin:"mobile" },
+  { id:"OPS-2389", branch:"فرع الرياض - العليا",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:1250,  timeAgo:"قبل 5 أيام",  match:"exact",  attachments:2, status:"approved",        origin:"mobile" },
+  { id:"OPS-2388", branch:"فرع مكة - المعابدة",     moduleKey:"inventory", moduleLabel:"مخزون",          amount:8500,  timeAgo:"قبل 5 أيام",  match:"review", attachments:2, status:"approved",        origin:"mobile" },
+  { id:"OPS-2387", branch:"فرع الدمام - الكورنيش",  moduleKey:"purchases", moduleLabel:"مشتريات",        amount:4800,  timeAgo:"قبل أسبوع",   match:"exact",  attachments:2, status:"approved",        origin:"procurement" },
+  { id:"OPS-2386", branch:"فرع الرياض - النزهة",    moduleKey:"sales",     moduleLabel:"مبيعات",         amount:19200, timeAgo:"قبل أسبوع",   match:"exact",  attachments:3, status:"final-approved",  origin:"mobile" },
+  { id:"OPS-2385", branch:"فرع جدة - العزيزية",     moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:2100,  timeAgo:"قبل أسبوع",   match:"exact",  attachments:1, status:"final-approved",  origin:"mobile" },
+  { id:"OPS-2384", branch:"فرع الطائف - المحطة",    moduleKey:"expenses",  moduleLabel:"مصروفات",        amount:3400,  timeAgo:"قبل أسبوع",   match:"diff",   attachments:1, status:"rejected",        origin:"mobile",       rejectReason:"فاتورة مفقودة" },
 ];
 
 // ─────────────────────────────────────────────
@@ -250,10 +251,16 @@ function getPipelineLabel(op: Op): string {
 function PipelineBar({ op }: { op: Op }) {
   const stage = getPipelineStage(op);
   const isRejected = op.status === "rejected";
+  const origin = ORIGIN_CFG[op.origin];
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4" dir="rtl">
-      <div className="flex items-center justify-between mb-2.5">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">دورة حياة العملية</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">دورة حياة العملية</span>
+          <Badge className={`${origin.cls} border text-[10px] font-semibold`}>
+            {origin.icon} {origin.label}
+          </Badge>
+        </div>
         {isRejected
           ? <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs">✕ مرفوض{op.rejectReason ? ` — ${op.rejectReason}` : ""}</Badge>
           : <Badge className={`${PIPELINE_STAGES[stage]?.bg} ${PIPELINE_STAGES[stage]?.text} border ${PIPELINE_STAGES[stage]?.border} text-xs font-bold`}>
@@ -320,25 +327,49 @@ function PipelineOverview({ ops, navigate }: { ops: Op[]; navigate: (p:PageId)=>
         <span className="text-xs text-gray-400">{ops.length} عملية إجمالاً</span>
       </div>
       <div className="grid grid-cols-6 divide-x divide-x-reverse divide-gray-100">
-        {stageCounts.map((s, i) => (
-          <div key={s.id} className={`px-3 py-4 text-center hover:${s.bg} transition-colors cursor-default ${i === 0 ? "col-span-1" : ""}`}>
-            <div className="text-lg mb-1">{s.icon}</div>
-            <p className={`text-2xl font-extrabold font-mono ${s.count > 0 ? s.text : "text-gray-200"}`}>{s.count}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.labelShort}</p>
-            {i < 5 && (
-              <div className={`mx-auto mt-2 h-1 w-6 rounded-full ${s.count > 0 ? s.fill : "bg-gray-100"}`}/>
-            )}
-          </div>
-        ))}
+        {stageCounts.map((s, i) => {
+          const isAspirational = i === 5; // stage-6: ERP Reports — future state, never set by getPipelineStage
+          return (
+            <div key={s.id} className={`px-3 py-4 text-center transition-colors
+              ${isAspirational ? "bg-slate-50/60" : "hover:bg-gray-50/80"}`}>
+              <div className="text-lg mb-1">{s.icon}</div>
+              {isAspirational ? (
+                <>
+                  <p className="text-[10px] font-bold text-slate-400 font-mono">—</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">{s.labelShort}</p>
+                  <p className="text-[8px] text-slate-300 mt-1 leading-tight">مرحلة مستقبلية</p>
+                </>
+              ) : (
+                <>
+                  <p className={`text-2xl font-extrabold font-mono ${s.count > 0 ? s.text : "text-gray-200"}`}>{s.count}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.labelShort}</p>
+                  {i < 4 && (
+                    <div className={`mx-auto mt-2 h-1 w-6 rounded-full ${s.count > 0 ? s.fill : "bg-gray-100"}`}/>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
-      {rejected > 0 && (
-        <div className="px-5 py-2 bg-red-50/40 border-t border-red-100 flex items-center gap-2">
-          <span className="text-xs text-red-600 font-medium">✕ {rejected} عملية مرفوضة — خارج المسار الزمني</span>
-        </div>
-      )}
+      <div className="px-5 py-2 border-t border-gray-100 bg-slate-50/30 flex items-center justify-between flex-wrap gap-2">
+        {rejected > 0 && (
+          <span className="text-xs text-red-500 font-medium">✕ {rejected} مرفوضة — خارج المسار</span>
+        )}
+        <span className="text-[10px] text-slate-400 mr-auto">
+          م1–م5: مدارة بواسطة آلة الحالة · م6 (تقارير ERP): بيانات مرجعية مُستوردة — مرحلة مستقبلية
+        </span>
+      </div>
     </div>
   );
 }
+
+// Operation origin — where did this op enter the system?
+const ORIGIN_CFG: Record<Op["origin"], { icon: string; label: string; cls: string }> = {
+  "mobile":      { icon:"📱", label:"تطبيق الفرع",     cls:"bg-blue-50 text-blue-700 border-blue-200" },
+  "procurement": { icon:"🛒", label:"سير المشتريات",   cls:"bg-orange-50 text-orange-700 border-orange-200" },
+  "system":      { icon:"⚙",  label:"استيراد النظام",  cls:"bg-gray-50 text-gray-600 border-gray-200" },
+};
 
 const fmtAmt = (n: number) => n.toLocaleString("ar-SA");
 
@@ -921,6 +952,9 @@ function OpRow({ op, onView, onApprove, onReject }: {
           <span className="text-xs text-gray-400 font-mono tracking-tight">{op.id}</span>
           <span className="text-gray-200">·</span>
           <span className="text-xs text-gray-400">⏰ {op.timeAgo}</span>
+          <Badge className={`${ORIGIN_CFG[op.origin].cls} border text-[9px]`}>
+            {ORIGIN_CFG[op.origin].icon} {ORIGIN_CFG[op.origin].label}
+          </Badge>
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <Badge className={`${match.cls} border`}>
@@ -2290,11 +2324,25 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
       </div>
       {tab==="reports" && (
         <div className="space-y-5" dir="rtl">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 flex items-start gap-3">
-            <span className="text-2xl flex-shrink-0">📊</span>
-            <div>
-              <p className="font-bold text-slate-800 text-sm">بيانات قراءة فقط — مُستوردة من نظام ERP</p>
-              <p className="text-slate-500 text-xs mt-0.5">هذه التقارير تمثل المرحلة 6 من دورة الحياة. البيانات مُرحَّلة ومُعالَجة في ERP ومُستوردة للعرض المرجعي فقط. لا يمكن التعديل.</p>
+          {/* Architectural boundary — ERP Reports are reference data, NOT operational records */}
+          <div className="rounded-xl overflow-hidden border border-slate-300 shadow-sm">
+            <div className="bg-slate-700 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">📊</span>
+                <div>
+                  <p className="font-bold text-white text-sm">طبقة التقارير المرجعية — خارج سير العمل التشغيلي</p>
+                  <p className="text-slate-300 text-xs mt-0.5">هذه البيانات استُوردت من نظام ERP بعد معالجتها · المرحلة 6 من دورة الحياة</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-slate-600 text-slate-200 border border-slate-500 text-xs">🔒 قراءة فقط</Badge>
+                <Badge className="bg-red-900/40 text-red-300 border border-red-700/50 text-xs">لا تعديل · لا إجراء</Badge>
+              </div>
+            </div>
+            <div className="bg-slate-50 border-t border-slate-200 px-5 py-2.5 flex items-center gap-6 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span> هذه السجلات لا تمثل عمليات تشغيلية نشطة</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span> ASAB يعمل كطبقة تشغيلية قبل ERP · وطبقة تقارير مرجعية بعده</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span> أي تعديل يتطلب فتح سجل تعديل جديد في سير العمل التشغيلي</span>
             </div>
           </div>
           {postedOps.length === 0 ? (
@@ -2328,6 +2376,7 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
                   <thead className="bg-slate-50">
                     <tr className="text-xs text-slate-500 font-semibold text-right">
                       <th className="px-5 py-3">الموديول</th>
+                      <th className="px-5 py-3 text-center">المصدر الأصلي</th>
                       <th className="px-5 py-3 text-center">عدد العمليات</th>
                       <th className="px-5 py-3 text-center">الإجمالي</th>
                       <th className="px-5 py-3 text-center">دفعة ERP</th>
@@ -2335,23 +2384,34 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {reportRows.map((r,i)=>(
-                      <tr key={i} className="hover:bg-slate-50/60">
-                        <td className="px-5 py-3.5 font-semibold text-sm text-slate-800">{r.label}</td>
-                        <td className="px-5 py-3.5 text-center text-slate-600 font-mono font-bold">{r.count}</td>
-                        <td className="px-5 py-3.5 text-center font-mono font-extrabold text-slate-800 tabular-nums">{(r.total/1000).toFixed(1)}K ر.س</td>
-                        <td className="px-5 py-3.5 text-center">
-                          {r.batchIds.map(b=><span key={b} className="text-xs font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mr-1">{b}</span>)}
-                        </td>
-                        <td className="px-5 py-3.5 text-center">
-                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs">✓ مُعالَج</Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {reportRows.map((r,i)=>{
+                      // determine dominant origin for this module's ops
+                      const moduleOps = postedOps.filter(o=>o.moduleLabel===r.label);
+                      const originCounts = moduleOps.reduce<Record<string,number>>((a,o)=>{ a[o.origin]=(a[o.origin]||0)+1; return a; },{});
+                      const dominantOrigin = (Object.entries(originCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || "mobile") as Op["origin"];
+                      const originInfo = ORIGIN_CFG[dominantOrigin];
+                      return (
+                        <tr key={i} className="hover:bg-slate-50/60">
+                          <td className="px-5 py-3.5 font-semibold text-sm text-slate-800">{r.label}</td>
+                          <td className="px-5 py-3.5 text-center">
+                            <Badge className={`${originInfo.cls} border text-[10px]`}>{originInfo.icon} {originInfo.label}</Badge>
+                          </td>
+                          <td className="px-5 py-3.5 text-center text-slate-600 font-mono font-bold">{r.count}</td>
+                          <td className="px-5 py-3.5 text-center font-mono font-extrabold text-slate-800 tabular-nums">{(r.total/1000).toFixed(1)}K ر.س</td>
+                          <td className="px-5 py-3.5 text-center">
+                            {r.batchIds.map(b=><span key={b} className="text-xs font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mr-1">{b}</span>)}
+                          </td>
+                          <td className="px-5 py-3.5 text-center">
+                            <Badge className="bg-slate-100 text-slate-600 border border-slate-300 text-xs">✓ مرجعي</Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot className="border-t-2 border-slate-200 bg-slate-50">
                     <tr>
                       <td className="px-5 py-3 font-bold text-slate-700 text-sm">الإجمالي الكلي</td>
+                      <td></td>
                       <td className="px-5 py-3 text-center font-bold text-slate-700 font-mono">{postedOps.length}</td>
                       <td className="px-5 py-3 text-center font-extrabold text-slate-900 font-mono tabular-nums">{(postedOps.reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K ر.س</td>
                       <td colSpan={2}></td>
