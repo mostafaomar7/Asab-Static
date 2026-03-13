@@ -4,9 +4,9 @@ import {
   LayoutDashboard, TrendingUp, Wallet, ShoppingCart, Package, Building2, Clock,
   Users, ArrowLeftRight, BarChart3, Settings, Bell, LogOut, ChevronRight,
   ChevronDown, ChevronUp, CheckCircle2, XCircle, MessageSquare, Eye, Download,
-  AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Filter, Star,
+  AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
   Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, X, FileText,
-  Truck, Home, Shield, RotateCcw
+  Truck, Home, Shield, RotateCcw, Lock
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -204,7 +204,7 @@ const fmtAmt = (n: number) => n.toLocaleString("ar-SA");
 // MICRO-COMPONENTS
 // ─────────────────────────────────────────────
 function Badge({ children, className="" }:{ children:ReactNode; className?:string }) {
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${className}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${className}`}>{children}</span>;
 }
 
 function Btn({ children, onClick, variant="ghost", size="md", className="" }:{
@@ -212,29 +212,39 @@ function Btn({ children, onClick, variant="ghost", size="md", className="" }:{
   variant?:"primary"|"success"|"danger"|"ghost"|"outline"|"amber";
   size?:"sm"|"md"; className?:string
 }) {
-  const base = "inline-flex items-center gap-1.5 font-semibold cursor-pointer border transition-colors rounded-lg";
+  const base = "inline-flex items-center gap-1.5 font-semibold cursor-pointer border transition-all rounded-lg whitespace-nowrap";
   const sizes = { sm:"px-3 py-1.5 text-xs", md:"px-4 py-2 text-sm" };
   const variants = {
-    primary: "bg-purple-600 text-white border-purple-600 hover:bg-purple-700",
-    success: "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700",
+    primary: "bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-sm",
+    success: "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 shadow-sm",
     danger:  "bg-red-50 text-red-700 border-red-200 hover:bg-red-100",
     amber:   "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
     ghost:   "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100",
-    outline: "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
+    outline: "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
   };
   return <button onClick={onClick} className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>{children}</button>;
 }
 
-function KpiCard({ label, value, sub, icon, borderColor="border-l-purple-400" }:{
-  label:string; value:string; sub?:string; icon:ReactNode; borderColor?:string
+function KpiCard({ label, value, sub, icon, accent="purple" }:{
+  label:string; value:string; sub?:string; icon:ReactNode; accent?:string
 }) {
+  const accents: Record<string,string> = {
+    purple:"border-t-purple-500 bg-purple-500",
+    emerald:"border-t-emerald-500 bg-emerald-500",
+    amber:"border-t-amber-500 bg-amber-500",
+    blue:"border-t-blue-500 bg-blue-500",
+    red:"border-t-red-500 bg-red-500",
+    orange:"border-t-orange-500 bg-orange-500",
+  };
+  const borderCls = accents[accent]?.split(" ")[0] || "border-t-purple-500";
+  const iconBg    = accents[accent]?.split(" ")[1] || "bg-purple-500";
   return (
-    <div className={`bg-white rounded-xl p-4 shadow-sm border-l-4 ${borderColor} flex items-start gap-3`}>
-      <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">{icon}</div>
-      <div>
-        <p className="text-gray-500 text-xs">{label}</p>
-        <p className="text-gray-900 font-bold text-2xl mt-0.5">{value}</p>
-        {sub && <p className="text-gray-400 text-xs mt-0.5">{sub}</p>}
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 border-t-2 ${borderCls} p-5 flex items-start gap-4`}>
+      <div className={`w-10 h-10 rounded-xl ${iconBg} bg-opacity-10 flex items-center justify-center flex-shrink-0`}>{icon}</div>
+      <div className="min-w-0">
+        <p className="text-gray-500 text-xs font-medium uppercase tracking-wider leading-tight">{label}</p>
+        <p className="text-gray-900 font-extrabold text-3xl mt-1 leading-none font-mono">{value}</p>
+        {sub && <p className="text-gray-400 text-xs mt-1.5">{sub}</p>}
       </div>
     </div>
   );
@@ -242,11 +252,11 @@ function KpiCard({ label, value, sub, icon, borderColor="border-l-purple-400" }:
 
 function Card({ title, children, actions, className="" }:{ title?:string; children:ReactNode; actions?:ReactNode; className?:string }) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${className}`}>
       {title && (
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800 text-sm">{title}</h3>
-          {actions}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+          <h3 className="font-bold text-gray-900 text-sm tracking-tight">{title}</h3>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
       )}
       <div>{children}</div>
@@ -254,14 +264,26 @@ function Card({ title, children, actions, className="" }:{ title?:string; childr
   );
 }
 
+function PageHeader({ title, subtitle, actions }:{ title:string; subtitle?:string; actions?:ReactNode }) {
+  return (
+    <div className="flex items-start justify-between mb-6">
+      <div>
+        <h1 className="text-2xl font-extrabold text-gray-900 leading-tight tracking-tight">{title}</h1>
+        {subtitle && <p className="text-gray-400 text-sm mt-1 font-normal">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+    </div>
+  );
+}
+
 function Breadcrumb({ items }:{ items:{ label:string; onClick?:()=>void }[] }) {
   return (
-    <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-4" dir="rtl">
+    <div className="flex items-center gap-1.5 text-sm mb-5 bg-white rounded-xl border border-gray-100 px-4 py-2.5 w-fit shadow-sm" dir="rtl">
       {items.map((item,i) => (
         <div key={i} className="flex items-center gap-1.5">
           {i > 0 && <ChevronRight size={13} className="text-gray-300 rotate-180"/>}
           {item.onClick
-            ? <button onClick={item.onClick} className="text-purple-600 hover:underline">{item.label}</button>
+            ? <button onClick={item.onClick} className="text-purple-600 hover:text-purple-800 font-medium hover:underline">{item.label}</button>
             : <span className="font-semibold text-gray-700">{item.label}</span>
           }
         </div>
@@ -273,9 +295,24 @@ function Breadcrumb({ items }:{ items:{ label:string; onClick?:()=>void }[] }) {
 function EmptyState({ icon, title, desc }:{ icon:string; title:string; desc:string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="text-5xl mb-3">{icon}</div>
-      <p className="font-semibold text-gray-600 mb-1">{title}</p>
-      <p className="text-gray-400 text-sm">{desc}</p>
+      <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl mb-4 shadow-sm">{icon}</div>
+      <p className="font-bold text-gray-700 mb-1">{title}</p>
+      {desc && <p className="text-gray-400 text-sm max-w-xs">{desc}</p>}
+    </div>
+  );
+}
+
+function LockBanner() {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-slate-600" dir="rtl">
+      <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+        <Lock size={13} className="text-slate-600"/>
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-slate-700">سجل مُغلق — معتمد نهائياً ومُرحَّل</p>
+        <p className="text-xs text-slate-500 mt-0.5">هذه العملية وصلت للحالة النهائية. لا يمكن تعديلها أو عكسها. أي تصحيح يتطلب إنشاء عملية تعديل مستقلة.</p>
+      </div>
+      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs">✓ معتمد نهائياً · مُرحَّل لـ ERP</Badge>
     </div>
   );
 }
@@ -626,32 +663,47 @@ function OpRow({ op, onView, onApprove, onReject }: {
   const match = MATCH_CFG[op.match];
   const statusCfg = STATUS_CFG[op.status];
   const isPending = op.status==="pending";
+  const isLocked = op.status==="final-approved";
+  const isRejected = op.status==="rejected";
   return (
-    <div className={`px-5 py-4 flex items-start gap-4 hover:bg-gray-50/70 transition-colors border-b border-gray-100 last:border-0 ${op.match==="diff"?"border-r-4 border-r-red-400":op.match==="review"?"border-r-4 border-r-amber-400":""} ${op.status==="rejected"?"opacity-60":""}`}>
-      <span className="mt-0.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 flex-shrink-0">{op.moduleLabel}</span>
+    <div className={`px-5 py-4 flex items-start gap-4 hover:bg-gray-50/60 transition-colors border-b border-gray-100 last:border-0
+      ${op.match==="diff"?"border-r-4 border-r-red-400":op.match==="review"?"border-r-4 border-r-amber-400":""}
+      ${isLocked?"bg-slate-50/60":isRejected?"opacity-55":""}`}>
+      <span className="mt-0.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100 flex-shrink-0">{op.moduleLabel}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-gray-800 text-sm">{op.branch}</span>
-          <span className="text-gray-300">·</span>
-          <span className="text-xs text-gray-400 font-mono">{op.id}</span>
-          <span className="text-gray-300">·</span>
+          <span className="font-bold text-gray-800 text-sm">{op.branch}</span>
+          <span className="text-gray-200">·</span>
+          <span className="text-xs text-gray-400 font-mono tracking-tight">{op.id}</span>
+          <span className="text-gray-200">·</span>
           <span className="text-xs text-gray-400">⏰ {op.timeAgo}</span>
         </div>
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-          <Badge className={`${match.cls} border`}><span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${match.dot}`}></span>{match.label}</Badge>
-          {op.diff && <span className="text-xs text-red-600 font-medium">⚠ {op.diff}</span>}
-          <span className="flex items-center gap-1 text-xs text-gray-500"><Paperclip size={10}/> {op.attachments}</span>
-          <Badge className={statusCfg.cls}>{statusCfg.label}</Badge>
-          {op.status==="rejected" && op.rejectReason && <span className="text-xs text-red-500">({op.rejectReason})</span>}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <Badge className={`${match.cls} border`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${match.dot}`}></span>
+            {match.label}
+          </Badge>
+          {op.diff && <span className="text-xs text-red-600 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">⚠ {op.diff}</span>}
+          <span className="flex items-center gap-1 text-xs text-gray-400"><Paperclip size={10}/> {op.attachments}</span>
+          <Badge className={`${statusCfg.cls} border ${isLocked?"border-slate-200":""}`}>
+            {isLocked && <Lock size={10}/>}
+            {statusCfg.label}
+          </Badge>
+          {isRejected && op.rejectReason && <span className="text-xs text-red-500 font-medium">سبب: {op.rejectReason}</span>}
         </div>
       </div>
-      <div className="font-bold text-gray-800 font-mono text-sm flex-shrink-0">{fmtAmt(op.amount)} ر.س</div>
+      <div className="font-extrabold text-gray-800 font-mono text-sm flex-shrink-0 tabular-nums">{fmtAmt(op.amount)} ر.س</div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <Btn size="sm" onClick={onView}><Eye size={12}/> عرض</Btn>
         {isPending && <>
           <Btn size="sm" variant="success" onClick={onApprove}><ThumbsUp size={12}/></Btn>
           <Btn size="sm" variant="danger"  onClick={onReject}><ThumbsDown size={12}/></Btn>
         </>}
+        {isLocked && (
+          <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg">
+            <Lock size={11}/> مُغلق
+          </span>
+        )}
       </div>
     </div>
   );
@@ -824,10 +876,10 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="عمليات جديدة اليوم" value={String(pending.length)} sub="من الفروع المخصصة" icon={<BarChart3 size={20} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="وافقت عليها" value={String(approved.length)} sub="تم إرسالها لرئيس الحسابات" icon={<CheckCircle2 size={20} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="معلقة - تنتظرني" value={String(pending.length)} sub="يجب المراجعة" icon={<Clock size={20} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub="هذا الشهر" icon={<TrendingUp size={20} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
+        <KpiCard label="عمليات جديدة اليوم" value={String(pending.length)} sub="من الفروع المخصصة" icon={<BarChart3 size={20} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="وافقت عليها" value={String(approved.length)} sub="تم إرسالها لرئيس الحسابات" icon={<CheckCircle2 size={20} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="معلقة - تنتظرني" value={String(pending.length)} sub="يجب المراجعة" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub="هذا الشهر" icon={<TrendingUp size={20} className="text-blue-600"/>} accent="blue"/>
       </div>
 
       <div className="grid grid-cols-3 gap-5">
@@ -923,10 +975,10 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label={`إجمالي ${title}`} value={`${(totalAmt/1000).toFixed(1)}K ر.س`} sub="المعروضة" icon={<TrendingUp size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="معلقة" value={String(pending.length)} sub="بانتظار مراجعتك" icon={<Clock size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="موافق عليها" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="approved").length)} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="فروق مكتشفة" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
+        <KpiCard label={`إجمالي ${title}`} value={`${(totalAmt/1000).toFixed(1)}K ر.س`} sub="المعروضة" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="معلقة" value={String(pending.length)} sub="بانتظار مراجعتك" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="موافق عليها" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="approved").length)} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="فروق مكتشفة" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
@@ -960,6 +1012,8 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
   const totalExpected = channels.reduce((s,c)=>s+c.expected,0);
   const totalDiff = totalEntered-totalExpected;
 
+  const isLocked = op?.status === "final-approved";
+
   return (
     <div className="space-y-4">
       <Breadcrumb items={[
@@ -968,34 +1022,46 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
         { label:op?.id||"" }
       ]}/>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      {isLocked && <LockBanner/>}
+
+      <div className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isLocked?"border-slate-200":"border-gray-100"}`}>
+        {isLocked && <div className="h-1 bg-gradient-to-l from-emerald-400 to-emerald-600 w-full"/>}
+        <div className="p-5">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3">
               <span className="text-2xl">💰</span>
               <div>
-                <h2 className="font-bold text-gray-800 text-xl">تقرير المبيعات اليومي</h2>
+                <h2 className="font-bold text-gray-900 text-xl">تقرير المبيعات اليومي</h2>
                 <p className="text-gray-500 text-sm mt-0.5">{op?.branch} · 14 أكتوبر 2025 · نهاية الشفت</p>
               </div>
             </div>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <Badge className="bg-blue-50 text-blue-700">{op?.id}</Badge>
-              <Badge className={STATUS_CFG[op?.status||"pending"].cls}>{STATUS_CFG[op?.status||"pending"].label}</Badge>
-              <Badge className="bg-gray-50 text-gray-500">مدير الفرع: أحمد الشمري</Badge>
-              <Badge className="bg-gray-50 text-gray-500">📱 أُرسل قبل ساعة</Badge>
+              <Badge className="bg-blue-50 text-blue-700 border border-blue-200 font-mono">{op?.id}</Badge>
+              <Badge className={`${STATUS_CFG[op?.status||"pending"].cls} border`}>
+                {isLocked && <Lock size={10}/>}
+                {STATUS_CFG[op?.status||"pending"].label}
+              </Badge>
+              <Badge className="bg-gray-50 text-gray-500 border border-gray-200">مدير الفرع: أحمد الشمري</Badge>
+              <Badge className="bg-gray-50 text-gray-500 border border-gray-200">📱 أُرسل قبل ساعة</Badge>
             </div>
           </div>
-          <div className={`rounded-xl px-5 py-3 text-center ${op?.status==="approved"||op?.status==="final-approved"?"bg-emerald-50":"bg-purple-50"}`}>
-            {op?.status==="approved"||op?.status==="final-approved" ? (
-              <><CheckCircle2 size={28} className="text-emerald-500 mx-auto"/>
-              <p className="text-emerald-700 font-bold mt-1 text-sm">تمت الموافقة</p>
-              <p className="text-emerald-500 text-xs">بانتظار رئيس الحسابات</p></>
+          <div className={`rounded-xl px-5 py-3 text-center ${isLocked?"bg-emerald-50 border border-emerald-200":op?.status==="approved"?"bg-blue-50":"bg-purple-50"}`}>
+            {isLocked ? (
+              <><Lock size={22} className="text-emerald-600 mx-auto"/>
+              <p className="text-emerald-700 font-bold mt-1 text-sm">معتمد نهائياً</p>
+              <p className="text-emerald-500 text-xs">مُرحَّل لـ ERP · مُغلق</p></>
+            ) : op?.status==="approved" ? (
+              <><CheckCircle2 size={28} className="text-blue-500 mx-auto"/>
+              <p className="text-blue-700 font-bold mt-1 text-sm">موافق عليه</p>
+              <p className="text-blue-500 text-xs">بانتظار رئيس الحسابات</p></>
             ) : (
               <><p className="text-gray-500 text-xs">إجمالي المبيعات</p>
               <p className="font-bold text-purple-700 text-2xl font-mono mt-0.5">{fmtAmt(totalEntered)}<span className="text-sm mr-1">ر.س</span></p>
               {totalDiff!==0 && <p className="text-red-500 text-xs mt-0.5 font-medium">⚠ فرق: {Math.abs(totalDiff)} ر.س</p>}</>
             )}
           </div>
+        </div>
         </div>
       </div>
 
@@ -1067,10 +1133,43 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
         </div>
 
         <div className="space-y-4">
-          {op?.status==="pending" && (
+          {isLocked ? (
+            <Card title="حالة السجل">
+              <div className="p-4 space-y-3">
+                <div className="flex flex-col items-center gap-2 py-3 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center">
+                    <Lock size={20} className="text-emerald-600"/>
+                  </div>
+                  <p className="font-bold text-emerald-700 text-sm">معتمد نهائياً ومُغلق</p>
+                  <p className="text-gray-400 text-xs leading-relaxed">هذا السجل وصل للحالة النهائية.<br/>لا يمكن تعديله أو عكسه.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3 space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">المحاسب</span>
+                    <span className="font-medium text-gray-700">سارة العتيبي</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">رئيس الحسابات</span>
+                    <span className="font-medium text-gray-700">محمد الحربي</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">الاعتماد النهائي</span>
+                    <span className="font-medium text-gray-700 font-mono">14 أكت 2025 · 16:42</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">الترحيل لـ ERP</span>
+                    <span className="font-medium text-emerald-600">✓ تم الترحيل</span>
+                  </div>
+                </div>
+                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-semibold text-sm hover:bg-blue-100 border border-blue-200">
+                  <FileText size={14}/> إنشاء عملية تعديل
+                </button>
+              </div>
+            </Card>
+          ) : op?.status==="pending" ? (
             <Card title="الإجراءات">
               <div className="p-4 space-y-2.5">
-                <button onClick={()=>{ approveOp(op.id); }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700">
+                <button onClick={()=>{ approveOp(op.id); }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 shadow-sm">
                   <CheckCircle2 size={15}/> موافقة — إرسال لرئيس الحسابات
                 </button>
                 <button onClick={()=>{ setDetailId(op.id); setModal("reject"); }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-50 text-red-700 font-semibold text-sm hover:bg-red-100 border border-red-200">
@@ -1081,7 +1180,17 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
                 </button>
               </div>
             </Card>
-          )}
+          ) : op?.status==="approved" ? (
+            <Card title="حالة السجل">
+              <div className="p-4">
+                <div className="flex flex-col items-center gap-2 py-3 text-center">
+                  <CheckCircle2 size={32} className="text-blue-500"/>
+                  <p className="font-bold text-blue-700 text-sm">تمت الموافقة</p>
+                  <p className="text-gray-400 text-xs">بانتظار الاعتماد النهائي من رئيس الحسابات</p>
+                </div>
+              </div>
+            </Card>
+          ) : null}
           <Card title="المرفقات (3)">
             <div className="p-4 space-y-2">
               {[{name:"تقرير POS.pdf",type:"PDF",size:"245 KB"},{name:"كشف بنك الرياض.pdf",type:"PDF",size:"182 KB"},{name:"تقرير هنقرستيشن.xlsx",type:"Excel",size:"98 KB"}].map((att,i)=>(
@@ -1098,12 +1207,14 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
               ))}
             </div>
           </Card>
-          <Card title="ملاحظات المحاسب">
-            <div className="p-4">
-              <textarea className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 resize-none mb-2" rows={3} placeholder="أضف ملاحظة..."/>
-              <Btn variant="ghost" className="w-full justify-center text-xs">حفظ الملاحظة</Btn>
-            </div>
-          </Card>
+          {!isLocked && (
+            <Card title="ملاحظات المحاسب">
+              <div className="p-4">
+                <textarea className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 resize-none mb-2" rows={3} placeholder="أضف ملاحظة..."/>
+                <Btn variant="ghost" className="w-full justify-center text-xs">حفظ الملاحظة</Btn>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -1125,10 +1236,10 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي المشتريات" value={`${(ops.filter(o=>o.moduleKey==="purchases").reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K ر.س`} sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
-        <KpiCard label="معلقة" value={String(pending.length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="فروق في الكمية" value={String(ops.filter(o=>o.moduleKey==="purchases"&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="موردون نشطون" value="12" sub="هذا الشهر" icon={<Truck size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
+        <KpiCard label="إجمالي المشتريات" value={`${(ops.filter(o=>o.moduleKey==="purchases").reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K ر.س`} sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="معلقة" value={String(pending.length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="فروق في الكمية" value={String(ops.filter(o=>o.moduleKey==="purchases"&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="موردون نشطون" value="12" sub="هذا الشهر" icon={<Truck size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
@@ -1202,10 +1313,10 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
         <Btn variant="primary" size="sm" onClick={()=>navigate("acc-inventory-items")}><Package size={13}/> تحديد أصناف الجرد</Btn>
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="عمليات الجرد" value={String(ops.filter(o=>o.moduleKey==="inventory").length)} sub="" icon={<Package size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="معلقة" value={String(ops.filter(o=>o.moduleKey==="inventory"&&o.status==="pending").length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="هدر مسجل" value="1,240 ر.س" sub="هذا الأسبوع" icon={<AlertTriangle size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="تطابق الجرد" value="89%" sub="هذا الشهر" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
+        <KpiCard label="عمليات الجرد" value={String(ops.filter(o=>o.moduleKey==="inventory").length)} sub="" icon={<Package size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معلقة" value={String(ops.filter(o=>o.moduleKey==="inventory"&&o.status==="pending").length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="هدر مسجل" value="1,240 ر.س" sub="هذا الأسبوع" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="تطابق الجرد" value="89%" sub="هذا الشهر" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
       </div>
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
       <Card title="تقارير الجرد اليومي">
@@ -1356,10 +1467,10 @@ function AccShifts({ navigate, setModal }:PageProps) {
         </span>
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="شفتات نشطة" value="4" sub="" icon={<span className="w-2 h-2 rounded-full bg-emerald-500"></span>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="شفت متأخر" value="1" sub="يحتاج متابعة" icon={<AlertTriangle size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="مبيعات الشفتات" value="43.4K ر.س" sub="" icon={<TrendingUp size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="إجمالي الطلبات" value="282" sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
+        <KpiCard label="شفتات نشطة" value="4" sub="" icon={<span className="w-2 h-2 rounded-full bg-emerald-500"></span>} accent="emerald"/>
+        <KpiCard label="شفت متأخر" value="1" sub="يحتاج متابعة" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="مبيعات الشفتات" value="43.4K ر.س" sub="" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="إجمالي الطلبات" value="282" sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
       <div className="grid grid-cols-2 gap-4">
         {shifts.map((sh,i)=>(
@@ -1471,9 +1582,9 @@ function AccCash({}: PageProps) {
     <div className="space-y-5">
       <h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2>
       <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي العهد" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount,0))} ر.س`} sub="" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} borderColor="border-l-orange-500"/>
-        <KpiCard label="المصروف" value={`${fmtAmt(branches.reduce((s,b)=>s+b.used,0))} ر.س`} sub="" icon={<Wallet size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="المتبقي" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount-b.used,0))} ر.س`} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
+        <KpiCard label="إجمالي العهد" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount,0))} ر.س`} sub="" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} accent="orange"/>
+        <KpiCard label="المصروف" value={`${fmtAmt(branches.reduce((s,b)=>s+b.used,0))} ر.س`} sub="" icon={<Wallet size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="المتبقي" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount-b.used,0))} ر.س`} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
       </div>
       <Card title="كشف العهود النقدية">
         <table className="w-full" dir="rtl">
@@ -1518,9 +1629,9 @@ function AccAssets({}: PageProps) {
     <div className="space-y-5">
       <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
       <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي الأصول (الدفترية)" value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K ر.س`} sub="" icon={<Building2 size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="الاستهلاك الشهري" value="18,500 ر.س" sub="" icon={<TrendingUp size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="عدد الأصول" value={String(assets.length*4)} sub="تقديري في 50 فرع" icon={<BarChart3 size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
+        <KpiCard label="إجمالي الأصول (الدفترية)" value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K ر.س`} sub="" icon={<Building2 size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="الاستهلاك الشهري" value="18,500 ر.س" sub="" icon={<TrendingUp size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="عدد الأصول" value={String(assets.length*4)} sub="تقديري في 50 فرع" icon={<BarChart3 size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
       <Card title="قائمة الأصول — عرض فقط">
         <table className="w-full" dir="rtl">
@@ -1583,11 +1694,11 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
         <p className="text-gray-400 text-sm mt-0.5">الإشراف على 4 محاسبين · 100 فرع · الاعتماد النهائي وترحيل ERP</p>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="وافق عليها المحاسبون" icon={<Clock size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="اعتمدتها اليوم" value={String(finalApproved.length)} sub="تم الترحيل لـ ERP" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="المحاسبون النشطون" value="4/4" sub="" icon={<Users size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
-        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="تم الإعادة" icon={<XCircle size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
+        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="وافق عليها المحاسبون" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="اعتمدتها اليوم" value={String(finalApproved.length)} sub="تم الترحيل لـ ERP" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="المحاسبون النشطون" value="4/4" sub="" icon={<Users size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="تم الإعادة" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
       <div className="flex gap-2 border-b border-gray-200">
         {[{id:"approval" as const,label:"✅ الاعتماد النهائي"},{id:"performance" as const,label:"👥 أداء المحاسبين"},{id:"erp" as const,label:"🔗 الترحيل لـ ERP"}].map(t=>(
@@ -1920,10 +2031,10 @@ function AdminOverview({ navigate, setModal }:PageProps) {
         <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> إضافة مستخدم</Btn>
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="مطاعم نشطة" value="25" sub="+2 هذا الشهر" icon={<span className="text-xl">🏪</span>} borderColor="border-l-purple-500"/>
-        <KpiCard label="فروع نشطة" value="100" sub="+5 هذا الشهر" icon={<Home size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
-        <KpiCard label="مستخدمون نشطون" value="2,450" sub="" icon={<Users size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="وقت التشغيل" value="99.9%" sub="آخر 30 يوم" icon={<span className="text-xl">⚡</span>} borderColor="border-l-amber-500"/>
+        <KpiCard label="مطاعم نشطة" value="25" sub="+2 هذا الشهر" icon={<span className="text-xl">🏪</span>} accent="purple"/>
+        <KpiCard label="فروع نشطة" value="100" sub="+5 هذا الشهر" icon={<Home size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="مستخدمون نشطون" value="2,450" sub="" icon={<Users size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="وقت التشغيل" value="99.9%" sub="آخر 30 يوم" icon={<span className="text-xl">⚡</span>} accent="amber"/>
       </div>
       <div className="grid grid-cols-2 gap-5">
         <Card title="إجراءات سريعة">
@@ -2266,10 +2377,10 @@ function BranchOverview({ navigate }: PageProps) {
     <div className="space-y-5">
       <div><h2 className="text-xl font-bold text-gray-800">نظرة عامة — فرع الرياض العليا</h2><p className="text-gray-400 text-sm mt-0.5">الاثنين، 14 أكتوبر 2025</p></div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="مبيعات اليوم" value="18,340 ر.س" icon={<TrendingUp size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="الطلبات" value="87" sub="هذا الشفت" icon={<ShoppingCart size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
-        <KpiCard label="الموظفون" value="12" sub="نشطون الآن" icon={<Users size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="التقارير المطلوبة" value="3" sub="تنتظر الرفع" icon={<AlertTriangle size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
+        <KpiCard label="مبيعات اليوم" value="18,340 ر.س" icon={<TrendingUp size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="الطلبات" value="87" sub="هذا الشفت" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="الموظفون" value="12" sub="نشطون الآن" icon={<Users size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="التقارير المطلوبة" value="3" sub="تنتظر الرفع" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
       </div>
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2">
@@ -2398,10 +2509,10 @@ function ProcOverview({ navigate }:PageProps) {
     <div className="space-y-5">
       <div><h2 className="text-xl font-bold text-gray-800">لوحة تحكم المشتريات</h2><p className="text-gray-400 text-sm mt-0.5">تجميع الطلبات والتنسيق مع الموردين</p></div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="طلبات جديدة" value="45" sub="من 40 فرع" icon={<ShoppingCart size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="طلبات مجمعة" value="12" sub="جاهزة للإرسال" icon={<Package size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
-        <KpiCard label="أُرسلت للموردين" value="8" sub="" icon={<Truck size={18} className="text-amber-600"/>} borderColor="border-l-amber-500"/>
-        <KpiCard label="قيمة الطلبات" value="148K ر.س" sub="هذا الأسبوع" icon={<TrendingUp size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
+        <KpiCard label="طلبات جديدة" value="45" sub="من 40 فرع" icon={<ShoppingCart size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="طلبات مجمعة" value="12" sub="جاهزة للإرسال" icon={<Package size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="أُرسلت للموردين" value="8" sub="" icon={<Truck size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="قيمة الطلبات" value="148K ر.س" sub="هذا الأسبوع" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
       <Card title="الطلبات الجديدة من الفروع" actions={<Btn size="sm" variant="primary" onClick={()=>navigate("proc-new")}><Package size={12}/> تجميع الطلبات</Btn>}>
         {[{branch:"فرع الرياض - العليا",items:4,total:4800,urgency:"عادي"},{branch:"فرع جدة - الحمراء",items:6,total:8200,urgency:"عاجل"},{branch:"فرع مكة - المعابدة",items:3,total:3100,urgency:"عادي"}].map((r,i)=>(
@@ -2494,10 +2605,10 @@ function SupOverview({ navigate }:PageProps) {
     <div className="space-y-5">
       <div><h2 className="text-xl font-bold text-gray-800">لوحة تحكم المورد</h2><p className="text-gray-400 text-sm mt-0.5">شركة الدواجن الوطنية</p></div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="طلبات جديدة" value="3" sub="تنتظر ردك" icon={<ShoppingCart size={18} className="text-red-600"/>} borderColor="border-l-red-500"/>
-        <KpiCard label="طلبات مقبولة" value="12" sub="هذا الأسبوع" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} borderColor="border-l-emerald-500"/>
-        <KpiCard label="إجمالي المبيعات" value="285K ر.س" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} borderColor="border-l-purple-500"/>
-        <KpiCard label="العملاء النشطون" value="18" sub="مطعم" icon={<Users size={18} className="text-blue-600"/>} borderColor="border-l-blue-500"/>
+        <KpiCard label="طلبات جديدة" value="3" sub="تنتظر ردك" icon={<ShoppingCart size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="طلبات مقبولة" value="12" sub="هذا الأسبوع" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="إجمالي المبيعات" value="285K ر.س" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="العملاء النشطون" value="18" sub="مطعم" icon={<Users size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
       <Card title="الطلبات الجديدة — 3" actions={<Badge className="bg-red-50 text-red-700">3 جديدة</Badge>}>
         {[{rest:"مطعم هرفي",items:"دجاج طازج — 200 كجم",deadline:"غداً 8 ص",total:4800},{rest:"ماكدونالدز السعودية",items:"دجاج مجمد — 500 كجم",deadline:"بعد غد",total:10500},{rest:"مطعم الريم",items:"قطع مشكلة — 150 كجم",deadline:"اليوم 6 م",total:3600}].map((o,i)=>(
@@ -2578,16 +2689,27 @@ export function ASABPrototype() {
   const setModal = (modal:string|null) => setAppState(s=>({...s, modal}));
   const setDetailId = (detailId:string|null) => setAppState(s=>({...s, detailId}));
 
-  const approveOp = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"approved" as OpStatus}:o));
-  const rejectOp = (id:string, reason:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"rejected" as OpStatus,rejectReason:reason}:o));
-  const finalApproveOp = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"final-approved" as OpStatus}:o));
+  // FINANCIAL LOCK RULES:
+  // pending  → approved           (accountant approval)
+  // approved → final-approved     (head accountant final approval)
+  // final-approved = IMMUTABLE    (no modification, no reversal — ERP already received it)
+  // rejected = IMMUTABLE          (correction requires a new operation, not editing this one)
+  const approveOp = (id:string) => setOps(p=>p.map(o=>
+    o.id===id && o.status==="pending" ? {...o, status:"approved" as OpStatus} : o
+  ));
+  const rejectOp = (id:string, reason:string) => setOps(p=>p.map(o=>
+    o.id===id && (o.status==="pending" || o.status==="approved") ? {...o, status:"rejected" as OpStatus, rejectReason:reason} : o
+  ));
+  const finalApproveOp = (id:string) => setOps(p=>p.map(o=>
+    o.id===id && o.status==="approved" ? {...o, status:"final-approved" as OpStatus} : o
+  ));
   const bulkApprove = (ids:string[]) => {
     const set = new Set(ids);
     setOps(p=>p.map(o=>{
       if(!set.has(o.id)) return o;
-      if(o.status==="pending") return {...o, status:"approved" as OpStatus};
+      if(o.status==="pending")  return {...o, status:"approved" as OpStatus};
       if(o.status==="approved") return {...o, status:"final-approved" as OpStatus};
-      return o;
+      return o; // final-approved and rejected are immutable — skip silently
     }));
   };
 
