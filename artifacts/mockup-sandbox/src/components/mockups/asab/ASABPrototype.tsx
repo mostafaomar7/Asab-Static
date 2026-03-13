@@ -30,6 +30,22 @@ interface Op {
   status: OpStatus;
   diff?: string;
   rejectReason?: string;
+  // Corrective operation traceability
+  isCorrection?: boolean;
+  correctiveRef?: string;     // ID of the original op this corrects
+  // ERP posting is a distinct step AFTER final-approval
+  erpPosted?: boolean;
+  erpBatchId?: string;        // e.g. ERP-BATCH-20251014-001
+  erpPostedAt?: string;
+  // Audit lifecycle actors (set when status transitions occur)
+  submittedBy?: string;
+  reviewedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  finalApprovedBy?: string;
+  finalApprovedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
 }
 
 interface AppState {
@@ -49,6 +65,8 @@ interface PageProps {
   rejectOp: (id: string, reason: string) => void;
   finalApproveOp: (id: string) => void;
   bulkApprove: (ids: string[]) => void;
+  addCorrectiveOp?: (refId: string) => void;
+  markErpPosted?: (ids: string[], batchId: string) => void;
 }
 
 interface NavSection { section: string }
@@ -302,19 +320,120 @@ function EmptyState({ icon, title, desc }:{ icon:string; title:string; desc:stri
   );
 }
 
-function LockBanner() {
+function LockBanner({ op }: { op?: Op }) {
+  const isErpPosted = op?.erpPosted === true;
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-slate-600" dir="rtl">
-      <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
-        <Lock size={13} className="text-slate-600"/>
+    <div className="rounded-xl overflow-hidden border-2 border-emerald-300 shadow-md" dir="rtl">
+      {/* Authoritative header stripe */}
+      <div className={`flex items-center justify-between px-5 py-3 ${isErpPosted ? "bg-gradient-to-l from-emerald-700 to-emerald-600" : "bg-gradient-to-l from-slate-700 to-slate-600"}`}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Lock size={14} className="text-white"/>
+          </div>
+          <div>
+            <p className="text-white font-extrabold text-sm leading-tight">
+              {isErpPosted ? "سجل مُغلق ومُرحَّل لـ ERP" : "سجل مُغلق — معتمد نهائياً"}
+            </p>
+            <p className="text-white/70 text-xs mt-0.5">
+              {isErpPosted
+                ? `دفعة الترحيل: ${op?.erpBatchId || "—"} · ${op?.erpPostedAt || "—"}`
+                : "معتمد نهائياً · في انتظار الترحيل لـ ERP"
+              }
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className={`text-xs font-bold border ${isErpPosted ? "bg-white/20 text-white border-white/30" : "bg-white/20 text-white border-white/30"}`}>
+            <CheckCircle2 size={10}/>
+            {isErpPosted ? "مُرحَّل لـ ERP" : "معتمد نهائياً"}
+          </Badge>
+        </div>
       </div>
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-slate-700">سجل مُغلق — معتمد نهائياً ومُرحَّل</p>
-        <p className="text-xs text-slate-500 mt-0.5">هذه العملية وصلت للحالة النهائية. لا يمكن تعديلها أو عكسها. أي تصحيح يتطلب إنشاء عملية تعديل مستقلة.</p>
+      {/* Immutability notice */}
+      <div className="bg-emerald-50 border-t border-emerald-200 px-5 py-2.5 flex items-center gap-2">
+        <AlertTriangle size={12} className="text-emerald-600 flex-shrink-0"/>
+        <p className="text-xs text-emerald-700 font-medium">
+          هذا السجل وصل للحالة النهائية ولا يمكن تعديله أو عكسه. أي تصحيح يتطلب إنشاء عملية تعديل مستقلة مرتبطة بهذا السجل.
+        </p>
       </div>
-      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs">✓ معتمد نهائياً · مُرحَّل لـ ERP</Badge>
     </div>
   );
+}
+
+// ─────────────────────────────────────────────
+// AUDIT TRAIL BUILDER  (derives lifecycle from op state)
+// ─────────────────────────────────────────────
+interface AuditEvent {
+  icon: string;
+  cls: string;
+  action: string;
+  by: string;
+  time: string;
+  isTerminal?: boolean;
+}
+
+function buildAuditTrail(op: Op): AuditEvent[] {
+  const trail: AuditEvent[] = [];
+
+  // Step 1: Creation (always present)
+  trail.push({
+    icon: "📋", cls: "bg-blue-50 text-blue-600",
+    action: `أُنشئ السجل: ${op.id}${op.isCorrection ? ` (تعديل على ${op.correctiveRef})` : ""}`,
+    by: op.submittedBy || "مدير الفرع",
+    time: "08:00 ص"
+  });
+
+  // Step 2: Submission
+  trail.push({
+    icon: "📤", cls: "bg-blue-50 text-blue-600",
+    action: "رُفع للمراجعة المحاسبية",
+    by: op.submittedBy || "مدير الفرع",
+    time: "08:15 ص"
+  });
+
+  // Step 3: Accountant review (if beyond pending)
+  if (op.status !== "pending") {
+    if (op.status === "rejected") {
+      trail.push({
+        icon: "✕", cls: "bg-red-50 text-red-600",
+        action: `مرفوض — السبب: ${op.rejectReason || "لم يُذكر سبب"}`,
+        by: op.rejectedBy || op.approvedBy || "المحاسب المختص",
+        time: op.rejectedAt || "10:45 ص",
+        isTerminal: true
+      });
+    } else {
+      trail.push({
+        icon: "✓", cls: "bg-emerald-50 text-emerald-600",
+        action: "راجعه المحاسب ووافق عليه — أُرسل لرئيس الحسابات",
+        by: op.approvedBy || "المحاسب المختص",
+        time: op.approvedAt || "09:30 ص"
+      });
+    }
+  }
+
+  // Step 4: Head accountant final approval
+  if (op.status === "final-approved") {
+    trail.push({
+      icon: "🔒", cls: "bg-emerald-100 text-emerald-700",
+      action: "اعتمده رئيس الحسابات نهائياً — سجل مُغلق",
+      by: op.finalApprovedBy || "رئيس الحسابات",
+      time: op.finalApprovedAt || "16:42 م",
+      isTerminal: !op.erpPosted
+    });
+  }
+
+  // Step 5: ERP posting (if done)
+  if (op.erpPosted) {
+    trail.push({
+      icon: "🔗", cls: "bg-indigo-50 text-indigo-600",
+      action: `رُحِّل إلى نظام ERP — دفعة: ${op.erpBatchId || "—"}`,
+      by: "النظام التلقائي / رئيس الحسابات",
+      time: op.erpPostedAt || "17:00 م",
+      isTerminal: true
+    });
+  }
+
+  return trail;
 }
 
 // ─────────────────────────────────────────────
@@ -548,10 +667,11 @@ function Sidebar({ role, ops, page, navigate, logout, collapsed, setCollapsed }:
 // ─────────────────────────────────────────────
 // APP SHELL
 // ─────────────────────────────────────────────
-function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove, navigate, logout, setModal, setDetailId }:{
+function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove, addCorrectiveOp, markErpPosted, navigate, logout, setModal, setDetailId }:{
   state:AppState; ops:Op[];
   approveOp:(id:string)=>void; rejectOp:(id:string,r:string)=>void;
   finalApproveOp:(id:string)=>void; bulkApprove:(ids:string[])=>void;
+  addCorrectiveOp?:(refId:string)=>void; markErpPosted?:(ids:string[],batchId:string)=>void;
   navigate:(p:PageId)=>void; logout:()=>void;
   setModal:(id:string|null)=>void; setDetailId:(id:string|null)=>void;
 }) {
@@ -576,7 +696,7 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
     return "";
   }, [role, state.page]);
 
-  const pageProps: PageProps = { navigate, setModal, setDetailId, detailId:state.detailId, ops, approveOp, rejectOp, finalApproveOp, bulkApprove };
+  const pageProps: PageProps = { navigate, setModal, setDetailId, detailId:state.detailId, ops, approveOp, rejectOp, finalApproveOp, bulkApprove, addCorrectiveOp, markErpPosted };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F0F4FA]" dir="rtl">
@@ -998,7 +1118,7 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
   );
 }
 
-function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approveOp }:PageProps) {
+function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approveOp, addCorrectiveOp }:PageProps) {
   const op = ops.find(o=>o.id===detailId) || ops[0];
   const channels = [
     { name:"نقدي",                  icon:"💵", entered:4200,  expected:4200  },
@@ -1022,7 +1142,17 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
         { label:op?.id||"" }
       ]}/>
 
-      {isLocked && <LockBanner/>}
+      {isLocked && <LockBanner op={op}/>}
+      {op?.isCorrection && op.correctiveRef && (
+        <div className="flex items-center gap-3 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl" dir="rtl">
+          <ArrowLeftRight size={14} className="text-amber-600 flex-shrink-0"/>
+          <p className="text-sm text-amber-800">
+            <span className="font-bold">عملية تعديل — </span>
+            ترتبط بالسجل الأصلي:
+            <span className="font-mono font-bold text-amber-900 mr-1">{op.correctiveRef}</span>
+          </p>
+        </div>
+      )}
 
       <div className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isLocked?"border-slate-200":"border-gray-100"}`}>
         {isLocked && <div className="h-1 bg-gradient-to-l from-emerald-400 to-emerald-600 w-full"/>}
@@ -1114,18 +1244,26 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
               </div>
             )}
           </Card>
-          <Card title="سجل النشاط">
-            <div className="p-4 space-y-3">
-              {[
-                { action:"تم إرسال التقرير", by:"أحمد الشمري (مدير الفرع)", time:"9:15 ص", icon:"📱", cls:"bg-blue-50 text-blue-600" },
-                { action:"تم الاستلام", by:"النظام", time:"9:15 ص", icon:"✅", cls:"bg-gray-50 text-gray-500" },
-                { action:"قيد المراجعة", by:"أحمد محمد (محاسب)", time:"10:22 ص", icon:"👁", cls:"bg-purple-50 text-purple-600" },
-                ...(op?.status==="approved"?[{ action:"تمت الموافقة", by:"أحمد محمد (محاسب)", time:"10:45 ص", icon:"✅", cls:"bg-emerald-50 text-emerald-600" }]:[]),
-                ...(op?.status==="rejected"?[{ action:`مرفوض: ${op.rejectReason||"—"}`, by:"أحمد محمد (محاسب)", time:"10:45 ص", icon:"✕", cls:"bg-red-50 text-red-600" }]:[]),
-              ].map((log,i)=>(
-                <div key={i} className="flex gap-3">
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${log.cls}`}>{log.icon}</span>
-                  <div><p className="text-xs font-medium text-gray-700">{log.action}</p><p className="text-[10px] text-gray-400">{log.by} · {log.time}</p></div>
+          <Card title="سجل دورة حياة السجل" actions={<span className="text-xs text-gray-400 font-mono">{op?.id}</span>}>
+            <div className="p-4 space-y-0">
+              {op && buildAuditTrail(op).map((event, i, arr)=>(
+                <div key={i} className="flex gap-3 relative">
+                  {/* Vertical connector line */}
+                  {i < arr.length - 1 && (
+                    <div className="absolute right-[13px] top-7 bottom-0 w-0.5 bg-gray-100 z-0"/>
+                  )}
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 z-10 border ${event.isTerminal ? "border-2 border-emerald-300" : "border-gray-100"} ${event.cls}`}>
+                    {event.icon}
+                  </span>
+                  <div className={`flex-1 pb-4 ${i === arr.length - 1 ? "" : ""}`}>
+                    <p className={`text-xs font-semibold leading-tight ${event.isTerminal ? "text-gray-900" : "text-gray-700"}`}>{event.action}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{event.by} · {event.time}</p>
+                    {event.isTerminal && (
+                      <Badge className={`mt-1.5 text-[10px] ${op?.erpPosted ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                        <Lock size={8}/> حالة نهائية
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1134,35 +1272,47 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
 
         <div className="space-y-4">
           {isLocked ? (
-            <Card title="حالة السجل">
+            <Card title="حالة السجل الموثَّق">
               <div className="p-4 space-y-3">
-                <div className="flex flex-col items-center gap-2 py-3 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center">
-                    <Lock size={20} className="text-emerald-600"/>
+                {/* Two distinct states: final-approved vs erp-posted */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`rounded-xl p-3 text-center border-2 ${isLocked ? "border-emerald-300 bg-emerald-50" : "border-gray-100 bg-gray-50"}`}>
+                    <CheckCircle2 size={20} className="text-emerald-600 mx-auto mb-1"/>
+                    <p className="text-xs font-bold text-emerald-700">اعتماد نهائي</p>
+                    <p className="text-[10px] text-emerald-500 mt-0.5">{op?.finalApprovedAt || "16:42 م"}</p>
                   </div>
-                  <p className="font-bold text-emerald-700 text-sm">معتمد نهائياً ومُغلق</p>
-                  <p className="text-gray-400 text-xs leading-relaxed">هذا السجل وصل للحالة النهائية.<br/>لا يمكن تعديله أو عكسه.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3 space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">المحاسب</span>
-                    <span className="font-medium text-gray-700">سارة العتيبي</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">رئيس الحسابات</span>
-                    <span className="font-medium text-gray-700">محمد الحربي</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">الاعتماد النهائي</span>
-                    <span className="font-medium text-gray-700 font-mono">14 أكت 2025 · 16:42</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">الترحيل لـ ERP</span>
-                    <span className="font-medium text-emerald-600">✓ تم الترحيل</span>
+                  <div className={`rounded-xl p-3 text-center border-2 ${op?.erpPosted ? "border-indigo-300 bg-indigo-50" : "border-dashed border-gray-200 bg-gray-50"}`}>
+                    <ChevronsRight size={20} className={`mx-auto mb-1 ${op?.erpPosted ? "text-indigo-600" : "text-gray-300"}`}/>
+                    <p className={`text-xs font-bold ${op?.erpPosted ? "text-indigo-700" : "text-gray-400"}`}>
+                      {op?.erpPosted ? "مُرحَّل لـ ERP" : "لم يُرحَّل بعد"}
+                    </p>
+                    <p className={`text-[10px] mt-0.5 ${op?.erpPosted ? "text-indigo-500" : "text-gray-300"}`}>
+                      {op?.erpPosted ? (op?.erpBatchId || "ERP-BATCH") : "في انتظار دفعة الترحيل"}
+                    </p>
                   </div>
                 </div>
-                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-semibold text-sm hover:bg-blue-100 border border-blue-200">
-                  <FileText size={14}/> إنشاء عملية تعديل
+                <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 text-xs">
+                  {[
+                    { label: "مُنشئ السجل", value: op?.submittedBy || "مدير الفرع" },
+                    { label: "راجعه واعتمده", value: op?.approvedBy || "المحاسب المختص" },
+                    { label: "الاعتماد النهائي", value: op?.finalApprovedBy || "رئيس الحسابات" },
+                    { label: "الترحيل لـ ERP", value: op?.erpPosted ? `✓ ${op.erpBatchId || "تم الترحيل"}` : "⏳ لم يُرحَّل بعد" },
+                  ].map((row,i)=>(
+                    <div key={i} className="flex justify-between px-3 py-2.5">
+                      <span className="text-gray-400">{row.label}</span>
+                      <span className={`font-semibold ${row.value.startsWith("✓") ? "text-emerald-600" : row.value.startsWith("⏳") ? "text-amber-500" : "text-gray-700"}`}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={()=>{
+                    if(op && addCorrectiveOp) {
+                      addCorrectiveOp(op.id);
+                      navigate("acc-sales");
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-700 font-semibold text-sm hover:bg-amber-100 border border-amber-200">
+                  <FileText size={14}/> إنشاء عملية تعديل مرتبطة
                 </button>
               </div>
             </Card>
@@ -1681,7 +1831,7 @@ function ReportsPage({}: PageProps) {
 // ════════════════════════════════════════════════════════════
 // HEAD ACCOUNTANT PAGES
 // ════════════════════════════════════════════════════════════
-function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove }:PageProps) {
+function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove, markErpPosted }:PageProps) {
   const [tab, setTab] = useState<"approval"|"performance"|"erp">("approval");
   const awaitingHead = ops.filter(o=>o.status==="approved");
   const finalApproved = ops.filter(o=>o.status==="final-approved");
@@ -1707,7 +1857,7 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
       </div>
       {tab==="approval" && <HeadApprovalTab ops={ops} finalApproveOp={finalApproveOp} rejectOp={rejectOp} setModal={setModal} setDetailId={setDetailId} bulkApprove={bulkApprove}/>}
       {tab==="performance" && <HeadAccountants navigate={navigate} setModal={setModal} setDetailId={setDetailId} detailId={null} ops={ops} approveOp={()=>{}} rejectOp={()=>{}} finalApproveOp={()=>{}} bulkApprove={()=>{}}/>}
-      {tab==="erp" && <HeadERP navigate={navigate} setModal={setModal} setDetailId={setDetailId} detailId={null} ops={ops} approveOp={()=>{}} rejectOp={()=>{}} finalApproveOp={()=>{}} bulkApprove={()=>{}}/>}
+      {tab==="erp" && <HeadERP navigate={navigate} setModal={setModal} setDetailId={setDetailId} detailId={null} ops={ops} approveOp={()=>{}} rejectOp={()=>{}} finalApproveOp={()=>{}} bulkApprove={()=>{}} markErpPosted={markErpPosted}/>}
     </div>
   );
 }
@@ -1813,23 +1963,50 @@ function HeadPending({ navigate, setModal, setDetailId, ops, finalApproveOp, rej
 
 function HeadApproved({ ops }:PageProps) {
   const approved = ops.filter(o=>o.status==="final-approved");
+  const erpPostedCount = approved.filter(o=>o.erpPosted).length;
+  const pendingErp = approved.filter(o=>!o.erpPosted).length;
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">المعتمدة نهائياً</h2>
-      <Card title={`${approved.length} عملية معتمدة`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">المعتمدة نهائياً</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{approved.length} سجل · {erpPostedCount} مُرحَّل لـ ERP · {pendingErp} في الانتظار</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle2 size={24} className="text-emerald-600 flex-shrink-0"/>
+          <div><p className="font-extrabold text-emerald-700 text-2xl font-mono">{approved.length}</p><p className="text-emerald-600 text-xs">معتمد نهائياً</p></div>
+        </div>
+        <div className={`border rounded-xl p-4 flex items-center gap-3 ${erpPostedCount > 0 ? "bg-indigo-50 border-indigo-200" : "bg-amber-50 border-amber-200"}`}>
+          <ChevronsRight size={24} className={erpPostedCount > 0 ? "text-indigo-600 flex-shrink-0" : "text-amber-500 flex-shrink-0"}/>
+          <div>
+            <p className={`font-extrabold text-2xl font-mono ${erpPostedCount > 0 ? "text-indigo-700" : "text-amber-600"}`}>{erpPostedCount}</p>
+            <p className={`text-xs ${erpPostedCount > 0 ? "text-indigo-600" : "text-amber-500"}`}>مُرحَّل لـ ERP {pendingErp > 0 ? `· ${pendingErp} انتظار` : "· اكتمل"}</p>
+          </div>
+        </div>
+      </div>
+      <Card title={`${approved.length} عملية معتمدة نهائياً`}>
         {approved.length===0
           ? <EmptyState icon="📋" title="لا توجد عمليات معتمدة" desc="بعد اعتماد العمليات تظهر هنا"/>
           : approved.map(op=>(
-            <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
-              <Badge className="bg-purple-50 text-purple-700">{op.moduleLabel}</Badge>
+            <div key={op.id} className={`px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 ${op.erpPosted ? "bg-indigo-50/30" : ""}`}>
+              <Badge className="bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold">{op.moduleLabel}</Badge>
               <div className="flex-1">
-                <div className="flex items-center gap-2"><span className="font-semibold text-sm text-gray-800">{op.branch}</span><span className="text-xs font-mono text-gray-400">{op.id}</span></div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className="bg-emerald-50 text-emerald-700">✓ معتمد نهائياً</Badge>
-                  <Badge className="bg-blue-50 text-blue-700">✓ مُرحَّل لـ ERP</Badge>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-gray-800">{op.branch}</span>
+                  <span className="text-xs font-mono text-gray-400">{op.id}</span>
+                  {op.isCorrection && <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">تعديل على {op.correctiveRef}</Badge>}
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs"><Lock size={9}/> معتمد نهائياً</Badge>
+                  {op.erpPosted
+                    ? <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs"><ChevronsRight size={9}/> مُرحَّل لـ ERP · {op.erpBatchId || "—"}</Badge>
+                    : <Badge className="bg-amber-50 text-amber-600 border border-amber-200 text-xs">⏳ في انتظار الترحيل لـ ERP</Badge>
+                  }
                 </div>
               </div>
-              <span className="font-mono font-bold text-gray-800">{fmtAmt(op.amount)} ر.س</span>
+              <span className="font-mono font-extrabold text-gray-800 tabular-nums">{fmtAmt(op.amount)} ر.س</span>
             </div>
           ))
         }
@@ -1941,10 +2118,14 @@ function HeadAccountants({}: PageProps) {
   );
 }
 
-function HeadERP({ ops }:PageProps) {
+function HeadERP({ ops, markErpPosted }:PageProps) {
   const [step, setStep] = useState<0|1|2>(0);
+  // Only show ops that are final-approved but NOT yet ERP-posted
+  const pendingErp = ops.filter(o=>o.status==="final-approved" && !o.erpPosted);
   const finalApproved = ops.filter(o=>o.status==="final-approved");
-  const totalAmt = finalApproved.reduce((s,o)=>s+o.amount,0);
+  const toPost = pendingErp;
+  const totalAmt = toPost.reduce((s,o)=>s+o.amount,0);
+  const batchId = `ERP-BATCH-20251014-${String(Date.now()).slice(-3)}`;
   return (
     <div className="space-y-5">
       <div><h2 className="text-xl font-bold text-gray-800">التصدير لـ ERP</h2>
@@ -1969,11 +2150,16 @@ function HeadERP({ ops }:PageProps) {
               <div><label className="text-xs font-semibold text-gray-600 block mb-1.5">الفترة</label>
                 <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"><option>14 أكتوبر 2025</option><option>13 أكتوبر 2025</option></select></div>
             </div>
-            <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-3 gap-3 text-center">
-              <div><p className="text-2xl font-bold text-blue-700">{finalApproved.length}</p><p className="text-xs text-blue-600">عملية معتمدة</p></div>
-              <div><p className="text-2xl font-bold text-blue-700">{(totalAmt/1000).toFixed(1)}K</p><p className="text-xs text-blue-600">ر.س إجمالي</p></div>
-              <div><p className="text-2xl font-bold text-blue-700">{new Set(finalApproved.map(o=>o.branch)).size}</p><p className="text-xs text-blue-600">فرع مشارك</p></div>
+            <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-3 gap-3 text-center border border-blue-100">
+              <div><p className="text-2xl font-bold text-blue-700 font-mono">{toPost.length}</p><p className="text-xs text-blue-600">تنتظر الترحيل</p></div>
+              <div><p className="text-2xl font-bold text-blue-700 font-mono">{(totalAmt/1000).toFixed(1)}K</p><p className="text-xs text-blue-600">ر.س إجمالي</p></div>
+              <div><p className="text-2xl font-bold text-blue-700 font-mono">{new Set(toPost.map(o=>o.branch)).size}</p><p className="text-xs text-blue-600">فرع مشارك</p></div>
             </div>
+            {finalApproved.length !== toPost.length && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 text-xs text-indigo-700 font-medium" dir="rtl">
+                ✓ {finalApproved.length - toPost.length} عملية سبق ترحيلها في دفعات سابقة
+              </div>
+            )}
             <Btn variant="primary" onClick={()=>setStep(1)} className="justify-center">معاينة البيانات →</Btn>
           </div>
         )}
@@ -1985,14 +2171,15 @@ function HeadERP({ ops }:PageProps) {
                 <th className="px-4 py-3 text-right">الفرع</th><th className="px-4 py-3 text-center">المبلغ</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-100">
-                {finalApproved.length===0
-                  ? <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">لا توجد عمليات معتمدة نهائياً بعد</td></tr>
-                  : finalApproved.map(op=>(
+                {toPost.length===0
+                  ? <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">لا توجد عمليات معتمدة نهائياً تنتظر الترحيل</td></tr>
+                  : toPost.map(op=>(
                     <tr key={op.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-xs text-purple-600">{op.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-purple-700 font-bold">{op.id}</td>
                       <td className="px-4 py-3 text-sm">{op.moduleLabel}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{op.branch}</td>
-                      <td className="px-4 py-3 text-center font-mono font-bold">{fmtAmt(op.amount)} ر.س</td>
+                      <td className="px-4 py-3 text-center font-mono font-bold tabular-nums">{fmtAmt(op.amount)} ر.س</td>
+                      <td className="px-4 py-3 text-center"><Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs"><Lock size={9}/> معتمد</Badge></td>
                     </tr>
                   ))
                 }
@@ -2000,19 +2187,34 @@ function HeadERP({ ops }:PageProps) {
             </table>
             <div className="flex gap-3">
               <Btn onClick={()=>setStep(0)}>← رجوع</Btn>
-              <Btn variant="primary" onClick={()=>setStep(2)} className="flex-1 justify-center">تأكيد وإرسال للـ ERP →</Btn>
+              <Btn variant="primary"
+                onClick={()=>{
+                  if(toPost.length > 0 && markErpPosted) {
+                    markErpPosted(toPost.map(o=>o.id), batchId);
+                  }
+                  setStep(2);
+                }}
+                className="flex-1 justify-center">
+                تأكيد وإرسال للـ ERP →
+              </Btn>
             </div>
           </div>
         )}
         {step===2 && (
           <div className="text-center py-8 space-y-4">
-            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto"><CheckCircle2 size={40} className="text-emerald-600"/></div>
+            <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mx-auto border-2 border-indigo-200">
+              <ChevronsRight size={36} className="text-indigo-600"/>
+            </div>
             <div>
               <h3 className="text-xl font-bold text-gray-800 mb-2">تم الترحيل بنجاح!</h3>
-              <p className="text-gray-500 text-sm">تم إرسال {finalApproved.length} عملية بإجمالي {fmtAmt(totalAmt)} ر.س إلى نظام ERP</p>
-              <p className="text-gray-400 text-xs mt-1">رقم دفعة الترحيل: ERP-BATCH-20251014-001</p>
+              <p className="text-gray-500 text-sm">تم إرسال {toPost.length} عملية بإجمالي {fmtAmt(totalAmt)} ر.س إلى نظام ERP</p>
+              <p className="text-gray-400 text-xs mt-1 font-mono">رقم دفعة الترحيل: {batchId}</p>
+              <div className="mt-3 inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
+                <Lock size={13} className="text-indigo-600"/>
+                <span className="text-sm text-indigo-700 font-semibold">السجلات مُرحَّلة ومُغلقة نهائياً</span>
+              </div>
             </div>
-            <Btn onClick={()=>setStep(0)} className="mx-auto">ترحيل جديد</Btn>
+            <Btn onClick={()=>setStep(0)} className="mx-auto">ترحيل دفعة جديدة</Btn>
           </div>
         )}
       </div>
@@ -2689,28 +2891,78 @@ export function ASABPrototype() {
   const setModal = (modal:string|null) => setAppState(s=>({...s, modal}));
   const setDetailId = (detailId:string|null) => setAppState(s=>({...s, detailId}));
 
-  // FINANCIAL LOCK RULES:
-  // pending  → approved           (accountant approval)
-  // approved → final-approved     (head accountant final approval)
-  // final-approved = IMMUTABLE    (no modification, no reversal — ERP already received it)
-  // rejected = IMMUTABLE          (correction requires a new operation, not editing this one)
+  // ─── FINANCIAL STATE MACHINE ─────────────────────────────
+  // pending  → approved           (accountant, records actor + time)
+  // approved → final-approved     (head accountant, records actor + time)
+  // final-approved = IMMUTABLE    (state guard: no further transitions)
+  // rejected = IMMUTABLE          (correction requires a NEW linked operation)
+  // ERP-posted is a SEPARATE dimension (erpPosted flag, not a status)
+  // ─────────────────────────────────────────────────────────
+  const now = () => new Date().toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit" });
+
   const approveOp = (id:string) => setOps(p=>p.map(o=>
-    o.id===id && o.status==="pending" ? {...o, status:"approved" as OpStatus} : o
+    o.id===id && o.status==="pending"
+      ? { ...o, status:"approved" as OpStatus,
+          approvedBy: appState.role==="head" ? "رئيس الحسابات" : "المحاسب المختص",
+          approvedAt: now() }
+      : o
   ));
   const rejectOp = (id:string, reason:string) => setOps(p=>p.map(o=>
-    o.id===id && (o.status==="pending" || o.status==="approved") ? {...o, status:"rejected" as OpStatus, rejectReason:reason} : o
+    o.id===id && (o.status==="pending" || o.status==="approved")
+      ? { ...o, status:"rejected" as OpStatus, rejectReason:reason,
+          rejectedBy: appState.role==="head" ? "رئيس الحسابات" : "المحاسب المختص",
+          rejectedAt: now() }
+      : o
   ));
   const finalApproveOp = (id:string) => setOps(p=>p.map(o=>
-    o.id===id && o.status==="approved" ? {...o, status:"final-approved" as OpStatus} : o
+    o.id===id && o.status==="approved"
+      ? { ...o, status:"final-approved" as OpStatus,
+          finalApprovedBy: "رئيس الحسابات",
+          finalApprovedAt: now() }
+      : o
   ));
   const bulkApprove = (ids:string[]) => {
     const set = new Set(ids);
+    const t = now();
     setOps(p=>p.map(o=>{
       if(!set.has(o.id)) return o;
-      if(o.status==="pending")  return {...o, status:"approved" as OpStatus};
-      if(o.status==="approved") return {...o, status:"final-approved" as OpStatus};
+      if(o.status==="pending")  return {...o, status:"approved" as OpStatus, approvedBy:"المحاسب المختص", approvedAt:t};
+      if(o.status==="approved") return {...o, status:"final-approved" as OpStatus, finalApprovedBy:"رئيس الحسابات", finalApprovedAt:t};
       return o; // final-approved and rejected are immutable — skip silently
     }));
+  };
+
+  // Corrective operation: creates a new linked pending op referencing the original
+  const addCorrectiveOp = (refId:string) => {
+    const original = ops.find(o=>o.id===refId);
+    if(!original) return;
+    const newId = `COR-${refId.replace("OPS-","").replace("COR-","")}`;
+    const corrective: Op = {
+      ...original,
+      id: newId,
+      status: "pending",
+      isCorrection: true,
+      correctiveRef: refId,
+      timeAgo: "للتو",
+      submittedBy: "تعديل بواسطة رئيس الحسابات",
+      approvedBy: undefined, approvedAt: undefined,
+      finalApprovedBy: undefined, finalApprovedAt: undefined,
+      rejectedBy: undefined, rejectedAt: undefined,
+      erpPosted: undefined, erpBatchId: undefined, erpPostedAt: undefined,
+      rejectReason: undefined,
+    };
+    setOps(p=>[corrective, ...p]);
+  };
+
+  // ERP posting: marks ops as posted with batch ID — separate from final-approval
+  const markErpPosted = (ids:string[], batchId:string) => {
+    const set = new Set(ids);
+    const postedAt = now();
+    setOps(p=>p.map(o=>
+      set.has(o.id) && o.status==="final-approved" && !o.erpPosted
+        ? { ...o, erpPosted:true, erpBatchId:batchId, erpPostedAt:postedAt }
+        : o
+    ));
   };
 
   if(!appState.role) return <LoginScreen onLogin={login}/>;
@@ -2719,6 +2971,7 @@ export function ASABPrototype() {
     <AppShell
       state={appState} ops={ops}
       approveOp={approveOp} rejectOp={rejectOp} finalApproveOp={finalApproveOp} bulkApprove={bulkApprove}
+      addCorrectiveOp={addCorrectiveOp} markErpPosted={markErpPosted}
       navigate={navigate} logout={logout} setModal={setModal} setDetailId={setDetailId}
     />
   );
