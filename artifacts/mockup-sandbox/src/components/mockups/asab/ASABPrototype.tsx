@@ -216,6 +216,130 @@ const STATUS_CFG: Record<OpStatus,{label:string; cls:string}> = {
   "final-approved":{ label:"معتمد نهائياً",    cls:"bg-emerald-50 text-emerald-700" },
 };
 
+// ─────────────────────────────────────────────
+// LIFECYCLE PIPELINE  — the 6 stages of every operation in ASAB
+// Branch (mobile) → Review → Approval → Final → ERP Export → ERP Reports
+// ─────────────────────────────────────────────
+const PIPELINE_STAGES = [
+  { id:"submit",   icon:"📱", label:"رُفع من الفرع",     labelShort:"الرفع",     color:"blue",    bg:"bg-blue-100",   text:"text-blue-700",   border:"border-blue-300",   fill:"bg-blue-500"    },
+  { id:"review",   icon:"🔍", label:"قيد المراجعة",       labelShort:"المراجعة",  color:"amber",   bg:"bg-amber-100",  text:"text-amber-700",  border:"border-amber-300",  fill:"bg-amber-500"   },
+  { id:"approved", icon:"✓",  label:"موافق عليه",         labelShort:"الموافقة",  color:"sky",     bg:"bg-sky-100",    text:"text-sky-700",    border:"border-sky-300",    fill:"bg-sky-500"     },
+  { id:"final",    icon:"🔒", label:"معتمد نهائياً",      labelShort:"الاعتماد",  color:"emerald", bg:"bg-emerald-100",text:"text-emerald-700",border:"border-emerald-300",fill:"bg-emerald-500" },
+  { id:"erp",      icon:"🔗", label:"مُرحَّل لـ ERP",     labelShort:"ERP",       color:"indigo",  bg:"bg-indigo-100", text:"text-indigo-700", border:"border-indigo-300", fill:"bg-indigo-500"  },
+  { id:"reports",  icon:"📊", label:"تقارير ERP (قراءة)", labelShort:"التقارير",  color:"slate",   bg:"bg-slate-100",  text:"text-slate-700",  border:"border-slate-300",  fill:"bg-slate-500"   },
+] as const;
+
+type PipelineStageId = typeof PIPELINE_STAGES[number]["id"];
+
+function getPipelineStage(op: Op): number {
+  // Returns the 0-based index of the current pipeline stage
+  if (op.status === "rejected") return -1; // special: not on the forward path
+  if (op.erpPosted) return 4;                               // stage 5: ERP posted
+  if (op.status === "final-approved") return 3;             // stage 4: final approved, awaiting ERP
+  if (op.status === "approved") return 2;                   // stage 3: accountant approved, awaiting head
+  return 1;                                                 // stage 2: submitted from branch, under review
+}
+
+function getPipelineLabel(op: Op): string {
+  if (op.status === "rejected") return "مرفوض";
+  const idx = getPipelineStage(op);
+  return PIPELINE_STAGES[idx]?.label || "";
+}
+
+// Horizontal 6-step pipeline indicator — used in detail pages
+function PipelineBar({ op }: { op: Op }) {
+  const stage = getPipelineStage(op);
+  const isRejected = op.status === "rejected";
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4" dir="rtl">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">دورة حياة العملية</span>
+        {isRejected
+          ? <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs">✕ مرفوض{op.rejectReason ? ` — ${op.rejectReason}` : ""}</Badge>
+          : <Badge className={`${PIPELINE_STAGES[stage]?.bg} ${PIPELINE_STAGES[stage]?.text} border ${PIPELINE_STAGES[stage]?.border} text-xs font-bold`}>
+              المرحلة {stage + 1}/6 · {PIPELINE_STAGES[stage]?.label}
+            </Badge>
+        }
+      </div>
+      <div className="flex items-center gap-0">
+        {PIPELINE_STAGES.map((s, i) => {
+          const isComplete = !isRejected && i < stage;
+          const isCurrent  = !isRejected && i === stage;
+          const isPending  = isRejected || i > stage;
+          return (
+            <div key={s.id} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs border-2 transition-all
+                  ${isComplete ? `${s.fill} border-transparent text-white` :
+                    isCurrent  ? `bg-white ${s.border} ${s.text} shadow-sm font-bold` :
+                                 "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                  {isComplete ? "✓" : s.icon}
+                </div>
+                <span className={`text-[9px] font-medium leading-tight text-center max-w-[44px] truncate
+                  ${isComplete ? "text-gray-600" : isCurrent ? `${s.text} font-bold` : "text-gray-300"}`}>
+                  {s.labelShort}
+                </span>
+              </div>
+              {i < PIPELINE_STAGES.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 mt-[-10px] ${isComplete ? s.fill : "bg-gray-150"}`}
+                  style={{ backgroundColor: isComplete ? "" : "#e5e7eb" }}/>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Compact inline pill — used in OpRow and lists
+function OpStagePill({ op }: { op: Op }) {
+  if (op.status === "rejected") {
+    return <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">✕ مرفوض</Badge>;
+  }
+  const idx = getPipelineStage(op);
+  const s = PIPELINE_STAGES[idx];
+  return (
+    <Badge className={`${s.bg} ${s.text} border ${s.border} text-[10px] font-semibold`}>
+      {s.icon} م{idx+1} · {s.labelShort}
+    </Badge>
+  );
+}
+
+// Pipeline overview widget — summary counts by stage
+function PipelineOverview({ ops, navigate }: { ops: Op[]; navigate: (p:PageId)=>void }) {
+  const stageCounts = PIPELINE_STAGES.map((s, i) => ({
+    ...s,
+    count: ops.filter(o => getPipelineStage(o) === i).length,
+  }));
+  const rejected = ops.filter(o => o.status === "rejected").length;
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" dir="rtl">
+      <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+        <h3 className="font-bold text-gray-900 text-sm tracking-tight">مسار العمليات — رؤية شاملة للخط الزمني</h3>
+        <span className="text-xs text-gray-400">{ops.length} عملية إجمالاً</span>
+      </div>
+      <div className="grid grid-cols-6 divide-x divide-x-reverse divide-gray-100">
+        {stageCounts.map((s, i) => (
+          <div key={s.id} className={`px-3 py-4 text-center hover:${s.bg} transition-colors cursor-default ${i === 0 ? "col-span-1" : ""}`}>
+            <div className="text-lg mb-1">{s.icon}</div>
+            <p className={`text-2xl font-extrabold font-mono ${s.count > 0 ? s.text : "text-gray-200"}`}>{s.count}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.labelShort}</p>
+            {i < 5 && (
+              <div className={`mx-auto mt-2 h-1 w-6 rounded-full ${s.count > 0 ? s.fill : "bg-gray-100"}`}/>
+            )}
+          </div>
+        ))}
+      </div>
+      {rejected > 0 && (
+        <div className="px-5 py-2 bg-red-50/40 border-t border-red-100 flex items-center gap-2">
+          <span className="text-xs text-red-600 font-medium">✕ {rejected} عملية مرفوضة — خارج المسار الزمني</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const fmtAmt = (n: number) => n.toLocaleString("ar-SA");
 
 // ─────────────────────────────────────────────
@@ -809,6 +933,10 @@ function OpRow({ op, onView, onApprove, onReject }: {
             {isLocked && <Lock size={10}/>}
             {statusCfg.label}
           </Badge>
+          <OpStagePill op={op}/>
+          {op.isCorrection && op.correctiveRef && (
+            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">تعديل ← {op.correctiveRef}</Badge>
+          )}
           {isRejected && op.rejectReason && <span className="text-xs text-red-500 font-medium">سبب: {op.rejectReason}</span>}
         </div>
       </div>
@@ -996,11 +1124,13 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="عمليات جديدة اليوم" value={String(pending.length)} sub="من الفروع المخصصة" icon={<BarChart3 size={20} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="وافقت عليها" value={String(approved.length)} sub="تم إرسالها لرئيس الحسابات" icon={<CheckCircle2 size={20} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="معلقة - تنتظرني" value={String(pending.length)} sub="يجب المراجعة" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub="هذا الشهر" icon={<TrendingUp size={20} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="تنتظر مراجعتي" value={String(pending.length)} sub="📱 رُفعت من الفروع" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="وافقت عليها" value={String(approved.length)} sub="بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={20} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="معتمدة نهائياً" value={String(ops.filter(o=>o.status==="final-approved").length)} sub="مُغلقة — تنتظر ERP أو مُرحَّلة" icon={<Lock size={20} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub="هذا الشهر" icon={<TrendingUp size={20} className="text-purple-600"/>} accent="purple"/>
       </div>
+
+      <PipelineOverview ops={ops} navigate={navigate}/>
 
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2">
@@ -1096,9 +1226,9 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
 
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label={`إجمالي ${title}`} value={`${(totalAmt/1000).toFixed(1)}K ر.س`} sub="المعروضة" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="معلقة" value={String(pending.length)} sub="بانتظار مراجعتك" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="موافق عليها" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="approved").length)} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="فروق مكتشفة" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="📱 قيد المراجعة" value={String(pending.length)} sub="م2 · رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="✓ موافق عليها" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="approved").length)} sub="م3 · بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="🔒 معتمدة نهائياً" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="final-approved").length)} sub="م4 · مُغلقة" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
@@ -1142,6 +1272,7 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
         { label:op?.id||"" }
       ]}/>
 
+      {op && <PipelineBar op={op}/>}
       {isLocked && <LockBanner op={op}/>}
       {op?.isCorrection && op.correctiveRef && (
         <div className="flex items-center gap-3 px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl" dir="rtl">
@@ -1844,12 +1975,13 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
         <p className="text-gray-400 text-sm mt-0.5">الإشراف على 4 محاسبين · 100 فرع · الاعتماد النهائي وترحيل ERP</p>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="وافق عليها المحاسبون" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="اعتمدتها اليوم" value={String(finalApproved.length)} sub="تم الترحيل لـ ERP" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="المحاسبون النشطون" value="4/4" sub="" icon={<Users size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="تم الإعادة" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="📱 من المحاسبين · م3" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معتمدة نهائياً" value={String(finalApproved.filter(o=>!o.erpPosted).length)} sub="مُغلقة · تنتظر ERP · م4" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="مُرحَّلة لـ ERP" value={String(finalApproved.filter(o=>o.erpPosted).length)} sub="مُعالَجة · م5" icon={<ChevronsRight size={18} className="text-indigo-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="خارج المسار" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
         <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
+      <PipelineOverview ops={ops} navigate={navigate}/>
       <div className="flex gap-2 border-b border-gray-200">
         {[{id:"approval" as const,label:"✅ الاعتماد النهائي"},{id:"performance" as const,label:"👥 أداء المحاسبين"},{id:"erp" as const,label:"🔗 الترحيل لـ ERP"}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
@@ -2120,16 +2252,121 @@ function HeadAccountants({}: PageProps) {
 
 function HeadERP({ ops, markErpPosted }:PageProps) {
   const [step, setStep] = useState<0|1|2>(0);
+  const [tab, setTab] = useState<"export"|"reports">("export");
   // Only show ops that are final-approved but NOT yet ERP-posted
   const pendingErp = ops.filter(o=>o.status==="final-approved" && !o.erpPosted);
+  const postedOps = ops.filter(o=>o.erpPosted);
   const finalApproved = ops.filter(o=>o.status==="final-approved");
   const toPost = pendingErp;
   const totalAmt = toPost.reduce((s,o)=>s+o.amount,0);
   const batchId = `ERP-BATCH-20251014-${String(Date.now()).slice(-3)}`;
+
+  // ERP Reports: group posted ops by module
+  const reportsByModule = postedOps.reduce<Record<string,{label:string;count:number;total:number;batchIds:string[]}>>((acc,op)=>{
+    if(!acc[op.moduleKey]){ acc[op.moduleKey]={label:op.moduleLabel,count:0,total:0,batchIds:[]}; }
+    acc[op.moduleKey].count++;
+    acc[op.moduleKey].total+=op.amount;
+    if(op.erpBatchId && !acc[op.moduleKey].batchIds.includes(op.erpBatchId)) acc[op.moduleKey].batchIds.push(op.erpBatchId);
+    return acc;
+  }, {});
+  const reportRows = Object.values(reportsByModule);
+
   return (
     <div className="space-y-5">
-      <div><h2 className="text-xl font-bold text-gray-800">التصدير لـ ERP</h2>
-        <p className="text-gray-400 text-sm mt-0.5">ترحيل العمليات المعتمدة نهائياً إلى نظام ERP المحاسبي</p></div>
+      <div><h2 className="text-xl font-bold text-gray-800">نظام ERP — التصدير والتقارير</h2>
+        <p className="text-gray-400 text-sm mt-0.5">ترحيل العمليات المعتمدة نهائياً · تقارير ERP المُستوردة (قراءة فقط)</p></div>
+      <div className="flex gap-2 border-b border-gray-200">
+        {[
+          {id:"export" as const, label:"🔗 التصدير لـ ERP", count:toPost.length},
+          {id:"reports" as const, label:"📊 تقارير ERP المُستوردة", count:postedOps.length},
+        ].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px flex items-center gap-2
+              ${tab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>
+            {t.label}
+            {t.count>0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${tab===t.id?"bg-purple-100 text-purple-700":"bg-gray-100 text-gray-500"}`}>{t.count}</span>}
+          </button>
+        ))}
+      </div>
+      {tab==="reports" && (
+        <div className="space-y-5" dir="rtl">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">📊</span>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">بيانات قراءة فقط — مُستوردة من نظام ERP</p>
+              <p className="text-slate-500 text-xs mt-0.5">هذه التقارير تمثل المرحلة 6 من دورة الحياة. البيانات مُرحَّلة ومُعالَجة في ERP ومُستوردة للعرض المرجعي فقط. لا يمكن التعديل.</p>
+            </div>
+          </div>
+          {postedOps.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
+              <div className="text-4xl mb-3">📭</div>
+              <p className="font-semibold text-gray-700">لا توجد تقارير مستوردة بعد</p>
+              <p className="text-gray-400 text-sm mt-1">بعد ترحيل العمليات لـ ERP ومعالجتها، تظهر التقارير هنا</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                  <p className="text-3xl font-extrabold font-mono text-slate-800">{postedOps.length}</p>
+                  <p className="text-xs text-slate-500 mt-1">عملية مُعالَجة في ERP</p>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                  <p className="text-3xl font-extrabold font-mono text-indigo-700">{(postedOps.reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K</p>
+                  <p className="text-xs text-slate-500 mt-1">ر.س إجمالي المُرحَّل</p>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                  <p className="text-3xl font-extrabold font-mono text-slate-800">{new Set(postedOps.map(o=>o.erpBatchId)).size}</p>
+                  <p className="text-xs text-slate-500 mt-1">دفعة ترحيل</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm">التقرير المالي الموحد — مُستورد من ERP</h3>
+                  <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-xs">🔒 قراءة فقط</Badge>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr className="text-xs text-slate-500 font-semibold text-right">
+                      <th className="px-5 py-3">الموديول</th>
+                      <th className="px-5 py-3 text-center">عدد العمليات</th>
+                      <th className="px-5 py-3 text-center">الإجمالي</th>
+                      <th className="px-5 py-3 text-center">دفعة ERP</th>
+                      <th className="px-5 py-3 text-center">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {reportRows.map((r,i)=>(
+                      <tr key={i} className="hover:bg-slate-50/60">
+                        <td className="px-5 py-3.5 font-semibold text-sm text-slate-800">{r.label}</td>
+                        <td className="px-5 py-3.5 text-center text-slate-600 font-mono font-bold">{r.count}</td>
+                        <td className="px-5 py-3.5 text-center font-mono font-extrabold text-slate-800 tabular-nums">{(r.total/1000).toFixed(1)}K ر.س</td>
+                        <td className="px-5 py-3.5 text-center">
+                          {r.batchIds.map(b=><span key={b} className="text-xs font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mr-1">{b}</span>)}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs">✓ مُعالَج</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                    <tr>
+                      <td className="px-5 py-3 font-bold text-slate-700 text-sm">الإجمالي الكلي</td>
+                      <td className="px-5 py-3 text-center font-bold text-slate-700 font-mono">{postedOps.length}</td>
+                      <td className="px-5 py-3 text-center font-extrabold text-slate-900 font-mono tabular-nums">{(postedOps.reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K ر.س</td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="text-xs text-slate-400 text-center py-2" dir="rtl">
+                📱 هذه البيانات رُفعت أصلاً من مديري الفروع عبر التطبيق · مرت بمراجعة المحاسبين والاعتماد النهائي · ومُرحَّلة الآن في ERP
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {tab==="export" && (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center gap-0 mb-6">
           {[{n:1,label:"1. اختيار الفترة",icon:"📅"},{n:2,label:"2. معاينة البيانات",icon:"👁"},{n:3,label:"3. تأكيد الإرسال",icon:"✅"}].map((s,i)=>(
@@ -2218,6 +2455,7 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
