@@ -5,7 +5,7 @@ import {
   Users, ArrowLeftRight, BarChart3, Settings, Bell, LogOut, ChevronRight,
   ChevronDown, ChevronUp, CheckCircle2, XCircle, MessageSquare, Eye, Download,
   AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
-  Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, X, FileText,
+  Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, Edit3, X, FileText,
   Truck, Home, Shield, RotateCcw, Lock
 } from "lucide-react";
 
@@ -1093,9 +1093,9 @@ function PageRouter({ state, pageProps, adminUsers, setAdminUsers }:{
 
   if(role==="accountant") {
     if(page==="acc-dashboard")       return <AccDashboard {...p}/>;
-    if(page==="acc-sales")           return <AccModulePage moduleKey="sales" title="المبيعات" {...p}/>;
+    if(page==="acc-sales")           return <AccSalesPage {...p}/>;
     if(page==="acc-sales-detail")    return <AccSalesDetail {...p}/>;
-    if(page==="acc-expenses")        return <AccModulePage moduleKey="expenses" title="المصروفات" {...p}/>;
+    if(page==="acc-expenses")        return <AccExpensesPage {...p}/>;
     if(page==="acc-purchases")       return <AccPurchases {...p}/>;
     if(page==="acc-inventory")       return <AccInventory {...p}/>;
     if(page==="acc-inventory-items") return <AccInventoryItems {...p}/>;
@@ -2214,15 +2214,15 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
 function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps&{moduleKey:ModuleKey;title:string}) {
   const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const mOps    = ops.filter(o=>o.moduleKey===moduleKey);
   const filtered = applyFilters(ops, filters, moduleKey);
-  const pending = ops.filter(o=>o.moduleKey===moduleKey&&o.status==="pending");
-  const totalAmt = filtered.reduce((s,o)=>s+o.amount,0);
+  const pending  = mOps.filter(o=>o.status==="pending");
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h2 className="text-xl font-bold text-gray-800">موديول {title}</h2>
-          <p className="text-gray-400 text-sm mt-0.5">{pending.length} عملية معلقة بانتظار مراجعتك</p>
+          <p className="text-gray-400 text-sm mt-0.5">{pending.length} بيان معلق بانتظار مراجعتك</p>
         </div>
         <div className="flex gap-2">
           {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
@@ -2230,10 +2230,10 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label={`إجمالي ${title}`} value={`${(totalAmt/1000).toFixed(1)}K ر.س`} sub="المعروضة" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="📱 قيد المراجعة" value={String(pending.length)} sub="م2 · رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="✓ موافق عليها" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="approved").length)} sub="م3 · بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
-        <KpiCard label="🔒 معتمدة نهائياً" value={String(ops.filter(o=>o.moduleKey===moduleKey&&o.status==="final-approved").length)} sub="م4 · مُغلقة" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات" icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة" value={String(mOps.filter(o=>o.status==="approved").length)} sub="بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة" value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع من الفرع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
@@ -2249,6 +2249,378 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
             ))
         }
       </Card>
+    </div>
+  );
+}
+
+// ─── Dedicated Sales page ────────────────────────────────────────────────────
+function AccSalesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
+  const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const [platform, setPlatform] = useState("");
+  const [brand,    setBrand]    = useState("");
+  const [channel,  setChannel]  = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
+  const [platformModal, setPlatformModal] = useState<string|null>(null); // platform name for drill-down
+
+  const mOps    = ops.filter(o=>o.moduleKey==="sales");
+  const pending  = mOps.filter(o=>o.status==="pending");
+  const filtered = applyFilters(ops, filters, "sales");
+
+  // Simulated delivery platform line items
+  const PLATFORM_ITEMS: Record<string,{desc:string; qty:number; price:number}[]> = {
+    "هنقرستيشن": [
+      {desc:"برجر كلاسيك",          qty:18, price:42},
+      {desc:"برجر مزدوج",            qty:9,  price:64},
+      {desc:"وجبة دجاج مقرمش",      qty:14, price:38},
+      {desc:"إضافات — جبنة إضافية", qty:22, price:4},
+    ],
+    "جاهز": [
+      {desc:"بيتزا مارغريتا",        qty:7,  price:65},
+      {desc:"بيتزا دجاج BBQ",        qty:5,  price:72},
+      {desc:"مشروبات",               qty:12, price:10},
+    ],
+    "تو يو": [
+      {desc:"وجبة عائلية",           qty:4,  price:180},
+      {desc:"برجر كلاسيك",          qty:6,  price:42},
+    ],
+    "نينجا": [
+      {desc:"وجبة دجاج مقرمش",      qty:8,  price:38},
+      {desc:"إضافات",               qty:5,  price:8},
+    ],
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">موديول المبيعات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{pending.length} بيان معلق بانتظار مراجعتك</p>
+        </div>
+        {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
+      </div>
+
+      {/* KpiCards — operational counts */}
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات" icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة" value={String(mOps.filter(o=>o.status==="approved"||o.status==="final-approved").length)} sub="موافق + معتمد نهائياً" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة" value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+
+      {/* Enhanced 8-field filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filters.branch} onChange={e=>setFilters(p=>({...p,branch:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل",...BRANCHES].map(b=><option key={b} value={b==="الكل"?"":b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
+            <select value={filters.status} onChange={e=>setFilters(p=>({...p,status:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","pending","approved","rejected","final-approved"].map(s=><option key={s} value={s==="الكل"?"":s}>{STATUS_CFG[s as OpStatus]?.label||s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">منصة التوصيل</label>
+            <select value={platform} onChange={e=>setPlatform(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","هنقرستيشن","جاهز","تو يو","نينجا"].map(pl=><option key={pl}>{pl}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">قناة البيع</label>
+            <select value={channel} onChange={e=>setChannel(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","نقدي","بنكي","تطبيق توصيل"].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brand} onChange={e=>setBrand(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">رقم مرجعي / وصف</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400"/>
+              <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder="بحث..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">من تاريخ</label>
+            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">إلى تاريخ</label>
+            <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+          </div>
+        </div>
+        {(filters.branch||filters.status||filters.search||platform!=="الكل"&&platform||brand!=="الكل"&&brand) && (
+          <button onClick={()=>{ setFilters({branch:"",status:"",match:"",search:""}); setPlatform(""); setBrand(""); setChannel(""); setDateFrom(""); setDateTo(""); }}
+            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
+
+      {/* Delivery platform quick-access buttons */}
+      <div className="flex items-center gap-2 flex-wrap" dir="rtl">
+        <span className="text-xs text-gray-400 font-medium ml-1">تفاصيل منصة التوصيل:</span>
+        {["هنقرستيشن","جاهز","تو يو","نينجا"].map(pl=>(
+          <button key={pl} onClick={()=>setPlatformModal(pl)}
+            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-all">
+            {pl} ↗
+          </button>
+        ))}
+      </div>
+
+      {/* Platform drill-down modal panel */}
+      {platformModal && PLATFORM_ITEMS[platformModal] && (
+        <div className="bg-white rounded-xl border border-purple-200 shadow-md overflow-hidden" dir="rtl">
+          <div className="px-5 py-3.5 bg-purple-50/60 border-b border-purple-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-purple-900 text-sm">تفاصيل مبيعات — {platformModal}</h3>
+              <p className="text-[11px] text-purple-500 mt-0.5">تفصيل الأصناف المُباعة عبر المنصة — 14 أكتوبر 2025</p>
+            </div>
+            <button onClick={()=>setPlatformModal(null)} className="text-gray-400 hover:text-gray-700"><X size={16}/></button>
+          </div>
+          <div className="p-4">
+            <table className="w-full text-xs" dir="rtl">
+              <thead className="bg-gray-50"><tr>
+                <th className="px-3 py-2 text-right font-semibold text-gray-600">الصنف</th>
+                <th className="px-3 py-2 text-center font-semibold text-gray-600">الكمية</th>
+                <th className="px-3 py-2 text-center font-semibold text-gray-600">سعر الوحدة</th>
+                <th className="px-3 py-2 text-center font-semibold text-gray-600">الإجمالي</th>
+                <th className="px-3 py-2 text-center font-semibold text-gray-600">تعديل</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-100">
+                {PLATFORM_ITEMS[platformModal].map((item,k)=>{
+                  const total = item.qty * item.price;
+                  return (
+                    <tr key={k} className="hover:bg-gray-50">
+                      <td className="px-3 py-2.5 font-medium text-gray-800">{item.desc}</td>
+                      <td className="px-3 py-2.5 text-center">{item.qty}</td>
+                      <td className="px-3 py-2.5 text-center font-mono">{item.price} ر.س</td>
+                      <td className="px-3 py-2.5 text-center font-mono font-semibold text-purple-700">{fmtAmt(total)} ر.س</td>
+                      <td className="px-3 py-2.5 text-center"><Btn size="sm"><Edit3 size={11}/></Btn></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                <tr>
+                  <td colSpan={3} className="px-3 py-2.5 font-bold text-gray-900 text-right">إجمالي {platformModal}</td>
+                  <td className="px-3 py-2.5 text-center font-black font-mono text-purple-800">
+                    {fmtAmt(PLATFORM_ITEMS[platformModal].reduce((s,i)=>s+i.qty*i.price,0))} ر.س
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Operations list */}
+      <Card title="بيانات المبيعات" actions={
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">{filtered.length} بيان</span>
+          {pending.length>0 && <Btn size="sm" variant="success" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة جماعية</Btn>}
+        </div>
+      }>
+        {filtered.length===0
+          ? <EmptyState icon="✅" title="لا توجد بيانات" desc="لا توجد بيانات تطابق الفلاتر المحددة"/>
+          : filtered.map(op=>(
+              <OpRow key={op.id} op={op}
+                onView={()=>{ setDetailId(op.id); navigate("acc-sales-detail"); }}
+                onApprove={()=>approveOp(op.id)}
+                onReject={()=>{ setDetailId(op.id); setModal("reject"); }}/>
+            ))
+        }
+      </Card>
+    </div>
+  );
+}
+
+// ─── Dedicated Expenses page ──────────────────────────────────────────────────
+function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
+  const [filters,    setFilters]    = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+  const [editingRow, setEditingRow] = useState<string|null>(null);
+  const [brand,      setBrand]      = useState("");
+  const [expType,    setExpType]    = useState("");
+  const [dateFrom,   setDateFrom]   = useState("");
+
+  const mOps    = ops.filter(o=>o.moduleKey==="expenses");
+  const filtered = applyFilters(ops, filters, "expenses");
+  const pending  = mOps.filter(o=>o.status==="pending");
+
+  // Simulated batch invoices for each operation
+  const INVOICES: Record<string, {invNum:string; vendor:string; desc:string; amount:number; date:string}[]> = {
+    default: [
+      {invNum:"INV-001", vendor:"شركة الخليج للمواد",   desc:"مواد تنظيف وصيانة",   amount:850,  date:"12 أكت"},
+      {invNum:"INV-002", vendor:"مستلزمات المطبخ",       desc:"أدوات خدمة وتغليف",  amount:420,  date:"12 أكت"},
+      {invNum:"INV-003", vendor:"خدمات الصيانة السريعة", desc:"إصلاح معدات المطبخ", amount:1200, date:"13 أكت"},
+    ],
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">موديول المصروفات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{pending.length} بيان معلق — قد يحتوي كل بيان على فواتير متعددة</p>
+        </div>
+        {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
+      </div>
+
+      {/* KpiCards — operational counts */}
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات" icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة" value={String(mOps.filter(o=>o.status==="approved"||o.status==="final-approved").length)} sub="موافق + معتمد نهائياً" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة" value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filters.branch} onChange={e=>setFilters(p=>({...p,branch:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل",...BRANCHES].map(b=><option key={b} value={b==="الكل"?"":b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
+            <select value={filters.status} onChange={e=>setFilters(p=>({...p,status:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","pending","approved","rejected","final-approved"].map(s=><option key={s} value={s==="الكل"?"":s}>{STATUS_CFG[s as OpStatus]?.label||s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">نوع المصروف</label>
+            <select value={expType} onChange={e=>setExpType(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","صيانة","مستلزمات","مرافق","رواتب","متفرقات"].map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brand} onChange={e=>setBrand(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-3 mt-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">من تاريخ</label>
+            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+          </div>
+          <div className="col-span-3">
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث / رقم الفاتورة</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400"/>
+              <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder="رقم الفاتورة أو اسم المورد..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+        </div>
+        {(filters.branch||filters.status||filters.search||expType!=="الكل"&&expType) && (
+          <button onClick={()=>{ setFilters({branch:"",status:"",match:"",search:""}); setExpType(""); setBrand(""); setDateFrom(""); }}
+            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
+
+      {/* Expenses list with batch invoice expansion */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">بيانات المصروفات</h3>
+          <span className="text-xs text-gray-400">{filtered.length} بيان — اضغط أي صف لعرض الفواتير التفصيلية</span>
+        </div>
+        {filtered.length===0
+          ? <EmptyState icon="✅" title="لا توجد بيانات" desc="لا توجد بيانات تطابق الفلاتر المحددة"/>
+          : filtered.map(op=>{
+              const invoices = INVOICES[op.id] || INVOICES["default"];
+              const isExpanded = expandedId===op.id;
+              const isLocked = op.status==="final-approved";
+              return (
+                <div key={op.id} className="border-b border-gray-100 last:border-0">
+                  {/* Row header */}
+                  <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 ${isExpanded?"bg-purple-50/20":""}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-800 text-sm">{op.branch}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="font-mono text-xs text-purple-600">{op.id}</span>
+                        <Badge className="bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px]">{invoices.length} فاتورة</Badge>
+                        <Badge className={STATUS_CFG[op.status].cls}>{STATUS_CFG[op.status].label}</Badge>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">أُرسل {op.timeAgo}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Btn size="sm" onClick={()=>setExpandedId(isExpanded?null:op.id)}>
+                        {isExpanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>} الفواتير
+                      </Btn>
+                      {op.status==="pending" && <>
+                        <Btn size="sm" variant="success" onClick={()=>approveOp(op.id)}><ThumbsUp size={12}/></Btn>
+                        <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><ThumbsDown size={12}/></Btn>
+                      </>}
+                    </div>
+                  </div>
+
+                  {/* Batch invoice detail */}
+                  {isExpanded && (
+                    <div className="px-5 pb-4 bg-gray-50/40">
+                      <div className="mt-2 mb-2 flex items-center gap-2">
+                        <p className="text-xs font-bold text-gray-600">تفاصيل الفواتير المضمنة في هذا البيان:</p>
+                        {!isLocked && <button onClick={()=>setEditingRow(editingRow?null:op.id)} className="text-[10px] text-purple-600 hover:underline flex items-center gap-1"><Edit3 size={10}/> {editingRow===op.id?"إيقاف التعديل":"تفعيل التعديل"}</button>}
+                      </div>
+                      <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-3 py-2 text-right">رقم الفاتورة</th>
+                            <th className="px-3 py-2 text-right">المورد</th>
+                            <th className="px-3 py-2 text-right">البيان</th>
+                            <th className="px-3 py-2 text-center">التاريخ</th>
+                            <th className="px-3 py-2 text-center">المبلغ</th>
+                            {editingRow===op.id && <th className="px-3 py-2 text-center">إجراء</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {invoices.map((inv,k)=>(
+                            <tr key={k} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 font-mono text-purple-700 font-semibold">{inv.invNum}</td>
+                              <td className="px-3 py-2 font-medium text-gray-800">{inv.vendor}</td>
+                              <td className="px-3 py-2 text-gray-600">{inv.desc}</td>
+                              <td className="px-3 py-2 text-center text-gray-500">{inv.date}</td>
+                              <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">
+                                {editingRow===op.id
+                                  ? <input defaultValue={String(inv.amount)} className="w-20 text-center border border-purple-200 rounded px-1 py-0.5 font-mono text-xs"/>
+                                  : `${fmtAmt(inv.amount)} ر.س`}
+                              </td>
+                              {editingRow===op.id && (
+                                <td className="px-3 py-2 text-center">
+                                  <Btn size="sm" variant="success"><CheckCircle2 size={11}/></Btn>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                          <tr>
+                            <td colSpan={4} className="px-3 py-2.5 font-bold text-gray-900 text-right">الإجمالي</td>
+                            <td className="px-3 py-2.5 text-center font-black font-mono text-gray-900">{fmtAmt(invoices.reduce((s,i)=>s+i.amount,0))} ر.س</td>
+                            {editingRow===op.id && <td></td>}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+        }
+      </div>
     </div>
   );
 }
@@ -2507,28 +2879,93 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
   );
 }
 
+// Simulated purchase detail per operation
+const PURCHASE_DETAIL: Record<string,{supplier:string;invNum:string;items:{name:string;ordered:number;received:number;unit:string;price:number}[]}> = {
+  default: {
+    supplier:"شركة الخليج للأغذية",
+    invNum:"PO-2025-1021",
+    items:[
+      {name:"دجاج طازج",     ordered:50, received:48, unit:"كجم",   price:32},
+      {name:"حليب طازج",     ordered:100,received:100,unit:"لتر",   price:8},
+      {name:"خضار متنوعة",   ordered:30, received:27, unit:"كجم",   price:12},
+      {name:"بطاطس مجمدة",   ordered:80, received:80, unit:"كجم",   price:7},
+    ]
+  }
+};
+
 function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
-  const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const [filters,    setFilters]    = useState<Filters>({branch:"",status:"",match:"",search:""});
   const [expandedId, setExpandedId] = useState<string|null>(null);
+  const [supplier,   setSupplier]   = useState("");
+  const [brand,      setBrand]      = useState("");
+  const [dateFrom,   setDateFrom]   = useState("");
   const filtered = applyFilters(ops, filters, "purchases");
-  const pending = ops.filter(o=>o.moduleKey==="purchases"&&o.status==="pending");
+  const pending  = ops.filter(o=>o.moduleKey==="purchases"&&o.status==="pending");
+
+  const SUPPLIERS = ["الكل","شركة الخليج للأغذية","مزرعة الوفاء","موزع الأغذية الوطني","شركة الإمارات للتوريد"];
+  const BRANDS    = ["الكل","برغر خليفة","بيتزا باكو","وسطاوي"];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div><h2 className="text-xl font-bold text-gray-800">موديول المشتريات</h2>
-          <p className="text-gray-400 text-sm mt-0.5">مطابقة الكميات المستلمة مع الفواتير الواردة</p></div>
+          <p className="text-gray-400 text-sm mt-0.5">مراجعة طلبات الشراء — المورد، الفرع، الفاتورة، والأصناف</p></div>
         {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة جماعية ({pending.length})</Btn>}
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي المشتريات" value={`${(ops.filter(o=>o.moduleKey==="purchases").reduce((s,o)=>s+o.amount,0)/1000).toFixed(1)}K ر.س`} sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="معلقة" value={String(pending.length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="فروق في الكمية" value={String(ops.filter(o=>o.moduleKey==="purchases"&&o.match==="diff").length)} sub="" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="إجمالي طلبات الشراء" value={String(ops.filter(o=>o.moduleKey==="purchases").length)} sub="كل الحالات" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="معلقة — قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="طلبات بها فروق" value={String(ops.filter(o=>o.moduleKey==="purchases"&&o.match==="diff").length)} sub="كمية أو سعر — تحتاج قرار" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
         <KpiCard label="موردون نشطون" value="12" sub="هذا الشهر" icon={<Truck size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
 
-      <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
+      {/* Enhanced purchase filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filters.branch} onChange={e=>setFilters(p=>({...p,branch:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل",...BRANCHES].map(b=><option key={b} value={b==="الكل"?"":b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المورد</label>
+            <select value={supplier} onChange={e=>setSupplier(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {SUPPLIERS.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brand} onChange={e=>setBrand(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {BRANDS.map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
+            <select value={filters.status} onChange={e=>setFilters(p=>({...p,status:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","pending","approved","rejected","final-approved"].map(s=><option key={s} value={s==="الكل"?"":s}>{STATUS_CFG[s as OpStatus]?.label||s}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">من تاريخ</label>
+            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+          </div>
+          <div className="col-span-3">
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">رقم الطلب / الفاتورة</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400"/>
+              <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder="رقم الطلب أو اسم المورد..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+        </div>
+        {(filters.branch||filters.status||filters.search||supplier!=="الكل"&&supplier||brand!=="الكل"&&brand) && (
+          <button onClick={()=>{ setFilters({branch:"",status:"",match:"",search:""}); setSupplier(""); setBrand(""); setDateFrom(""); }}
+            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
 
       <Card title="طلبات الشراء">
         {filtered.length===0
@@ -2561,24 +2998,68 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                   </>}
                 </div>
               </div>
-              {expandedId===op.id && (
-                <div className="px-5 pb-4 bg-gray-50/50">
-                  <table className="w-full border border-gray-200 rounded-xl overflow-hidden text-xs mt-3" dir="rtl">
-                    <thead className="bg-gray-100"><tr><th className="px-3 py-2 text-right">الصنف</th><th className="px-3 py-2 text-center">الكمية المطلوبة</th><th className="px-3 py-2 text-center">الكمية المستلمة</th><th className="px-3 py-2 text-center">الحالة</th></tr></thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {[{item:"دجاج طازج",ordered:50,received:48},{item:"حليب طازج",ordered:100,received:100},{item:"خضار متنوعة",ordered:30,received:op.match==="diff"?27:30},{item:"بطاطس",ordered:80,received:80}].map((row,i)=>{
-                        const diff=row.ordered-row.received;
-                        return (<tr key={i} className={diff>0?"bg-red-50/60":""}>
-                          <td className="px-3 py-2 font-medium">{row.item}</td>
-                          <td className="px-3 py-2 text-center">{row.ordered} كجم</td>
-                          <td className={`px-3 py-2 text-center font-semibold ${diff>0?"text-red-600":""}`}>{row.received} كجم</td>
-                          <td className="px-3 py-2 text-center">{diff===0?<Badge className="bg-emerald-50 text-emerald-700">مطابق</Badge>:<Badge className="bg-red-50 text-red-700">فرق {diff}</Badge>}</td>
-                        </tr>);
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {expandedId===op.id && (()=>{
+                const detail = PURCHASE_DETAIL[op.id] || PURCHASE_DETAIL["default"];
+                return (
+                  <div className="px-5 pb-4 bg-gray-50/40">
+                    {/* Supplier + invoice header */}
+                    <div className="flex items-center gap-4 mt-3 mb-2 p-3 bg-white rounded-xl border border-blue-100">
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-gray-600">المورد: <span className="text-blue-700">{detail.supplier}</span></p>
+                        <p className="text-xs text-gray-500 mt-0.5">رقم الفاتورة: <span className="font-mono font-semibold text-purple-600">{detail.invNum}</span></p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">الفرع</p>
+                        <p className="text-xs font-semibold text-gray-700">{op.branch}</p>
+                      </div>
+                    </div>
+                    {/* Line items with quantity + unit price */}
+                    <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-3 py-2 text-right">الصنف</th>
+                          <th className="px-3 py-2 text-center">الوحدة</th>
+                          <th className="px-3 py-2 text-center">سعر الوحدة</th>
+                          <th className="px-3 py-2 text-center">مطلوب</th>
+                          <th className="px-3 py-2 text-center">مستلم</th>
+                          <th className="px-3 py-2 text-center">الإجمالي</th>
+                          <th className="px-3 py-2 text-center">الحالة</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {detail.items.map((row,i)=>{
+                          const diff  = row.ordered - row.received;
+                          const total = row.received * row.price;
+                          return (
+                            <tr key={i} className={diff>0?"bg-red-50/50":""}>
+                              <td className="px-3 py-2 font-semibold text-gray-800">{row.name}</td>
+                              <td className="px-3 py-2 text-center text-gray-500">{row.unit}</td>
+                              <td className="px-3 py-2 text-center font-mono">{row.price} ر.س</td>
+                              <td className="px-3 py-2 text-center font-mono">{row.ordered}</td>
+                              <td className={`px-3 py-2 text-center font-mono font-bold ${diff>0?"text-red-600":"text-gray-800"}`}>{row.received}</td>
+                              <td className="px-3 py-2 text-center font-mono font-semibold text-blue-700">{fmtAmt(total)} ر.س</td>
+                              <td className="px-3 py-2 text-center">
+                                {diff===0
+                                  ? <Badge className="bg-emerald-50 text-emerald-700">مطابق</Badge>
+                                  : <Badge className="bg-red-50 text-red-700">فرق {diff}</Badge>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                        <tr>
+                          <td colSpan={5} className="px-3 py-2 font-bold text-gray-800 text-right">إجمالي الفاتورة</td>
+                          <td className="px-3 py-2 text-center font-black font-mono text-blue-800">
+                            {fmtAmt(detail.items.reduce((s,r)=>s+r.received*r.price,0))} ر.س
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           ))
         }
@@ -2587,50 +3068,201 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
   );
 }
 
+// Simulated per-branch inventory data: current month vs previous month
+const INV_BRANCH_DATA: Record<string, {item:string; cat:string; unit:string; prev:number; curr:number}[]> = {
+  "فرع الرياض - العليا": [
+    {item:"دجاج طازج",    cat:"بروتين",    unit:"كجم",   prev:50,   curr:48  },
+    {item:"بطاطس",        cat:"خضروات",   unit:"كجم",   prev:80,   curr:85  },
+    {item:"مشروبات غازية",cat:"مشروبات",  unit:"علبة",  prev:200,  curr:620 }, // anomaly: +210%
+    {item:"زيت قلي",      cat:"زيوت",     unit:"لتر",   prev:30,   curr:28  },
+    {item:"خبز برجر",     cat:"مخبوزات",  unit:"قطعة",  prev:300,  curr:290 },
+  ],
+  "فرع جدة - الحمراء": [
+    {item:"دجاج طازج",    cat:"بروتين",    unit:"كجم",   prev:40,   curr:38  },
+    {item:"بطاطس",        cat:"خضروات",   unit:"كجم",   prev:60,   curr:180 }, // anomaly: +200%
+    {item:"ماء معدني",    cat:"مشروبات",  unit:"لتر",   prev:150,  curr:145 },
+    {item:"مايونيز",      cat:"صوصات",    unit:"كجم",   prev:15,   curr:12  },
+  ],
+  "فرع مكة - المعابدة": [
+    {item:"دجاج طازج",    cat:"بروتين",    unit:"كجم",   prev:35,   curr:1   }, // anomaly: -97%
+    {item:"حليب طازج",    cat:"ألبان",     unit:"لتر",   prev:50,   curr:52  },
+    {item:"طماطم",        cat:"خضروات",   unit:"كجم",   prev:20,   curr:18  },
+    {item:"عصير برتقال",  cat:"مشروبات",  unit:"لتر",   prev:30,   curr:28  },
+  ],
+};
+
 function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailId, bulkApprove }:PageProps) {
-  const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
-  const filtered = applyFilters(ops, filters, "inventory");
+  const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
+  const [dailyBranch, setDailyBranch] = useState<string|null>(null);
+  const invOps = ops.filter(o=>o.moduleKey==="inventory");
+  const pendingInv = invOps.filter(o=>o.status==="pending");
+
+  // Count anomalies across all branches (change > 200% or < -50%)
+  const anomalyCount = Object.values(INV_BRANCH_DATA).flat().filter(it=>{
+    if(it.prev===0) return false;
+    const pct = ((it.curr-it.prev)/it.prev)*100;
+    return Math.abs(pct) > 100;
+  }).length;
+
+  // Which branches submitted inventory ops
+  const branchesWithOps = [...new Set(invOps.map(o=>o.branch))];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir="rtl">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">موديول المخزون</h2>
-          <p className="text-gray-400 text-sm mt-0.5">متابعة الجرد اليومي والهدر</p></div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">موديول المخزون</h2>
+          <p className="text-gray-400 text-sm mt-0.5">مراجعة الجرد اليومي لكل فرع — مقارنة الشهر الحالي بالشهر السابق</p>
+        </div>
         <Btn variant="primary" size="sm" onClick={()=>navigate("acc-inventory-items")}><Package size={13}/> تحديد أصناف الجرد</Btn>
       </div>
+
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="عمليات الجرد" value={String(ops.filter(o=>o.moduleKey==="inventory").length)} sub="" icon={<Package size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="معلقة" value={String(ops.filter(o=>o.moduleKey==="inventory"&&o.status==="pending").length)} sub="" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="هدر مسجل" value="1,240 ر.س" sub="هذا الأسبوع" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
-        <KpiCard label="تطابق الجرد" value="89%" sub="هذا الشهر" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="بيانات الجرد المرفوعة" value={String(invOps.length)} sub="كل الفروع" icon={<Package size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="قيد المراجعة" value={String(pendingInv.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تنبيهات شذوذ" value={String(anomalyCount)} sub="تغيير > 100% عن الشهر السابق" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="فروع مكتملة" value={String(branchesWithOps.length)} sub={`من أصل ${BRANCHES.length} فروع`} icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
       </div>
-      <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
-      <Card title="تقارير الجرد اليومي">
-        {filtered.length===0
-          ? <EmptyState icon="✅" title="لا توجد عمليات" desc=""/>
-          : filtered.map(op=>(
-            <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
-              <div className="flex-1">
-                <p className="font-semibold text-gray-800 text-sm">{op.branch}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className={`${MATCH_CFG[op.match].cls} border`}>{MATCH_CFG[op.match].label}</Badge>
-                  <Badge className={STATUS_CFG[op.status].cls}>{STATUS_CFG[op.status].label}</Badge>
-                  <span className="text-xs text-gray-400">هدر: 120 ر.س</span>
+
+      {/* Branch-level inventory rows — click to expand detail */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm">جرد الفروع — الشهر الحالي</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">اضغط على فرع لعرض تفاصيل الأصناف ومقارنة الشهر السابق</p>
+          </div>
+        </div>
+        {BRANCHES.slice(0,4).map((branch,bi)=>{
+          const branchOp = invOps.find(o=>o.branch===branch);
+          const items    = INV_BRANCH_DATA[branch] || [];
+          const isExpanded = expandedBranch===branch;
+          const isDailyOpen = dailyBranch===branch;
+          const branchAnomalies = items.filter(it=>{
+            if(it.prev===0) return false;
+            return Math.abs(((it.curr-it.prev)/it.prev)*100) > 100;
+          });
+          return (
+            <div key={bi} className="border-b border-gray-100 last:border-0">
+              {/* Branch row */}
+              <div className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{branch}</span>
+                    {branchAnomalies.length>0 && (
+                      <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">
+                        ⚠ {branchAnomalies.length} شذوذ
+                      </span>
+                    )}
+                    {branchOp && <Badge className={STATUS_CFG[branchOp.status].cls}>{STATUS_CFG[branchOp.status].label}</Badge>}
+                    {!branchOp && <Badge className="bg-gray-100 text-gray-500">لم يُرفع بعد</Badge>}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{items.length} صنف · أُرسل {branchOp?.timeAgo||"—"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Btn size="sm" onClick={()=>setExpandedBranch(isExpanded?null:branch)}>
+                    {isExpanded?<ChevronUp size={12}/>:<ChevronDown size={12}/>} الأصناف
+                  </Btn>
+                  <Btn size="sm" variant="primary" onClick={()=>setDailyBranch(isDailyOpen?null:branch)}>
+                    <RefreshCw size={12}/> معادلة الجرد
+                  </Btn>
+                  {branchOp?.status==="pending" && <>
+                    <Btn size="sm" variant="success" onClick={()=>approveOp(branchOp.id)}><ThumbsUp size={12}/></Btn>
+                    <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(branchOp.id); setModal("reject"); }}><ThumbsDown size={12}/></Btn>
+                  </>}
                 </div>
               </div>
-              <span className="font-mono font-bold text-gray-800 text-sm">{fmtAmt(op.amount)} ر.س</span>
-              <span className="text-xs text-gray-400">أُرسل {op.timeAgo}</span>
-              <div className="flex gap-1.5">
-                <Btn size="sm"><Eye size={12}/> عرض</Btn>
-                {op.status==="pending" && <>
-                  <Btn size="sm" variant="success" onClick={()=>approveOp(op.id)}><ThumbsUp size={12}/></Btn>
-                  <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><ThumbsDown size={12}/></Btn>
-                </>}
-              </div>
+
+              {/* Inventory items drill-down — month comparison + anomaly detection */}
+              {isExpanded && items.length>0 && (
+                <div className="px-5 pb-4 bg-gray-50/50">
+                  <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs mt-2" dir="rtl">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-right">الصنف</th>
+                        <th className="px-3 py-2 text-center">الفئة</th>
+                        <th className="px-3 py-2 text-center">الشهر السابق</th>
+                        <th className="px-3 py-2 text-center">الشهر الحالي</th>
+                        <th className="px-3 py-2 text-center">الفرق</th>
+                        <th className="px-3 py-2 text-center">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {items.map((it,j)=>{
+                        const diff   = it.curr - it.prev;
+                        const pct    = it.prev>0 ? Math.round((diff/it.prev)*100) : 0;
+                        const isAnomaly = Math.abs(pct) > 100;
+                        return (
+                          <tr key={j} className={isAnomaly?"bg-red-50/40":""}>
+                            <td className="px-3 py-2 font-semibold text-gray-800">{it.item}</td>
+                            <td className="px-3 py-2 text-center text-gray-500">{it.cat}</td>
+                            <td className="px-3 py-2 text-center font-mono text-gray-500">{it.prev} {it.unit}</td>
+                            <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">{it.curr} {it.unit}</td>
+                            <td className={`px-3 py-2 text-center font-mono font-bold ${diff>0?"text-emerald-600":diff<0?"text-red-600":"text-gray-400"}`}>
+                              {diff>0?"+":""}{diff} ({pct>0?"+":""}{pct}%)
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {isAnomaly
+                                ? <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">⚠ شذوذ محتمل</span>
+                                : <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">طبيعي</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {branchAnomalies.length>0 && (
+                    <div className="mt-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                      <p className="text-xs text-red-700 font-semibold">⚠ تنبيه شذوذ — {branchAnomalies.length} أصناف تجاوزت 100% تغيير عن الشهر السابق. يُوصى بالمراجعة قبل الموافقة.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Daily inventory formula */}
+              {isDailyOpen && (
+                <div className="px-5 pb-4 bg-indigo-50/30">
+                  <p className="text-[11px] font-bold text-indigo-700 mb-2 pt-2">معادلة الجرد اليومي — {branch}</p>
+                  <div className="bg-white rounded-xl border border-indigo-100 p-4" dir="rtl">
+                    <div className="space-y-2 text-sm">
+                      {[
+                        {label:"رصيد الفتح (أمس)",         val:12400, sign:"",  cls:"text-gray-800" },
+                        {label:"+ مشتريات اليوم",           val:3200,  sign:"+", cls:"text-emerald-700"},
+                        {label:"− مبيعات اليوم",            val:8700,  sign:"−", cls:"text-red-600"  },
+                        {label:"± تحويلات بين الفروع",      val:-200,  sign:"±", cls:"text-amber-700" },
+                      ].map((row,k)=>(
+                        <div key={k} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
+                          <span className={`font-medium ${row.cls}`}>{row.label}</span>
+                          <span className={`font-mono font-bold ${row.cls}`}>{row.sign}{fmtAmt(Math.abs(row.val))} ر.س</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between pt-2 border-t-2 border-indigo-200 mt-1">
+                        <span className="font-bold text-gray-900">= رصيد الإغلاق المحاسبي</span>
+                        <span className="font-black text-indigo-700 font-mono">6,700 ر.س</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="font-medium text-gray-700">رصيد الجرد الفعلي</span>
+                        <span className="font-mono font-bold text-gray-800">6,340 ر.س</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 bg-red-50/60 -mx-2 px-2 rounded-lg">
+                        <span className="font-bold text-red-700">عجز مُكتشف</span>
+                        <span className="font-black text-red-700 font-mono">−360 ر.س</span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-indigo-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">تحميل العجز على موظف:</p>
+                      <div className="flex items-center gap-2">
+                        <input placeholder="رقم الموظف..." className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5" dir="rtl"/>
+                        <span className="text-xs text-gray-400 flex-shrink-0">→ الاسم يظهر تلقائياً</span>
+                        <Btn size="sm" variant="danger">تحميل</Btn>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))
-        }
-      </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -2755,8 +3387,8 @@ function AccShifts({ navigate, setModal }:PageProps) {
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="شفتات نشطة" value="4" sub="" icon={<span className="w-2 h-2 rounded-full bg-emerald-500"></span>} accent="emerald"/>
         <KpiCard label="شفت متأخر" value="1" sub="يحتاج متابعة" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="مبيعات الشفتات" value="43.4K ر.س" sub="" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="إجمالي الطلبات" value="282" sub="" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="متوسط مدة الشفت" value="4.2 ساعة" sub="هذا اليوم" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="إجمالي الطلبات" value="282" sub="هذا اليوم" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
       <div className="grid grid-cols-2 gap-4">
         {shifts.map((sh,i)=>(
@@ -2792,6 +3424,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
 
 function AccEmployees({ navigate, setModal }:PageProps) {
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
+  const [empFilter, setEmpFilter] = useState({empNum:"", branch:"", brand:""});
   const employees = [
     { name:"أحمد الشمري", role:"مشرف الشفت", branch:"الرياض - العليا", balance:1250, movements:[
       { date:"14 أكتوبر", desc:"عمولة الشفت الصباحي", type:"credit", amt:500 },
@@ -2813,11 +3446,48 @@ function AccEmployees({ navigate, setModal }:PageProps) {
   const totalCredit = emp.movements.filter(m=>m.type==="credit").reduce((s,m)=>s+m.amt,0);
   const totalDebit = emp.movements.filter(m=>m.type==="debit").reduce((s,m)=>s+m.amt,0);
 
+  const filteredEmps = employees.filter(e=>{
+    if(empFilter.empNum && !e.name.includes(empFilter.empNum) && !empFilter.empNum.match(/^\d+$/)) return true;
+    if(empFilter.branch && !e.branch.includes(empFilter.branch.replace("الكل",""))) return empFilter.branch==="الكل"||!empFilter.branch;
+    return true;
+  });
+
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">كشف حساب الموظفين</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-800">كشف حساب الموظفين</h2>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">رقم الموظف / الاسم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input value={empFilter.empNum} onChange={e=>setEmpFilter(p=>({...p,empNum:e.target.value}))} placeholder="ابحث باسم أو رقم الموظف..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={empFilter.branch} onChange={e=>setEmpFilter(p=>({...p,branch:e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل",...BRANCHES].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={empFilter.brand} onChange={e=>setEmpFilter(p=>({...p,brand:e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+        </div>
+        {(empFilter.empNum||empFilter.branch||empFilter.brand) && (
+          <button onClick={()=>setEmpFilter({empNum:"",branch:"",brand:""})} className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-5">
-        <Card title="قائمة الموظفين">
+        <Card title={`قائمة الموظفين (${employees.length})`}>
           <div className="divide-y divide-gray-100">
             {employees.map((e,i)=>(
               <button key={i} onClick={()=>setSelectedIdx(i)} className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-right ${selectedIdx===i?"bg-purple-50/50":""}`}>
@@ -2859,47 +3529,165 @@ function AccEmployees({ navigate, setModal }:PageProps) {
 }
 
 function AccCash({}: PageProps) {
+  const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
+  const [searchTerm,     setSearchTerm]     = useState("");
+  const [statusFilter,   setStatusFilter]   = useState("");
+
   const branches = [
-    { branch:"فرع الرياض - العليا", custodian:"أحمد الشمري", amount:5000, used:3200 },
-    { branch:"فرع جدة - الحمراء", custodian:"سعد القحطاني", amount:3000, used:2800 },
-    { branch:"فرع مكة - المعابدة", custodian:"فهد العتيبي", amount:4000, used:1500 },
+    { branch:"فرع الرياض - العليا", custodian:"أحمد الشمري", amount:5000, used:3200,
+      txns:[
+        {date:"14 أكت", desc:"صيانة طارئة — مكيف",      type:"debit",  amt:450},
+        {date:"14 أكت", desc:"مواد تنظيف",               type:"debit",  amt:180},
+        {date:"13 أكت", desc:"إيداع عهدة شهر أكتوبر",    type:"credit", amt:5000},
+        {date:"12 أكت", desc:"مستلزمات مكتبية",          type:"debit",  amt:95},
+        {date:"11 أكت", desc:"إصلاح معدات",              type:"debit",  amt:320},
+        {date:"10 أكت", desc:"أدوات خدمة",               type:"debit",  amt:210},
+        {date:"10 أكت", desc:"متفرقات",                   type:"debit",  amt:145},
+        {date:"09 أكت", desc:"مواد نظافة إضافية",        type:"debit",  amt:800},
+        {date:"09 أكت", desc:"قطع غيار",                 type:"debit",  amt:1000},
+      ],
+      pendingTxns:1
+    },
+    { branch:"فرع جدة - الحمراء", custodian:"سعد القحطاني", amount:3000, used:2800,
+      txns:[
+        {date:"14 أكت", desc:"إيداع عهدة شهر أكتوبر",    type:"credit", amt:3000},
+        {date:"13 أكت", desc:"صيانة شبكة كهرباء",        type:"debit",  amt:750},
+        {date:"12 أكت", desc:"مواد تنظيف وتعقيم",        type:"debit",  amt:420},
+        {date:"11 أكت", desc:"مستلزمات المطبخ",           type:"debit",  amt:850},
+        {date:"10 أكت", desc:"إصلاح باب طوارئ",          type:"debit",  amt:380},
+        {date:"09 أكت", desc:"متفرقات أخرى",             type:"debit",  amt:400},
+      ],
+      pendingTxns:2
+    },
+    { branch:"فرع مكة - المعابدة", custodian:"فهد العتيبي", amount:4000, used:1500,
+      txns:[
+        {date:"14 أكت", desc:"إيداع عهدة شهر أكتوبر",    type:"credit", amt:4000},
+        {date:"13 أكت", desc:"مواد تنظيف",               type:"debit",  amt:600},
+        {date:"12 أكت", desc:"صيانة مكيفات",             type:"debit",  amt:900},
+      ],
+      pendingTxns:0
+    },
   ];
+
+  const filtered = branches.filter(b=>{
+    if(searchTerm && !b.branch.includes(searchTerm) && !b.custodian.includes(searchTerm)) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2>
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي العهد" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount,0))} ر.س`} sub="" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} accent="orange"/>
-        <KpiCard label="المصروف" value={`${fmtAmt(branches.reduce((s,b)=>s+b.used,0))} ر.س`} sub="" icon={<Wallet size={18} className="text-red-600"/>} accent="red"/>
-        <KpiCard label="المتبقي" value={`${fmtAmt(branches.reduce((s,b)=>s+b.amount-b.used,0))} ر.س`} sub="" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2>
       </div>
-      <Card title="كشف العهود النقدية">
-        <table className="w-full" dir="rtl">
-          <thead className="bg-gray-50"><tr className="text-xs text-gray-500 font-semibold">
-            <th className="px-4 py-3 text-right">الفرع</th><th className="px-4 py-3 text-right">المسؤول</th>
-            <th className="px-4 py-3 text-center">إجمالي العهدة</th><th className="px-4 py-3 text-center">المصروف</th>
-            <th className="px-4 py-3 text-center">المتبقي</th><th className="px-4 py-3 text-center">إجراء</th>
-          </tr></thead>
-          <tbody className="divide-y divide-gray-100">
-            {branches.map((b,i)=>{
-              const rem=b.amount-b.used;
-              const pct=Math.round(b.used/b.amount*100);
-              return (
-                <tr key={i} className={`hover:bg-gray-50 ${rem<500?"bg-red-50/30":""}`}>
-                  <td className="px-4 py-3 font-semibold text-sm text-gray-800">{b.branch}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{b.custodian}</td>
-                  <td className="px-4 py-3 text-center font-mono font-semibold">{fmtAmt(b.amount)} ر.س</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="font-mono text-sm text-red-600">{fmtAmt(b.used)} ر.س</span>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1"><div className="bg-red-400 h-1.5 rounded-full" style={{width:`${pct}%`}}></div></div>
-                  </td>
-                  <td className={`px-4 py-3 text-center font-mono font-bold ${rem<500?"text-red-600":"text-emerald-600"}`}>{fmtAmt(rem)} ر.س</td>
-                  <td className="px-4 py-3 text-center"><Btn size="sm"><Eye size={12}/> عرض</Btn></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Card>
+
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="عدد العهود النشطة" value={String(branches.length)} sub="فروع لديها عهدة مفتوحة" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} accent="orange"/>
+        <KpiCard label="طلبات صرف معلقة" value={String(branches.reduce((s,b)=>s+b.pendingTxns,0))} sub="بانتظار المراجعة والموافقة" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="عهود قريبة من النفاد" value={String(branches.filter(b=>b.amount-b.used<500).length)} sub="أقل من 500 ر.س متبقٍ" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث — الفرع أو المسؤول</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400"/>
+              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="اسم الفرع أو اسم أمين الصندوق..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">حالة العهدة</label>
+            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","قريبة من النفاد","طلبات معلقة","نشطة"].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        {(searchTerm||statusFilter) && (
+          <button onClick={()=>{ setSearchTerm(""); setStatusFilter(""); }} className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
+
+      {/* Custodian rows with click-to-expand transaction list */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 bg-gray-50/60 border-b border-gray-100">
+          <p className="font-bold text-gray-900 text-sm">كشف العهود النقدية — اضغط على فرع لعرض سجل المعاملات</p>
+        </div>
+        {filtered.map((b,i)=>{
+          const rem    = b.amount - b.used;
+          const pct    = Math.round(b.used/b.amount*100);
+          const isLow  = rem < 500;
+          const isOpen = expandedBranch===b.branch;
+          return (
+            <div key={i} className="border-b border-gray-100 last:border-0">
+              {/* Summary row */}
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 ${isOpen?"bg-orange-50/20":""} ${isLow?"border-r-4 border-r-red-400":""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{b.branch}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-xs text-gray-500">{b.custodian}</span>
+                    {isLow && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">⚠ قريبة من النفاد</span>}
+                    {b.pendingTxns>0 && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">{b.pendingTxns} طلب معلق</span>}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-32">
+                      <div className={`h-1.5 rounded-full ${pct>85?"bg-red-400":"bg-orange-400"}`} style={{width:`${pct}%`}}></div>
+                    </div>
+                    <span className="text-xs text-gray-400">{pct}% مُصرَف</span>
+                    <span className={`text-xs font-bold font-mono ${isLow?"text-red-600":"text-emerald-600"}`}>{fmtAmt(rem)} ر.س متبقٍ</span>
+                  </div>
+                </div>
+                <Btn size="sm" onClick={()=>setExpandedBranch(isOpen?null:b.branch)}>
+                  {isOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>} المعاملات
+                </Btn>
+              </div>
+
+              {/* Transaction drill-down */}
+              {isOpen && (
+                <div className="px-5 pb-4 bg-gray-50/30">
+                  <p className="text-[11px] font-bold text-gray-500 mb-2 pt-2">سجل معاملات العهدة — {b.custodian}</p>
+                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <table className="w-full text-xs" dir="rtl">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">التاريخ</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">البيان</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600">النوع</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {b.txns.map((t,k)=>(
+                          <tr key={k} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-gray-500">{t.date}</td>
+                            <td className="px-3 py-2 font-medium text-gray-800">{t.desc}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type==="credit"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700"}`}>
+                                {t.type==="credit"?"إيداع":"صرف"}
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2 text-center font-mono font-bold ${t.type==="credit"?"text-emerald-600":"text-red-600"}`}>
+                              {t.type==="credit"?"+":"-"}{fmtAmt(t.amt)} ر.س
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                        <tr>
+                          <td colSpan={2} className="px-3 py-2 font-bold text-gray-700">الرصيد الحالي</td>
+                          <td></td>
+                          <td className={`px-3 py-2 text-center font-black font-mono ${isLow?"text-red-600":"text-emerald-700"}`}>{fmtAmt(rem)} ر.س</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
