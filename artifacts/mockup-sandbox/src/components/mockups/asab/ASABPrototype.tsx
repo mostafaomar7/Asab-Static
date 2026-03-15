@@ -12,6 +12,13 @@ import {
 // ─────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────
+interface AdminUserData {
+  name: string; email: string; phone: string; role: string;
+  brands: string[]; restaurants: string[]; branches: string[];
+  modules: string[]; reportsTo: string;
+  scope: "all" | "brand" | "restaurant" | "branch";
+  status: "active" | "inactive";
+}
 type RoleId = "admin" | "head" | "accountant" | "branch" | "procurement" | "supplier";
 type PageId = string;
 type OpStatus = "pending" | "approved" | "rejected" | "final-approved";
@@ -722,51 +729,247 @@ function RejectModal({ opId, onReject, onClose }:{ opId:string; onReject:(id:str
 // ─────────────────────────────────────────────
 // ADD USER MODAL
 // ─────────────────────────────────────────────
-function AddUserModal({ onAdd, onClose }:{ onAdd:(user:{name:string;email:string;role:string;restaurant:string})=>void; onClose:()=>void }) {
-  const [name, setName] = useState("");
+const BRANDS_CATALOG = [
+  { id:"reem",     name:"علامة الريم",         color:"#7C3AED", abbr:"ر", restaurants:[
+    { id:"reem-1", name:"مطعم الريم — العليا",  branches:["فرع العليا الرئيسي","فرع النزهة","فرع الملقا"] },
+    { id:"reem-2", name:"مطعم الريم — جدة",    branches:["فرع الحمراء","فرع العزيزية"] },
+  ]},
+  { id:"herfy",    name:"علامة هرفي",           color:"#D97706", abbr:"هـ", restaurants:[
+    { id:"herfy-1",name:"هرفي — الرياض",        branches:["فرع العليا","فرع الإزدهار","فرع السلي","فرع الدوبي"] },
+    { id:"herfy-2",name:"هرفي — جدة",           branches:["فرع الكورنيش","فرع بحرة"] },
+    { id:"herfy-3",name:"هرفي — مكة",           branches:["فرع المعابدة","فرع العزيزية"] },
+  ]},
+  { id:"mcd",      name:"ماكدونالدز",           color:"#DC2626", abbr:"م", restaurants:[
+    { id:"mcd-1",  name:"ماكدونالدز — الرياض",  branches:["فرع الدبلوماسي","فرع النخيل مول","فرع هايبر بنده"] },
+    { id:"mcd-2",  name:"ماكدونالدز — الدمام",  branches:["فرع الكورنيش","فرع الدانة مول"] },
+  ]},
+  { id:"broasted", name:"بروستد الوطني",         color:"#059669", abbr:"ب", restaurants:[
+    { id:"br-1",   name:"بروستد — الطائف",       branches:["فرع المحطة","فرع الشفا"] },
+  ]},
+];
+
+const ALL_MODULES = ["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب","العهد النقدية","الأصول الثابتة"];
+
+function AddUserModal({ onAdd, onClose }:{ onAdd:(user:AdminUserData)=>void; onClose:()=>void }) {
+  const [step, setStep] = useState(0);
+  const [name, setName]   = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("محاسب");
-  const [restaurant, setRestaurant] = useState("مطعم الريم");
-  const canSubmit = name.trim() !== "" && email.trim() !== "";
+  const [phone, setPhone] = useState("");
+  const [role, setRole]   = useState("محاسب");
+  const [reportsTo, setReportsTo] = useState("");
+  const [selBrands, setSelBrands]   = useState<string[]>([]);
+  const [selRests,  setSelRests]    = useState<string[]>([]);
+  const [selBranches, setSelBranches] = useState<string[]>([]);
+  const [selModules, setSelModules] = useState<string[]>(["المبيعات","المصروفات"]);
+
+  const isBranchManager   = role === "مدير فرع";
+  const isChief           = role === "رئيس حسابات";
+  const isMorrad          = role === "مورد";
+
+  const availableRests = BRANDS_CATALOG.filter(b=>selBrands.includes(b.name)).flatMap(b=>b.restaurants);
+  const availableBranches = availableRests.filter(r=>selRests.includes(r.name)).flatMap(r=>r.branches);
+
+  const scopeFor = (): AdminUserData["scope"] => {
+    if(selBranches.length>0) return "branch";
+    if(selRests.length>0)    return "restaurant";
+    if(selBrands.length>0)   return "brand";
+    return "all";
+  };
+
+  const toggleArr = (arr:string[], val:string, setter:(v:string[])=>void) => {
+    setter(arr.includes(val) ? arr.filter(x=>x!==val) : [...arr, val]);
+  };
+
+  const steps = ["المعلومات الأساسية","التخصيص والنطاق","الموديولات والتسلسل"];
+  const canNext0 = name.trim()!=="";
+  const canNext1 = isMorrad || selBrands.length>0;
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-[560px] max-w-full" dir="rtl">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800 text-base">إضافة مستخدم جديد</h3>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" dir="rtl">
+      <div className="bg-white rounded-2xl shadow-2xl w-[640px] max-w-full flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-gray-800 text-base">إضافة مستخدم جديد</h3>
+            <p className="text-xs text-gray-400 mt-0.5">الخطوة {step+1} من {steps.length} — {steps[step]}</p>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
         </div>
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs font-semibold text-gray-600 block mb-1">الاسم الكامل</label>
-              <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="أحمد محمد السعد"/></div>
-            <div><label className="text-xs font-semibold text-gray-600 block mb-1">البريد الإلكتروني</label>
-              <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="ahmed@asab.sa"/></div>
-            <div><label className="text-xs font-semibold text-gray-600 block mb-1">الدور</label>
-              <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option>محاسب</option><option>رئيس حسابات</option><option>مدير فرع</option><option>مدير مشتريات</option><option>مورد</option>
-              </select></div>
-            <div><label className="text-xs font-semibold text-gray-600 block mb-1">المطعم</label>
-              <select value={restaurant} onChange={e=>setRestaurant(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option>مطعم الريم</option><option>مطعم هرفي</option><option>ماكدونالدز السعودية</option><option>مطعم بروستد الوطني</option>
-              </select></div>
-          </div>
-          <div><label className="text-xs font-semibold text-gray-600 block mb-1.5">الموديولات المخصصة</label>
-            <div className="grid grid-cols-4 gap-2">
-              {["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب","العهد النقدية","الأصول"].map(m=>(
-                <label key={m} className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                  <input type="checkbox" defaultChecked={["المبيعات","المصروفات"].includes(m)} className="rounded"/> {m}
-                </label>
-              ))}
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-0 px-6 pt-4">
+          {steps.map((s,i)=>(
+            <div key={i} className="flex items-center flex-1 last:flex-none">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${i===step?"bg-purple-600 text-white":i<step?"bg-emerald-50 text-emerald-700":"bg-gray-100 text-gray-400"}`}>
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${i===step?"bg-white/30":i<step?"bg-emerald-200":"bg-gray-200"}`}>{i<step?"✓":i+1}</span>
+                <span className="hidden sm:inline">{s}</span>
+              </div>
+              {i<steps.length-1 && <div className={`flex-1 h-0.5 mx-1 ${i<step?"bg-emerald-200":"bg-gray-200"}`}/>}
             </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button onClick={()=>canSubmit&&onAdd({name,email,role,restaurant})}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${canSubmit?"bg-purple-600 text-white hover:bg-purple-700":"bg-gray-200 text-gray-400 cursor-not-allowed"}`}
-              disabled={!canSubmit}>
-              ✓ إضافة المستخدم
-            </button>
-            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">إلغاء</button>
-          </div>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+
+          {/* STEP 0 — Basic info */}
+          {step===0 && <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs font-semibold text-gray-600 block mb-1">الاسم الكامل <span className="text-red-500">*</span></label>
+                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" placeholder="أحمد محمد السعد"/>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">البريد الإلكتروني</label>
+                <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" placeholder="ahmed@asab.sa"/>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">رقم الجوال</label>
+                <input value={phone} onChange={e=>setPhone(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" placeholder="05XXXXXXXX"/>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-2">نوع الدور <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  {v:"محاسب",          desc:"مراجعة عمليات المطاعم المخصصة له",  color:"blue"},
+                  {v:"رئيس حسابات",    desc:"الإشراف على المحاسبين والاعتماد",    color:"amber"},
+                  {v:"مدير فرع",       desc:"رفع بيانات فرع محدد",               color:"emerald"},
+                  {v:"مدير مشتريات",  desc:"إدارة طلبات الشراء والموردين",       color:"purple"},
+                  {v:"مورد",           desc:"استقبال طلبات التوريد",              color:"orange"},
+                  {v:"أدمن",           desc:"إدارة كاملة للنظام",                color:"red"},
+                ].map(({v,desc,color})=>(
+                  <button key={v} onClick={()=>setRole(v)}
+                    className={`p-3 rounded-xl border-2 text-right transition-all ${role===v?`border-${color}-400 bg-${color}-50`:"border-gray-100 hover:border-gray-300"}`}>
+                    <p className={`text-xs font-bold ${role===v?`text-${color}-700`:"text-gray-700"}`}>{v}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>}
+
+          {/* STEP 1 — Assignment */}
+          {step===1 && <>
+            {isMorrad
+              ? <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
+                  <p className="font-semibold">المورد لا يحتاج تخصيص مطاعم</p>
+                  <p className="text-xs mt-1 text-amber-500">يتعامل المورد مع طلبات التوريد المرسلة إليه مباشرةً من مدير المشتريات.</p>
+                </div>
+              : <>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-2">تخصيص العلامات التجارية <span className="text-red-500">*</span></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {BRANDS_CATALOG.map(b=>(
+                      <label key={b.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${selBrands.includes(b.name)?"border-purple-400 bg-purple-50":"border-gray-100 hover:border-gray-300"}`}>
+                        <input type="checkbox" checked={selBrands.includes(b.name)} onChange={()=>{ toggleArr(selBrands,b.name,setSelBrands); setSelRests([]); setSelBranches([]); }} className="sr-only"/>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{background:b.color}}>{b.abbr}</div>
+                        <span className="text-sm font-semibold text-gray-700">{b.name}</span>
+                        {selBrands.includes(b.name) && <CheckCircle2 size={14} className="text-purple-500 mr-auto"/>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {availableRests.length>0 && !isChief && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-2">
+                      {isBranchManager?"اختر المطعم (واحد فقط)":"تخصيص المطاعم"}
+                    </label>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {availableRests.map(r=>(
+                        <label key={r.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all ${selRests.includes(r.name)?"border-purple-300 bg-purple-50":"border-gray-100 hover:border-gray-300"}`}>
+                          <input type="checkbox" checked={selRests.includes(r.name)} onChange={()=>{ if(isBranchManager){ setSelRests([r.name]); setSelBranches([]); } else toggleArr(selRests,r.name,setSelRests); }} className="sr-only"/>
+                          <span className="text-sm text-gray-700">{r.name}</span>
+                          {selRests.includes(r.name) && <CheckCircle2 size={13} className="text-purple-400 mr-auto"/>}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isBranchManager && availableBranches.length>0 && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-2">تخصيص الفرع (واحد فقط)</label>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {availableBranches.map(br=>(
+                        <label key={br} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all ${selBranches.includes(br)?"border-emerald-300 bg-emerald-50":"border-gray-100 hover:border-gray-300"}`}>
+                          <input type="radio" name="branch" checked={selBranches.includes(br)} onChange={()=>setSelBranches([br])} className="sr-only"/>
+                          <span className="text-sm text-gray-700">{br}</span>
+                          {selBranches.includes(br) && <CheckCircle2 size={13} className="text-emerald-400 mr-auto"/>}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isChief && selBrands.length>0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                    <p className="font-semibold mb-1">رئيس الحسابات — نطاق العلامات التجارية</p>
+                    <p>سيتمكن من الإشراف على جميع المطاعم والمحاسبين ضمن العلامات التجارية المحددة.</p>
+                  </div>
+                )}
+              </>
+            }
+          </>}
+
+          {/* STEP 2 — Modules & Hierarchy */}
+          {step===2 && <>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-2">الموديولات المتاحة</label>
+              <div className="grid grid-cols-4 gap-2">
+                {ALL_MODULES.map(m=>(
+                  <label key={m} className={`flex items-center gap-1.5 p-2.5 rounded-lg border cursor-pointer transition-all text-xs ${selModules.includes(m)?"border-purple-300 bg-purple-50 text-purple-700 font-semibold":"border-gray-100 text-gray-600 hover:border-gray-300"}`}>
+                    <input type="checkbox" checked={selModules.includes(m)} onChange={()=>toggleArr(selModules,m,setSelModules)} className="sr-only"/>
+                    {selModules.includes(m) && <CheckCircle2 size={12} className="text-purple-500 flex-shrink-0"/>}
+                    {!selModules.includes(m) && <div className="w-3 h-3 border border-gray-300 rounded flex-shrink-0"/>}
+                    {m}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {(role==="محاسب"||role==="مدير فرع") && (
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">يرفع تقاريره إلى</label>
+                <select value={reportsTo} onChange={e=>setReportsTo(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="">— اختر المسؤول المباشر —</option>
+                  <option>خالد العمري — رئيس حسابات</option>
+                  <option>أحمد محمد الشهري — محاسب</option>
+                </select>
+              </div>
+            )}
+
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <p className="text-xs font-bold text-gray-600 mb-2">ملخص التخصيص</p>
+              <div className="space-y-1 text-xs text-gray-600">
+                <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">الاسم:</span><span className="font-medium">{name||"—"}</span></div>
+                <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">الدور:</span><span className="font-medium">{role}</span></div>
+                <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">العلامات:</span><span className="font-medium">{selBrands.join("، ")||"—"}</span></div>
+                {selRests.length>0 && <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">المطاعم:</span><span className="font-medium">{selRests.join("، ")}</span></div>}
+                {selBranches.length>0 && <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">الفرع:</span><span className="font-medium">{selBranches.join("، ")}</span></div>}
+                <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">الموديولات:</span><span className="font-medium">{selModules.length} موديول</span></div>
+                <div className="flex gap-2"><span className="text-gray-400 w-20 flex-shrink-0">النطاق:</span><span className="font-medium capitalize">{scopeFor()}</span></div>
+              </div>
+            </div>
+          </>}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+          {step>0 && <button onClick={()=>setStep(s=>s-1)} className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">← السابق</button>}
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 mr-auto">إلغاء</button>
+          {step<2
+            ? <button onClick={()=>{if((step===0&&canNext0)||(step===1&&canNext1))setStep(s=>s+1);}}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors ${ (step===0&&canNext0)||(step===1&&canNext1) ? "bg-purple-600 text-white hover:bg-purple-700":"bg-gray-200 text-gray-400 cursor-not-allowed"}`}>
+                التالي ←
+              </button>
+            : <button onClick={()=>{ if(!name.trim()) return;
+                onAdd({ name,email,phone,role,brands:selBrands,restaurants:selRests,branches:selBranches,modules:selModules,reportsTo,scope:scopeFor(),status:"active" });
+              }} className="px-6 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700">
+                ✓ إضافة المستخدم
+              </button>
+          }
         </div>
       </div>
     </div>
@@ -871,13 +1074,14 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
   setModal:(id:string|null)=>void; setDetailId:(id:string|null)=>void;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [adminUsers, setAdminUsers] = useState([
-    { name:"أحمد محمد الشهري", email:"ahmed@asab.sa",  role:"محاسب",          restaurant:"مطعم الريم",          branches:20, status:"active" },
-    { name:"سارة العمري",       email:"sara@asab.sa",   role:"محاسب",          restaurant:"مطعم هرفي",           branches:20, status:"active" },
-    { name:"خالد العمري",       email:"khaled@asab.sa", role:"رئيس حسابات",    restaurant:"جميع المطاعم",         branches:100, status:"active" },
-    { name:"أحمد الشمري",       email:"shammari@asab.sa",role:"مدير فرع",      restaurant:"مطعم الريم",          branches:1,  status:"active" },
-    { name:"محمد الحربي",       email:"harbi@asab.sa",  role:"محاسب",          restaurant:"ماكدونالدز السعودية", branches:20, status:"inactive" },
-    { name:"فاطمة السالم",      email:"fatima@asab.sa", role:"محاسب",          restaurant:"مطعم بروستد الوطني", branches:20, status:"active" },
+  const [adminUsers, setAdminUsers] = useState<AdminUserData[]>([
+    { name:"أحمد محمد الشهري", email:"ahmed@asab.sa",   phone:"0501234567", role:"محاسب",         brands:["علامة الريم"],                           restaurants:["مطعم الريم — العليا","مطعم الريم — جدة"], branches:[],                     modules:["المبيعات","المصروفات","المشتريات","المخزون"], reportsTo:"خالد العمري",  scope:"restaurant", status:"active" },
+    { name:"سارة العمري",      email:"sara@asab.sa",    phone:"0507654321", role:"محاسب",         brands:["علامة هرفي"],                             restaurants:["هرفي — الرياض"],                          branches:[],                     modules:["المبيعات","المصروفات","المخزون","الشفتات"],    reportsTo:"خالد العمري",  scope:"restaurant", status:"active" },
+    { name:"خالد العمري",      email:"khaled@asab.sa",  phone:"0509876543", role:"رئيس حسابات",  brands:["علامة الريم","علامة هرفي","ماكدونالدز"],  restaurants:[],                                          branches:[],                     modules:["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب","العهد","الأصول"], reportsTo:"",  scope:"brand",      status:"active" },
+    { name:"أحمد الشمري",      email:"shammari@asab.sa",phone:"0503456789", role:"مدير فرع",     brands:["علامة الريم"],                            restaurants:["مطعم الريم — العليا"],                     branches:["فرع العليا الرئيسي"], modules:["المبيعات","المصروفات"],                         reportsTo:"أحمد محمد الشهري", scope:"branch", status:"active" },
+    { name:"محمد الحربي",      email:"harbi@asab.sa",   phone:"0505678901", role:"محاسب",         brands:["ماكدونالدز"],                             restaurants:["ماكدونالدز — الرياض"],                     branches:[],                     modules:["المبيعات","المصروفات","المشتريات"],              reportsTo:"خالد العمري",  scope:"restaurant", status:"inactive" },
+    { name:"فاطمة السالم",     email:"fatima@asab.sa",  phone:"0501122334", role:"محاسب",         brands:["بروستد الوطني"],                          restaurants:["بروستد — الطائف"],                         branches:[],                     modules:["المبيعات","المصروفات"],                         reportsTo:"خالد العمري",  scope:"restaurant", status:"active" },
+    { name:"فهد الحربي",       email:"fahad@asab.sa",   phone:"0509988776", role:"مدير مشتريات", brands:["علامة الريم","علامة هرفي"],               restaurants:[],                                          branches:[],                     modules:["المشتريات"],                                    reportsTo:"",          scope:"brand",      status:"active" },
   ]);
 
   const role = state.role!;
@@ -934,7 +1138,7 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
       {/* Add User Modal */}
       {state.modal==="add-user" && (
         <AddUserModal
-          onAdd={u=>{ setAdminUsers(prev=>[...prev,{...u,branches:u.role==="مدير فرع"?1:20,status:"active"}]); setModal(null); }}
+          onAdd={u=>{ setAdminUsers(prev=>[...prev,u]); setModal(null); }}
           onClose={()=>setModal(null)}/>
       )}
 
@@ -4285,190 +4489,547 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
 // ADMIN PAGES
 // ════════════════════════════════════════════════════════════
 function AdminOverview({ navigate, setModal }:PageProps) {
+  const totalRests   = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.length,0);
+  const totalBranches = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.reduce((ss,r)=>ss+r.branches.length,0),0);
+  const expiringBrands = BRANDS_DATA.filter(b=>b.subStatus==="warning"||b.subStatus==="danger"||b.subStatus==="expired");
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">لوحة الأدمن 🧠</h2><p className="text-gray-400 text-sm mt-0.5">إدارة شاملة — المستخدمون، المطاعم، الاشتراكات</p></div>
-        <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> إضافة مستخدم</Btn>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">نظرة عامة على النظام</h2>
+          <p className="text-gray-400 text-sm mt-0.5">منصة SaaS متعددة المستأجرين — علامات تجارية · مطاعم · مستخدمون</p>
+        </div>
+        <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> مستخدم جديد</Btn>
       </div>
+
+      {/* Top tier KPIs */}
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="مطاعم نشطة" value="25" sub="+2 هذا الشهر" icon={<span className="text-xl">🏪</span>} accent="purple"/>
-        <KpiCard label="فروع نشطة" value="100" sub="+5 هذا الشهر" icon={<Home size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="مستخدمون نشطون" value="2,450" sub="" icon={<Users size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="وقت التشغيل" value="99.9%" sub="آخر 30 يوم" icon={<span className="text-xl">⚡</span>} accent="amber"/>
+        <KpiCard label="علامات تجارية" value={String(BRANDS_DATA.length)} sub="4 علامات نشطة" icon={<span className="text-xl font-bold text-purple-600">B</span>} accent="purple"/>
+        <KpiCard label="مطاعم وفروع"   value={`${totalRests} / ${totalBranches}`} sub="مطعم / فرع" icon={<Home size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="مستخدمون نشطون" value="7" sub="5 محاسبين · 1 رئيس" icon={<Users size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="تحتاج تجديد"    value={String(expiringBrands.length)} sub="علامات تجارية" icon={<AlertTriangle size={18} className="text-amber-500"/>} accent="amber"/>
       </div>
+
+      {/* Brand hierarchy overview */}
       <div className="grid grid-cols-2 gap-5">
-        <Card title="إجراءات سريعة">
-          <div className="p-4 grid grid-cols-3 gap-3">
-            {[{icon:"👤",label:"إضافة محاسب",a:()=>setModal("add-user")},{icon:"🏪",label:"إضافة مطعم",a:()=>navigate("admin-restaurants")},{icon:"📊",label:"توزيع المحاسبين",a:()=>navigate("admin-users")},{icon:"💳",label:"الاشتراكات",a:()=>navigate("admin-subscriptions")},{icon:"📋",label:"سجل النشاطات",a:()=>navigate("admin-audit")},{icon:"🔐",label:"الصلاحيات",a:()=>navigate("admin-permissions")}].map((a,i)=>(
-              <button key={i} onClick={a.a} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all">
-                <span className="text-2xl">{a.icon}</span>
-                <span className="text-xs font-medium text-gray-600 text-center">{a.label}</span>
-              </button>
-            ))}
+        <Card title="هيكل العلامات التجارية" actions={<button onClick={()=>navigate("admin-restaurants")} className="text-xs text-purple-600 hover:underline">إدارة كاملة</button>}>
+          <div className="divide-y divide-gray-50">
+            {BRANDS_DATA.map(b=>{
+              const branchCount = b.restaurants.reduce((s,r)=>s+r.branches.length,0);
+              const subBadge = b.subStatus==="active"?"bg-emerald-50 text-emerald-600":b.subStatus==="expired"?"bg-red-50 text-red-600":"bg-amber-50 text-amber-600";
+              return (
+                <div key={b.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50/50 cursor-pointer" onClick={()=>navigate("admin-restaurants")}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{background:b.color}}>{b.abbr}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-800">{b.name}</p>
+                    <p className="text-xs text-gray-400">{b.restaurants.length} مطاعم · {branchCount} فروع · باقة {b.plan}</p>
+                  </div>
+                  <Badge className={`text-[10px] ${subBadge}`}>{b.subStatus==="active"?"نشط":b.subStatus==="expired"?"منتهي":"ينتهي قريباً"}</Badge>
+                  <ChevronRight size={13} className="text-gray-300"/>
+                </div>
+              );
+            })}
           </div>
         </Card>
-        <Card title="تنبيهات الاشتراكات" actions={<button onClick={()=>navigate("admin-subscriptions")} className="text-xs text-purple-600 hover:underline">إدارة</button>}>
-          <div className="p-4 space-y-3">
-            {[{name:"مطعم هرفي",days:32,cls:"border-gray-200"},{name:"ماكدونالدز السعودية",days:7,cls:"border-amber-200 bg-amber-50/50"},{name:"مطعم بروستد الوطني",days:-5,cls:"border-red-200 bg-red-50/50"}].map((s,i)=>(
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border ${s.cls}`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${s.days<0?"bg-red-100":"bg-amber-100"}`}>{s.days<0?"✕":"⚠"}</div>
-                <div className="flex-1"><p className="font-semibold text-sm text-gray-800">{s.name}</p>
-                  <p className={`text-xs ${s.days<0?"text-red-600":"text-amber-600"}`}>{s.days<0?`منتهي منذ ${Math.abs(s.days)} أيام`:`ينتهي خلال ${s.days} يوم`}</p></div>
-                <Btn size="sm" variant={s.days<0?"danger":"amber"}>{s.days<0?"تفعيل":"تجديد"}</Btn>
+
+        <div className="space-y-4">
+          <Card title="إجراءات سريعة">
+            <div className="p-4 grid grid-cols-3 gap-2.5">
+              {[{icon:"👤",label:"مستخدم جديد",     a:()=>setModal("add-user")},
+                {icon:"🏪",label:"مطعم جديد",       a:()=>navigate("admin-restaurants")},
+                {icon:"👥",label:"توزيع المحاسبين", a:()=>navigate("admin-users")},
+                {icon:"💳",label:"الاشتراكات",       a:()=>navigate("admin-subscriptions")},
+                {icon:"🔑",label:"الصلاحيات",        a:()=>navigate("admin-permissions")},
+                {icon:"📋",label:"سجل النشاطات",    a:()=>navigate("admin-audit")},
+              ].map((a,i)=>(
+                <button key={i} onClick={a.a} className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all">
+                  <span className="text-xl">{a.icon}</span>
+                  <span className="text-[10px] font-medium text-gray-600 text-center leading-tight">{a.label}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {expiringBrands.length>0 && (
+            <Card title="⚠ تنبيهات الاشتراكات" actions={<button onClick={()=>navigate("admin-subscriptions")} className="text-xs text-purple-600 hover:underline">إدارة</button>}>
+              <div className="px-4 pb-3 space-y-2">
+                {expiringBrands.map((b,i)=>(
+                  <div key={i} className={`flex items-center gap-3 p-2.5 rounded-xl border ${b.subStatus==="expired"?"border-red-200 bg-red-50/50":"border-amber-200 bg-amber-50/50"}`}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{background:b.color}}>{b.abbr}</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-xs text-gray-800">{b.name}</p>
+                      <p className={`text-[10px] ${b.subStatus==="expired"?"text-red-600":"text-amber-600"}`}>{b.subStatus==="expired"?`منتهي منذ ${Math.abs(b.daysLeft)} يوم`:`ينتهي خلال ${b.daysLeft} يوم`}</p>
+                    </div>
+                    <button onClick={()=>navigate("admin-subscriptions")} className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold ${b.subStatus==="expired"?"bg-red-600 text-white":"bg-amber-100 text-amber-700 border border-amber-200"}`}>
+                      {b.subStatus==="expired"?"تفعيل":"تجديد"}
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApproveOp, bulkApprove, users, setUsers }:PageProps&{
-  users:{name:string;email:string;role:string;restaurant:string;branches:number;status:string}[];
+  users: AdminUserData[];
   setUsers:(v:any)=>void;
 }) {
-  const [search, setSearch] = useState("");
+  const [search,     setSearch]     = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const roleCls: Record<string,string> = {"محاسب":"bg-blue-50 text-blue-700","رئيس حسابات":"bg-amber-50 text-amber-700","مدير فرع":"bg-emerald-50 text-emerald-700","أدمن":"bg-red-50 text-red-700"};
+  const [brandFilter,setBrandFilter]= useState("");
+  const [expandedRow,setExpandedRow]= useState<string|null>(null);
+
+  const roleCls: Record<string,string> = {
+    "محاسب":"bg-blue-50 text-blue-700 border-blue-200",
+    "رئيس حسابات":"bg-amber-50 text-amber-700 border-amber-200",
+    "مدير فرع":"bg-emerald-50 text-emerald-700 border-emerald-200",
+    "مدير مشتريات":"bg-purple-50 text-purple-700 border-purple-200",
+    "مورد":"bg-orange-50 text-orange-700 border-orange-200",
+    "أدمن":"bg-red-50 text-red-700 border-red-200",
+  };
+  const scopeLabel: Record<string,string> = { all:"كامل", brand:"علامة تجارية", restaurant:"مطعم", branch:"فرع" };
+  const scopeCls:   Record<string,string> = { all:"bg-gray-100 text-gray-600", brand:"bg-purple-50 text-purple-600", restaurant:"bg-blue-50 text-blue-600", branch:"bg-emerald-50 text-emerald-600" };
+
+  const allBrands = Array.from(new Set(users.flatMap(u=>u.brands)));
   const shown = users.filter(u=>{
     if(search && !u.name.includes(search) && !u.email.includes(search)) return false;
     if(roleFilter && u.role!==roleFilter) return false;
+    if(brandFilter && !u.brands.includes(brandFilter)) return false;
     return true;
   });
-  const deleteUser = (email:string) => setUsers((prev:any[])=>prev.filter(u=>u.email!==email));
+  const deleteUser = (email:string) => setUsers((prev:AdminUserData[])=>prev.filter(u=>u.email!==email));
+
+  const byRole: Record<string,number> = {};
+  users.forEach(u=>{ byRole[u.role]=(byRole[u.role]||0)+1; });
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">إدارة المستخدمين</h2><p className="text-gray-400 text-sm mt-0.5">{users.length} مستخدم</p></div>
-        <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> إضافة مستخدم</Btn>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">إدارة المستخدمين</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{users.length} مستخدم — متعدد العلامات التجارية والمطاعم</p>
+        </div>
+        <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> مستخدم جديد</Btn>
       </div>
-      <Card title="المستخدمون" actions={
+
+      {/* Role breakdown */}
+      <div className="grid grid-cols-6 gap-3">
+        {[["محاسب","blue"],["رئيس حسابات","amber"],["مدير فرع","emerald"],["مدير مشتريات","purple"],["مورد","orange"],["أدمن","red"]].map(([r,c])=>(
+          <div key={r} className={`bg-white rounded-xl border border-gray-100 p-3 text-center cursor-pointer hover:border-${c}-200 transition-all ${roleFilter===r?`border-${c}-300 bg-${c}-50/40`:""}`}
+            onClick={()=>setRoleFilter(roleFilter===r?"":r)}>
+            <p className={`text-xl font-bold text-${c}-600`}>{byRole[r]||0}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{r}</p>
+          </div>
+        ))}
+      </div>
+
+      <Card title="قائمة المستخدمين" actions={
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-1.5 bg-white">
             <Search size={13} className="text-gray-400"/>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث..." className="text-xs outline-none text-gray-600 w-28"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث بالاسم..." className="text-xs outline-none text-gray-600 w-28"/>
           </div>
           <select value={roleFilter} onChange={e=>setRoleFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white">
-            <option value="">جميع الأدوار</option><option>محاسب</option><option>رئيس حسابات</option><option>مدير فرع</option>
+            <option value="">جميع الأدوار</option>
+            {["محاسب","رئيس حسابات","مدير فرع","مدير مشتريات","مورد","أدمن"].map(r=><option key={r}>{r}</option>)}
+          </select>
+          <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white">
+            <option value="">جميع العلامات</option>
+            {allBrands.map(b=><option key={b}>{b}</option>)}
           </select>
         </div>
       }>
         {shown.length===0
-          ? <EmptyState icon="👤" title="لا توجد نتائج" desc="جرب البحث بكلمة مختلفة"/>
-          : <table className="w-full" dir="rtl">
-              <thead className="bg-gray-50"><tr className="text-xs text-gray-500 font-semibold">
-                <th className="px-4 py-3 text-right">المستخدم</th><th className="px-4 py-3 text-right">الدور</th>
-                <th className="px-4 py-3 text-right">المطعم</th><th className="px-4 py-3 text-center">الفروع</th>
-                <th className="px-4 py-3 text-center">الحالة</th><th className="px-4 py-3 text-center">إجراء</th>
-              </tr></thead>
-              <tbody className="divide-y divide-gray-100">
-                {shown.map((u,i)=>(
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">{u.name[0]}</div>
-                        <div><p className="font-semibold text-sm text-gray-800">{u.name}</p><p className="text-xs text-gray-400">{u.email}</p></div>
+          ? <EmptyState icon="👤" title="لا توجد نتائج" desc="جرب تغيير الفلتر"/>
+          : <div className="divide-y divide-gray-100">
+              {shown.map((u,i)=>{
+                const isExp = expandedRow===u.email;
+                return (
+                  <div key={i}>
+                    <div className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-colors ${isExp?"bg-purple-50/30":""}`}
+                      onClick={()=>setExpandedRow(isExp?null:u.email)}>
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{u.name[0]}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm text-gray-800">{u.name}</p>
+                          <Badge className={`text-[10px] border ${roleCls[u.role]||"bg-gray-50 text-gray-600 border-gray-200"}`}>{u.role}</Badge>
+                          <Badge className={`text-[10px] ${scopeCls[u.scope]}`}>{scopeLabel[u.scope]}</Badge>
+                          <Badge className={u.status==="active"?"bg-emerald-50 text-emerald-600 text-[10px]":"bg-gray-50 text-gray-400 text-[10px]"}>{u.status==="active"?"نشط":"غير نشط"}</Badge>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">{u.email} · {u.phone}</p>
                       </div>
-                    </td>
-                    <td className="px-4 py-3"><Badge className={roleCls[u.role]||"bg-gray-50 text-gray-700"}>{u.role}</Badge></td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{u.restaurant}</td>
-                    <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{u.branches}</td>
-                    <td className="px-4 py-3 text-center"><Badge className={u.status==="active"?"bg-emerald-50 text-emerald-700":"bg-gray-50 text-gray-500"}>{u.status==="active"?"نشط":"غير نشط"}</Badge></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button className="p-1.5 rounded hover:bg-gray-100"><Edit2 size={13} className="text-gray-500"/></button>
-                        <button onClick={()=>deleteUser(u.email)} className="p-1.5 rounded hover:bg-red-50"><Trash2 size={13} className="text-red-400"/></button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-right hidden md:block">
+                          <p className="text-[10px] text-gray-400">العلامات التجارية</p>
+                          <p className="text-xs font-medium text-gray-600 max-w-[160px] truncate">{u.brands.join("، ")||"—"}</p>
+                        </div>
+                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isExp?"rotate-180":""}`}/>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+
+                    {isExp && (
+                      <div className="mx-4 mb-3 bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <p className="text-gray-400 font-semibold mb-1">العلامات التجارية</p>
+                            <div className="space-y-0.5">
+                              {u.brands.length>0 ? u.brands.map(b=>{
+                                const bc=BRANDS_CATALOG.find(x=>x.name===b);
+                                return <div key={b} className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:bc?.color||"#888"}}/><span>{b}</span></div>;
+                              }) : <span className="text-gray-400">—</span>}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-400 font-semibold mb-1">المطاعم المخصصة</p>
+                            <div className="space-y-0.5">
+                              {u.restaurants.length>0 ? u.restaurants.map(r=><div key={r}>{r}</div>) : <span className="text-gray-400">{u.scope==="brand"?"جميع مطاعم العلامة":"—"}</span>}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-400 font-semibold mb-1">الفروع المخصصة</p>
+                            <div className="space-y-0.5">
+                              {u.branches.length>0 ? u.branches.map(b=><div key={b}>{b}</div>) : <span className="text-gray-400">{u.scope==="restaurant"?"جميع فروع المطعم":"—"}</span>}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-400 font-semibold mb-1">الموديولات ({u.modules.length})</p>
+                            <div className="flex flex-wrap gap-1">
+                              {u.modules.map(m=><span key={m} className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px]">{m}</span>)}
+                            </div>
+                          </div>
+                        </div>
+                        {u.reportsTo && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200 text-xs text-gray-500">
+                            <span className="font-semibold">يرفع تقاريره إلى:</span>
+                            <span className="bg-white border border-gray-200 px-2 py-0.5 rounded-lg">{u.reportsTo}</span>
+                          </div>
+                        )}
+                        <div className="flex gap-2 pt-2 border-t border-gray-200">
+                          <Btn size="sm"><Edit2 size={12}/> تعديل الصلاحيات</Btn>
+                          <Btn size="sm" variant="ghost">إعادة تعيين كلمة المرور</Btn>
+                          <button onClick={(e)=>{ e.stopPropagation(); deleteUser(u.email); }}
+                            className="mr-auto px-3 py-1 rounded-lg text-xs text-red-500 hover:bg-red-50 flex items-center gap-1">
+                            <Trash2 size={12}/> حذف
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
         }
       </Card>
     </div>
   );
 }
 
+const BRANDS_DATA = [
+  { id:"reem",     name:"علامة الريم",         color:"#7C3AED", abbr:"ر", plan:"بلاتيني", planColor:"purple",
+    owner:"فيصل الريم", ownerEmail:"faisal@reem.sa",
+    modules:["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب","العهد","الأصول"],
+    subStatus:"active" as const, expires:"15 يناير 2027", daysLeft:307,
+    restaurants:[
+      { id:"r1", name:"مطعم الريم — العليا",  city:"الرياض", accountants:2, status:"active"  as const, branches:[{name:"فرع العليا الرئيسي",manager:"أحمد الشمري"},{name:"فرع النزهة",manager:"سلطان الغامدي"},{name:"فرع الملقا",manager:"فيصل البريك"}] },
+      { id:"r2", name:"مطعم الريم — جدة",    city:"جدة",    accountants:1, status:"active"  as const, branches:[{name:"فرع الحمراء",manager:"محمد العتيبي"},{name:"فرع العزيزية",manager:"علي الزهراني"}] },
+    ],
+  },
+  { id:"herfy",    name:"علامة هرفي",           color:"#D97706", abbr:"هـ", plan:"ذهبي", planColor:"amber",
+    owner:"طلال الحسين", ownerEmail:"talal@herfy.sa",
+    modules:["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب"],
+    subStatus:"warning" as const, expires:"15 مارس 2026", daysLeft:1,
+    restaurants:[
+      { id:"r3", name:"هرفي — الرياض",  city:"الرياض", accountants:3, status:"active"   as const, branches:[{name:"فرع العليا",manager:"طارق المنصور"},{name:"فرع الإزدهار",manager:"بندر القحطاني"},{name:"فرع السلي",manager:"وليد الشهري"},{name:"فرع الدوبي",manager:"نواف العمري"}] },
+      { id:"r4", name:"هرفي — جدة",    city:"جدة",    accountants:1, status:"active"   as const, branches:[{name:"فرع الكورنيش",manager:"عبدالرحمن الغامدي"},{name:"فرع بحرة",manager:"صالح الحربي"}] },
+      { id:"r5", name:"هرفي — مكة",    city:"مكة",    accountants:1, status:"active"   as const, branches:[{name:"فرع المعابدة",manager:"حمد الدوسري"},{name:"فرع العزيزية",manager:"جاسم القرني"}] },
+    ],
+  },
+  { id:"mcd",      name:"ماكدونالدز السعودية",  color:"#DC2626", abbr:"م", plan:"بلاتيني", planColor:"purple",
+    owner:"شركة المطعم العالمي", ownerEmail:"ops@mcd-sa.com",
+    modules:["المبيعات","المصروفات","المشتريات","المخزون","الشفتات","كشف الحساب","العهد","الأصول"],
+    subStatus:"danger" as const, expires:"21 أبريل 2026", daysLeft:38,
+    restaurants:[
+      { id:"r6", name:"ماكدونالدز — الرياض", city:"الرياض", accountants:4, status:"active"   as const, branches:[{name:"فرع الدبلوماسي",manager:"أنس الطيار"},{name:"فرع النخيل مول",manager:"بدر الحوشان"},{name:"فرع هايبر بنده",manager:"منصور العنزي"}] },
+      { id:"r7", name:"ماكدونالدز — الدمام", city:"الدمام", accountants:2, status:"active"   as const, branches:[{name:"فرع الكورنيش",manager:"خالد المطيري"},{name:"فرع الدانة مول",manager:"عمر العسيري"}] },
+    ],
+  },
+  { id:"broasted", name:"بروستد الوطني",         color:"#059669", abbr:"ب", plan:"فضي", planColor:"emerald",
+    owner:"محمد السعيد", ownerEmail:"msaeed@broasted.sa",
+    modules:["المبيعات","المصروفات","المشتريات","المخزون"],
+    subStatus:"expired" as const, expires:"9 أكتوبر 2025", daysLeft:-156,
+    restaurants:[
+      { id:"r8", name:"بروستد الوطني — الطائف", city:"الطائف", accountants:1, status:"suspended" as const, branches:[{name:"فرع المحطة",manager:"نايف العتيبي"},{name:"فرع الشفا",manager:"عبدالله الشريف"}] },
+    ],
+  },
+];
+
 function AdminRestaurants({}: PageProps) {
-  const restaurants = [
-    { name:"مطعم الريم",              owner:"فيصل الريم",               branches:12, accountants:4, status:"active"  },
-    { name:"مطعم هرفي",               owner:"طلال الحسين",              branches:18, accountants:6, status:"active"  },
-    { name:"ماكدونالدز السعودية",     owner:"شركة المطعم العالمي",      branches:35, accountants:8, status:"active"  },
-    { name:"مطعم بروستد الوطني",      owner:"محمد السعيد",              branches:8,  accountants:3, status:"suspended"},
-    { name:"كافيه الرياض",            owner:"سعد الدوسري",              branches:5,  accountants:2, status:"active"  },
-  ];
+  const [expandedBrand, setExpandedBrand]   = useState<string|null>("reem");
+  const [expandedRest,  setExpandedRest]    = useState<string|null>(null);
+  const [showAddBrand,  setShowAddBrand]    = useState(false);
+  const [showAddRest,   setShowAddRest]     = useState<string|null>(null);
+
+  const totalRests   = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.length,0);
+  const totalBranches = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.reduce((ss,r)=>ss+r.branches.length,0),0);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">المطاعم والفروع</h2><p className="text-gray-400 text-sm mt-0.5">25 مطعم · 100 فرع</p></div>
-        <Btn variant="primary"><Plus size={14}/> إضافة مطعم</Btn>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">الهيكل التشغيلي — العلامات والمطاعم والفروع</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{BRANDS_DATA.length} علامة تجارية · {totalRests} مطعم · {totalBranches} فرع</p>
+        </div>
+        <div className="flex gap-2">
+          <Btn variant="ghost" onClick={()=>setShowAddRest("")}><Plus size={14}/> مطعم جديد</Btn>
+          <Btn variant="primary" onClick={()=>setShowAddBrand(true)}><Plus size={14}/> علامة تجارية</Btn>
+        </div>
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        {restaurants.map((r,i)=>(
-          <div key={i} className={`bg-white rounded-xl border shadow-sm p-4 ${r.status==="suspended"?"border-red-200 bg-red-50/20":"border-gray-100"}`}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm">{r.name[0]}</div>
-              <div className="flex-1"><p className="font-bold text-gray-800 text-sm">{r.name}</p><p className="text-xs text-gray-400">{r.owner}</p></div>
-              <Badge className={r.status==="active"?"bg-emerald-50 text-emerald-700":"bg-red-50 text-red-700"}>{r.status==="active"?"نشط":"معلق"}</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-3 text-center">
-              <div className="bg-gray-50 rounded-lg p-2"><p className="text-[10px] text-gray-400">الفروع</p><p className="font-bold text-gray-800">{r.branches}</p></div>
-              <div className="bg-gray-50 rounded-lg p-2"><p className="text-[10px] text-gray-400">المحاسبون</p><p className="font-bold text-gray-800">{r.accountants}</p></div>
-            </div>
-            <div className="flex gap-2">
-              <Btn size="sm" className="flex-1 justify-center"><Eye size={11}/> عرض</Btn>
-              <Btn size="sm" variant="ghost" className="flex-1 justify-center"><Edit2 size={11}/> تعديل</Btn>
-            </div>
+
+      {/* Add brand quick form */}
+      {showAddBrand && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-semibold text-purple-800 text-sm">إضافة علامة تجارية جديدة</p>
+            <button onClick={()=>setShowAddBrand(false)}><X size={14} className="text-purple-400"/></button>
           </div>
-        ))}
+          <div className="grid grid-cols-3 gap-3">
+            <div><label className="text-xs text-gray-500 block mb-1">اسم العلامة</label><input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="علامة جديدة"/></div>
+            <div><label className="text-xs text-gray-500 block mb-1">المالك / المسؤول</label><input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="اسم المالك"/></div>
+            <div><label className="text-xs text-gray-500 block mb-1">الباقة</label>
+              <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"><option>فضي</option><option>ذهبي</option><option>بلاتيني</option></select></div>
+          </div>
+          <div className="flex gap-2 mt-3"><Btn variant="primary" size="sm" onClick={()=>setShowAddBrand(false)}>✓ حفظ</Btn><Btn size="sm" onClick={()=>setShowAddBrand(false)}>إلغاء</Btn></div>
+        </div>
+      )}
+
+      {/* Brands accordion */}
+      <div className="space-y-3">
+        {BRANDS_DATA.map(brand=>{
+          const isExpanded = expandedBrand===brand.id;
+          const restCount  = brand.restaurants.length;
+          const branchCount = brand.restaurants.reduce((s,r)=>s+r.branches.length,0);
+          const subCls = { active:"bg-emerald-50 text-emerald-700", warning:"bg-amber-50 text-amber-700", danger:"bg-red-50 text-red-700", expired:"bg-red-100 text-red-800" };
+          const subLbl = { active:"اشتراك نشط", warning:"ينتهي قريباً", danger:"إنذار انتهاء", expired:"منتهي الاشتراك" };
+
+          return (
+            <div key={brand.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${isExpanded?"border-purple-200":"border-gray-100"}`}>
+              {/* Brand header */}
+              <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                onClick={()=>setExpandedBrand(isExpanded?null:brand.id)}>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-sm" style={{background:brand.color}}>{brand.abbr}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-gray-800">{brand.name}</p>
+                    <Badge className={`text-[10px] bg-purple-50 text-purple-600`}>باقة {brand.plan}</Badge>
+                    <Badge className={`text-[10px] ${subCls[brand.subStatus]}`}>{subLbl[brand.subStatus]}</Badge>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{brand.owner} · {brand.ownerEmail}</p>
+                </div>
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  <div className="text-center hidden md:block"><p className="text-base font-bold text-gray-800">{restCount}</p><p className="text-[10px] text-gray-400">مطعم</p></div>
+                  <div className="text-center hidden md:block"><p className="text-base font-bold text-gray-800">{branchCount}</p><p className="text-[10px] text-gray-400">فرع</p></div>
+                  <div className="text-center hidden md:block"><p className="text-base font-bold text-gray-800">{brand.modules.length}</p><p className="text-[10px] text-gray-400">موديول</p></div>
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${isExpanded?"rotate-180":""}`}/>
+                </div>
+              </div>
+
+              {/* Restaurants list */}
+              {isExpanded && (
+                <div className="border-t border-gray-100">
+                  {/* Active modules strip */}
+                  <div className="px-5 py-2.5 bg-gray-50/60 flex items-center gap-2 border-b border-gray-100">
+                    <span className="text-[10px] text-gray-400 font-semibold">الموديولات الفعّالة:</span>
+                    {brand.modules.map(m=><span key={m} className="text-[10px] bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{m}</span>)}
+                  </div>
+
+                  {brand.restaurants.map(rest=>{
+                    const isRExp = expandedRest===rest.id;
+                    return (
+                      <div key={rest.id} className="border-b border-gray-50 last:border-0">
+                        {/* Restaurant row */}
+                        <div className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/60 cursor-pointer transition-colors"
+                          onClick={()=>setExpandedRest(isRExp?null:rest.id)}>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{background:brand.color+"99"}}>{rest.name[0]}</div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm text-gray-800">{rest.name}</p>
+                              <Badge className={rest.status==="active"?"bg-emerald-50 text-emerald-600 text-[10px]":"bg-red-50 text-red-600 text-[10px]"}>{rest.status==="active"?"نشط":"موقوف"}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-400">{rest.city} · {rest.branches.length} فروع · {rest.accountants} محاسب مخصص</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Btn size="sm" variant="ghost" onClick={e=>{e.stopPropagation();}}><Edit2 size={11}/></Btn>
+                            <ChevronDown size={13} className={`text-gray-400 transition-transform ${isRExp?"rotate-180":""}`}/>
+                          </div>
+                        </div>
+
+                        {/* Branches table */}
+                        {isRExp && (
+                          <div className="mx-6 mb-3 bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-100 border-b border-gray-200">
+                              <p className="text-xs font-bold text-gray-600">الفروع ({rest.branches.length})</p>
+                              <button className="text-xs text-purple-600 hover:underline flex items-center gap-1"><Plus size={11}/> إضافة فرع</button>
+                            </div>
+                            <table className="w-full text-xs" dir="rtl">
+                              <thead><tr className="text-gray-400 font-semibold border-b border-gray-200">
+                                <th className="px-4 py-2 text-right">اسم الفرع</th>
+                                <th className="px-4 py-2 text-right">مدير الفرع</th>
+                                <th className="px-4 py-2 text-center">إجراء</th>
+                              </tr></thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {rest.branches.map((br,bi)=>(
+                                  <tr key={bi} className="hover:bg-white/80">
+                                    <td className="px-4 py-2.5 font-medium text-gray-700">{br.name}</td>
+                                    <td className="px-4 py-2.5 text-gray-500">{br.manager}</td>
+                                    <td className="px-4 py-2.5 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button className="p-1 rounded hover:bg-gray-200"><Edit2 size={11} className="text-gray-400"/></button>
+                                        <button className="p-1 rounded hover:bg-gray-200"><Users size={11} className="text-gray-400"/></button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Add restaurant button */}
+                  <div className="px-5 py-3 flex justify-end border-t border-gray-100">
+                    <button className="text-xs text-purple-600 hover:underline flex items-center gap-1"><Plus size={11}/> إضافة مطعم لـ {brand.name}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function AdminSubscriptions({}: PageProps) {
-  const [subs, setSubs] = useState([
-    { name:"مطعم الريم",              plan:"بلاتيني", expires:"15 يناير 2026",   branches:12, status:"active"   as const, daysLeft:93  },
-    { name:"مطعم هرفي",               plan:"ذهبي",    expires:"15 نوفمبر 2025",  branches:18, status:"warning"  as const, daysLeft:32  },
-    { name:"ماكدونالدز السعودية",     plan:"بلاتيني", expires:"21 أكتوبر 2025",  branches:35, status:"danger"   as const, daysLeft:7   },
-    { name:"مطعم بروستد الوطني",      plan:"فضي",    expires:"9 أكتوبر 2025",   branches:8,  status:"expired"  as const, daysLeft:-5  },
-  ]);
-  const statusCls = { active:"bg-emerald-50 text-emerald-700 border-emerald-200",warning:"bg-amber-50 text-amber-700 border-amber-200",danger:"bg-red-50 text-red-700 border-red-200",expired:"bg-red-50 text-red-700 border-red-200" };
-  const statusLabel = { active:"نشط",warning:"قريب الانتهاء",danger:"ينتهي قريباً",expired:"منتهي" };
-  const renew = (i:number) => setSubs(p=>p.map((s,j)=>j===i?{...s,status:"active" as const,daysLeft:365,expires:"14 أكتوبر 2026"}:s));
+  const [subs, setSubs] = useState(BRANDS_DATA.map(b=>({...b})));
+  const [expandedSub, setExpandedSub] = useState<string|null>(null);
+  const statusCls = { active:"border-emerald-200 bg-emerald-50/20",warning:"border-amber-200 bg-amber-50/20",danger:"border-red-200 bg-red-50/20",expired:"border-red-300 bg-red-50/30" };
+  const statusBadgeCls = { active:"bg-emerald-50 text-emerald-700",warning:"bg-amber-50 text-amber-700",danger:"bg-red-50 text-red-700",expired:"bg-red-100 text-red-800" };
+  const statusLabel = { active:"اشتراك نشط",warning:"ينتهي قريباً",danger:"إنذار انتهاء",expired:"منتهي الاشتراك" };
+  const renew = (id:string) => setSubs(p=>p.map(s=>s.id===id?{...s,subStatus:"active" as const,daysLeft:365,expires:"14 مارس 2027"}:s));
+
+  const totalRestaurants = subs.reduce((s,b)=>s+b.restaurants.length,0);
+  const totalBranches    = subs.reduce((s,b)=>s+b.restaurants.reduce((ss,r)=>ss+r.branches.length,0),0);
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">الاشتراكات</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {subs.map((sub,i)=>(
-          <div key={i} className={`bg-white rounded-xl border-2 shadow-sm p-4 ${statusCls[sub.status]}`}>
-            <div className="flex items-start justify-between mb-3">
-              <div><p className="font-bold text-gray-800">{sub.name}</p><p className="text-xs text-gray-400 mt-0.5">باقة {sub.plan} · {sub.branches} فرع</p></div>
-              <Badge className={statusCls[sub.status]}>{statusLabel[sub.status]}</Badge>
-            </div>
-            <div className="flex items-center justify-between text-sm mb-3">
-              <span className="text-gray-500 text-xs">تاريخ الانتهاء</span>
-              <span className={`font-semibold text-sm ${sub.status==="expired"||sub.status==="danger"?"text-red-600":"text-gray-800"}`}>{sub.expires}</span>
-            </div>
-            {sub.status!=="expired" && <div className="mb-3">
-              <div className="flex justify-between text-xs text-gray-400 mb-1"><span>المتبقي</span><span>{sub.daysLeft} يوم</span></div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className={`h-2 rounded-full ${sub.status==="active"?"bg-emerald-500":sub.status==="warning"?"bg-amber-500":"bg-red-500"}`} style={{width:`${Math.max(0,Math.min(100,(sub.daysLeft/365)*100))}%`}}></div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">إدارة الاشتراكات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{subs.length} علامة تجارية · {totalRestaurants} مطعم · {totalBranches} فرع</p>
+        </div>
+        <Btn variant="primary"><Plus size={14}/> اشتراك جديد</Btn>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-4 gap-3">
+        <KpiCard label="اشتراكات نشطة"    value={String(subs.filter(s=>s.subStatus==="active").length)}  sub=""  icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="تنتهي قريباً"      value={String(subs.filter(s=>s.subStatus==="warning"||s.subStatus==="danger").length)} sub="" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="منتهية الاشتراك"  value={String(subs.filter(s=>s.subStatus==="expired").length)} sub="" icon={<XCircle size={18} className="text-red-500"/>}          accent="red"/>
+        <KpiCard label="إجمالي الفروع"     value={String(totalBranches)} sub=""  icon={<Home size={18} className="text-purple-600"/>}        accent="purple"/>
+      </div>
+
+      {/* Per-brand subscription cards */}
+      <div className="space-y-3">
+        {subs.map((sub)=>{
+          const isExp = expandedSub===sub.id;
+          const restCount   = sub.restaurants.length;
+          const branchCount = sub.restaurants.reduce((s,r)=>s+r.branches.length,0);
+
+          return (
+            <div key={sub.id} className={`bg-white rounded-xl border-2 shadow-sm overflow-hidden ${statusCls[sub.subStatus]}`}>
+              {/* Main row */}
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0" style={{background:sub.color}}>{sub.abbr}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-gray-800">{sub.name}</p>
+                    <Badge className={`text-[10px] bg-purple-50 text-purple-600`}>باقة {sub.plan}</Badge>
+                    <Badge className={`text-[10px] ${statusBadgeCls[sub.subStatus]}`}>{statusLabel[sub.subStatus]}</Badge>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{sub.owner} · {restCount} مطعم · {branchCount} فرع</p>
+                </div>
+
+                {/* Expiry bar */}
+                <div className="w-40 flex-shrink-0 hidden md:block">
+                  <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                    <span>تاريخ الانتهاء: {sub.expires}</span>
+                    <span className={sub.daysLeft<0?"text-red-600 font-bold":""}>{sub.daysLeft<0?`منتهي ${Math.abs(sub.daysLeft)} يوم`:`${sub.daysLeft} يوم`}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div className={`h-1.5 rounded-full transition-all ${sub.subStatus==="active"?"bg-emerald-500":sub.subStatus==="warning"?"bg-amber-500":"bg-red-500"}`}
+                      style={{width:`${Math.max(0,Math.min(100,(sub.daysLeft/365)*100))}%`}}/>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={()=>renew(sub.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${sub.subStatus==="expired"?"bg-red-600 text-white hover:bg-red-700":"bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"}`}>
+                    {sub.subStatus==="expired"?"تفعيل":"تجديد"}
+                  </button>
+                  <button onClick={()=>setExpandedSub(isExp?null:sub.id)}
+                    className="p-1.5 rounded-lg hover:bg-gray-100">
+                    <ChevronDown size={14} className={`text-gray-400 transition-transform ${isExp?"rotate-180":""}`}/>
+                  </button>
+                </div>
               </div>
-            </div>}
-            <div className="flex gap-2">
-              <button onClick={()=>renew(i)} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${sub.status==="expired"?"bg-red-600 text-white hover:bg-red-700":"bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"}`}>
-                {sub.status==="expired"?"تفعيل الاشتراك":"تجديد الاشتراك"}
-              </button>
-              <Btn variant="ghost" className="flex-1 justify-center">تغيير الباقة</Btn>
+
+              {/* Expanded detail */}
+              {isExp && (
+                <div className="border-t border-gray-200 px-5 py-4 space-y-4 bg-gray-50/50">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 mb-2">الموديولات الفعّالة</p>
+                      <div className="flex flex-wrap gap-1">
+                        {sub.modules.map(m=><span key={m} className="text-[10px] bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{m}</span>)}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 mb-2">المطاعم والفروع</p>
+                      <div className="space-y-1">
+                        {sub.restaurants.map(r=>(
+                          <div key={r.id} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-700">{r.name}</span>
+                            <span className="text-gray-400">{r.branches.length} فروع</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 mb-2">الفوترة</p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <div className="flex justify-between"><span className="text-gray-400">الباقة:</span><span className="font-medium">باقة {sub.plan}</span></div>
+                        <div className="flex justify-between"><span className="text-gray-400">عدد الفروع:</span><span className="font-medium">{branchCount} فرع</span></div>
+                        <div className="flex justify-between"><span className="text-gray-400">تاريخ الانتهاء:</span><span className={`font-medium ${sub.subStatus==="expired"?"text-red-600":""}`}>{sub.expires}</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Btn size="sm">تعديل الباقة</Btn>
+                    <Btn size="sm" variant="ghost">إضافة مطعم</Btn>
+                    <Btn size="sm" variant="ghost">تعديل الموديولات</Btn>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -4587,24 +5148,99 @@ function AdminAudit({}: PageProps) {
 }
 
 function AdminPermissions({}: PageProps) {
+  type Permission = "view" | "submit" | "review" | "approve" | "final" | "none";
+  const permCls: Record<Permission,string> = {
+    view:    "bg-blue-50 text-blue-600 border-blue-200",
+    submit:  "bg-cyan-50 text-cyan-600 border-cyan-200",
+    review:  "bg-amber-50 text-amber-600 border-amber-200",
+    approve: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    final:   "bg-purple-50 text-purple-600 border-purple-200",
+    none:    "bg-gray-50 text-gray-300 border-gray-100",
+  };
+  const permLabel: Record<Permission,string> = { view:"عرض", submit:"إدخال", review:"مراجعة", approve:"اعتماد", final:"نهائي", none:"—" };
+
+  const roles = ["محاسب","رئيس حسابات","مدير فرع","مدير مشتريات","مورد","أدمن"];
+  const scopeRow: Record<string,string> = {
+    "محاسب":"علامة/مطعم محدد","رئيس حسابات":"علامة محددة","مدير فرع":"فرع واحد",
+    "مدير مشتريات":"علامات محددة","مورد":"نطاق المورد","أدمن":"كامل",
+  };
+
+  const matrix: {module:string; perms: Permission[]}[] = [
+    { module:"المبيعات",         perms:["review","final","submit","none","none","approve"] },
+    { module:"المصروفات",        perms:["review","final","submit","none","none","approve"] },
+    { module:"المشتريات",        perms:["review","final","none","approve","submit","approve"] },
+    { module:"المخزون",          perms:["review","final","submit","none","none","approve"] },
+    { module:"الشفتات",          perms:["view","final","submit","none","none","approve"] },
+    { module:"كشف الحساب",       perms:["review","final","view","none","none","approve"] },
+    { module:"العهد النقدية",    perms:["review","final","submit","none","none","approve"] },
+    { module:"الأصول الثابتة",   perms:["review","final","submit","none","none","approve"] },
+    { module:"تصدير ERP",        perms:["none","approve","none","none","none","approve"] },
+    { module:"إدارة المستخدمين", perms:["none","none","none","none","none","approve"] },
+    { module:"إدارة الاشتراكات", perms:["none","none","none","none","none","approve"] },
+  ];
+
+  const roleBadgeCls: Record<string,string> = {
+    "محاسب":"bg-blue-50 text-blue-700","رئيس حسابات":"bg-amber-50 text-amber-700",
+    "مدير فرع":"bg-emerald-50 text-emerald-700","مدير مشتريات":"bg-purple-50 text-purple-700",
+    "مورد":"bg-orange-50 text-orange-700","أدمن":"bg-red-50 text-red-700",
+  };
+
   return (
-    <div className="space-y-5"><h2 className="text-xl font-bold text-gray-800">الصلاحيات</h2>
-      <Card title="مصفوفة الصلاحيات">
-        <div className="overflow-x-auto"><table className="w-full text-xs" dir="rtl">
-          <thead className="bg-gray-50"><tr>
-            <th className="px-4 py-3 text-right font-semibold text-gray-600">الموديول / الصلاحية</th>
-            {["محاسب","رئيس حسابات","مدير فرع","مدير مشتريات","مورد"].map(r=><th key={r} className="px-3 py-3 text-center font-semibold text-gray-600">{r}</th>)}
-          </tr></thead>
-          <tbody className="divide-y divide-gray-100">
-            {[{m:"المبيعات — عرض",p:[true,true,true,false,false]},{m:"المبيعات — مراجعة",p:[true,true,false,false,false]},{m:"المبيعات — اعتماد",p:[false,true,false,false,false]},{m:"المصروفات — إدخال",p:[false,false,true,false,false]},{m:"المصروفات — اعتماد",p:[true,true,false,false,false]},{m:"المشتريات — طلب",p:[false,false,false,true,false]},{m:"المشتريات — اعتماد",p:[true,true,false,false,false]},{m:"تصدير ERP",p:[false,true,false,false,false]},{m:"إدارة المستخدمين",p:[false,false,false,false,false]}].map((row,i)=>(
-              <tr key={i} className="hover:bg-gray-50">
-                <td className="px-4 py-2.5 font-medium text-gray-700">{row.m}</td>
-                {row.p.map((p,j)=><td key={j} className="px-3 py-2.5 text-center">{p?<span className="text-emerald-500 text-base">✓</span>:<span className="text-gray-200">—</span>}</td>)}
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">مصفوفة الصلاحيات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">صلاحيات الأدوار مع نطاق الوصول لكل علامة تجارية</p>
+        </div>
+        <div className="flex gap-1.5 flex-wrap justify-end">
+          {(Object.keys(permCls) as Permission[]).filter(p=>p!=="none").map(p=>(
+            <span key={p} className={`text-[10px] px-2 py-0.5 rounded-full border ${permCls[p]}`}>{permLabel[p]}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Scope row */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table className="w-full text-xs" dir="rtl">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="px-4 py-3 text-right font-semibold text-gray-500 bg-gray-50 w-44">الموديول</th>
+              {roles.map(r=>(
+                <th key={r} className="px-3 py-3 text-center bg-gray-50 min-w-[110px]">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${roleBadgeCls[r]}`}>{r}</span>
+                    <span className="text-[9px] text-gray-400 font-normal">{scopeRow[r]}</span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {matrix.map((row,i)=>(
+              <tr key={i} className={`hover:bg-gray-50/50 ${i%2===0?"":"bg-gray-50/20"}`}>
+                <td className="px-4 py-2.5 font-semibold text-gray-700">{row.module}</td>
+                {row.perms.map((p,j)=>(
+                  <td key={j} className="px-3 py-2.5 text-center">
+                    <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full border text-[10px] font-semibold min-w-[52px] ${permCls[p]}`}>
+                      {permLabel[p]}
+                    </span>
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
-        </table></div>
-      </Card>
+        </table>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p className="text-xs font-bold text-blue-700 mb-2">ملاحظة حول نطاق الوصول</p>
+        <div className="grid grid-cols-2 gap-2 text-xs text-blue-600">
+          <p>• المحاسب: يرى فقط المطاعم والعلامات التجارية المخصصة له في إعدادات حسابه</p>
+          <p>• رئيس الحسابات: يرى كل المحاسبين ضمن العلامات التجارية المخصصة له</p>
+          <p>• مدير الفرع: يرى فقط فرعه المخصص ولا يتجاوزه</p>
+          <p>• مدير المشتريات: يرى طلبات الشراء لجميع الفروع ضمن علاماته التجارية</p>
+        </div>
+      </div>
     </div>
   );
 }
