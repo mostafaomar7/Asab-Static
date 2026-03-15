@@ -6,7 +6,8 @@ import {
   ChevronDown, ChevronUp, CheckCircle2, XCircle, MessageSquare, Eye, Download,
   AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
   Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, Edit3, X, FileText,
-  Truck, Home, Shield, RotateCcw, Lock
+  Truck, Home, Shield, RotateCcw, Lock, Send, Tag, Smartphone, CheckSquare,
+  ZapOff, ChevronLeft, Clipboard
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -113,11 +114,13 @@ const NAV_CONFIG: Record<RoleId, NavEntry[]> = {
   accountant: [
     { section:"الرئيسية" },
     { id:"acc-dashboard",  label:"لوحة التحكم",          icon:<LayoutDashboard size={16}/> },
+    { id:"acc-reminders",  label:"التذكيرات",             icon:<Bell size={16}/>,            badge:3, badgeColor:"red" as const },
     { section:"الموديولات" },
     { id:"acc-sales",      label:"المبيعات",              icon:<TrendingUp size={16}/>,      badge:0 },
     { id:"acc-expenses",   label:"المصروفات",             icon:<Wallet size={16}/>,          badge:0 },
     { id:"acc-purchases",  label:"المشتريات",             icon:<ShoppingCart size={16}/>,    badge:0 },
     { id:"acc-inventory",  label:"المخزون",               icon:<Package size={16}/>,         badge:0 },
+    { id:"acc-waste",      label:"الهدر والتالف",         icon:<Trash2 size={16}/>,          badge:0 },
     { id:"acc-assets",     label:"الأصول الثابتة",        icon:<Building2 size={16}/> },
     { id:"acc-shifts",     label:"إدارة الشفتات",         icon:<Clock size={16}/>,           badge:0 },
     { id:"acc-employees",  label:"كشف حساب الموظفين",    icon:<Users size={16}/>,           badge:0 },
@@ -1307,6 +1310,8 @@ function PageRouter({ state, pageProps, adminUsers, setAdminUsers }:{
     if(page==="acc-employees")       return <AccEmployees {...p}/>;
     if(page==="acc-cash")            return <AccCash {...p}/>;
     if(page==="acc-assets")          return <AccAssets {...p}/>;
+    if(page==="acc-waste")           return <AccWaste {...p}/>;
+    if(page==="acc-reminders")       return <AccReminders {...p}/>;
     if(page==="acc-reports")         return <ReportsPage {...p}/>;
   }
   if(role==="head") {
@@ -2312,6 +2317,7 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
     { id:"acc-expenses",  label:"المصروفات",         icon:"💸", color:"bg-red-500",     key:"expenses" as ModuleKey },
     { id:"acc-purchases", label:"المشتريات",         icon:"🛒", color:"bg-blue-500",    key:"purchases" as ModuleKey },
     { id:"acc-inventory", label:"المخزون",           icon:"📦", color:"bg-amber-500",   key:"inventory" as ModuleKey },
+    { id:"acc-waste",     label:"الهدر والتالف",    icon:"🗑️", color:"bg-rose-500",    key:null },
     { id:"acc-assets",    label:"الأصول الثابتة",   icon:"🏢", color:"bg-purple-500",  key:null },
     { id:"acc-shifts",    label:"إدارة الشفتات",    icon:"⏰", color:"bg-cyan-500",    key:"shifts" as ModuleKey },
     { id:"acc-employees", label:"كشف الموظفين",     icon:"👥", color:"bg-indigo-500",  key:"employees" as ModuleKey },
@@ -2650,25 +2656,31 @@ function AccSalesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
 // ─── Dedicated Expenses page ──────────────────────────────────────────────────
 function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
-  const [filters,    setFilters]    = useState<Filters>({branch:"",status:"",match:"",search:""});
-  const [expandedId, setExpandedId] = useState<string|null>(null);
-  const [editingRow, setEditingRow] = useState<string|null>(null);
-  const [brand,      setBrand]      = useState("");
-  const [expType,    setExpType]    = useState("");
-  const [dateFrom,   setDateFrom]   = useState("");
+  const [filters,          setFilters]          = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const [expandedId,       setExpandedId]       = useState<string|null>(null);
+  const [editingRow,       setEditingRow]       = useState<string|null>(null);
+  const [brand,            setBrand]            = useState("");
+  const [expType,          setExpType]          = useState("");
+  const [dateFrom,         setDateFrom]         = useState("");
+  const [verifiedInvoices, setVerifiedInvoices] = useState<Record<string,boolean>>({});
+  const [attachModal,      setAttachModal]      = useState<{opId:string; invNum:string; idx:number; total:number}|null>(null);
 
   const mOps    = ops.filter(o=>o.moduleKey==="expenses");
   const filtered = applyFilters(ops, filters, "expenses");
   const pending  = mOps.filter(o=>o.status==="pending");
 
+  const toggleInvoiceVerify = (key:string) => setVerifiedInvoices(p=>({...p,[key]:!p[key]}));
+
   // Simulated batch invoices for each operation
-  const INVOICES: Record<string, {invNum:string; vendor:string; desc:string; amount:number; date:string}[]> = {
+  const INVOICES: Record<string, {invNum:string; vendor:string; desc:string; amount:number; date:string; attachCount:number}[]> = {
     default: [
-      {invNum:"INV-001", vendor:"شركة الخليج للمواد",   desc:"مواد تنظيف وصيانة",   amount:850,  date:"12 أكت"},
-      {invNum:"INV-002", vendor:"مستلزمات المطبخ",       desc:"أدوات خدمة وتغليف",  amount:420,  date:"12 أكت"},
-      {invNum:"INV-003", vendor:"خدمات الصيانة السريعة", desc:"إصلاح معدات المطبخ", amount:1200, date:"13 أكت"},
+      {invNum:"INV-001", vendor:"شركة الخليج للمواد",   desc:"مواد تنظيف وصيانة",   amount:850,  date:"12 أكت", attachCount:2},
+      {invNum:"INV-002", vendor:"مستلزمات المطبخ",       desc:"أدوات خدمة وتغليف",  amount:420,  date:"12 أكت", attachCount:1},
+      {invNum:"INV-003", vendor:"خدمات الصيانة السريعة", desc:"إصلاح معدات المطبخ", amount:1200, date:"13 أكت", attachCount:3},
     ],
   };
+  // Simulated attachment images (represented as colored placeholder tiles)
+  const ATTACH_LABELS = ["صورة الفاتورة الأمامية","صورة الباركود","صورة الختم والتوقيع","صورة المبلغ والإجمالي"];
 
   return (
     <div className="space-y-5">
@@ -2787,33 +2799,55 @@ function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, reje
                             <th className="px-3 py-2 text-right">البيان</th>
                             <th className="px-3 py-2 text-center">التاريخ</th>
                             <th className="px-3 py-2 text-center">المبلغ</th>
-                            {editingRow===op.id && <th className="px-3 py-2 text-center">إجراء</th>}
+                            <th className="px-3 py-2 text-center">المرفقات</th>
+                            <th className="px-3 py-2 text-center">توثيق</th>
+                            {editingRow===op.id && <th className="px-3 py-2 text-center">حفظ</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
-                          {invoices.map((inv,k)=>(
-                            <tr key={k} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 font-mono text-purple-700 font-semibold">{inv.invNum}</td>
-                              <td className="px-3 py-2 font-medium text-gray-800">{inv.vendor}</td>
-                              <td className="px-3 py-2 text-gray-600">{inv.desc}</td>
-                              <td className="px-3 py-2 text-center text-gray-500">{inv.date}</td>
-                              <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">
-                                {editingRow===op.id
-                                  ? <input defaultValue={String(inv.amount)} className="w-20 text-center border border-purple-200 rounded px-1 py-0.5 font-mono text-xs"/>
-                                  : `${fmtAmt(inv.amount)} ر.س`}
-                              </td>
-                              {editingRow===op.id && (
-                                <td className="px-3 py-2 text-center">
-                                  <Btn size="sm" variant="success"><CheckCircle2 size={11}/></Btn>
+                          {invoices.map((inv,k)=>{
+                            const vKey = `${op.id}-${inv.invNum}`;
+                            const isInvVerified = verifiedInvoices[vKey]||false;
+                            return (
+                              <tr key={k} className={`hover:bg-gray-50 ${isInvVerified?"bg-emerald-50/40":""}`}>
+                                <td className="px-3 py-2 font-mono text-purple-700 font-semibold">{inv.invNum}</td>
+                                <td className="px-3 py-2 font-medium text-gray-800">{inv.vendor}</td>
+                                <td className="px-3 py-2 text-gray-600">{inv.desc}</td>
+                                <td className="px-3 py-2 text-center text-gray-500">{inv.date}</td>
+                                <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">
+                                  {editingRow===op.id
+                                    ? <input defaultValue={String(inv.amount)} className="w-20 text-center border border-purple-200 rounded px-1 py-0.5 font-mono text-xs"/>
+                                    : `${fmtAmt(inv.amount)} ر.س`}
                                 </td>
-                              )}
-                            </tr>
-                          ))}
+                                <td className="px-3 py-2 text-center">
+                                  <button onClick={()=>setAttachModal({opId:op.id, invNum:inv.invNum, idx:0, total:inv.attachCount})}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all">
+                                    <Paperclip size={10}/><span className="font-semibold">{inv.attachCount}</span>
+                                  </button>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <button onClick={()=>toggleInvoiceVerify(vKey)}
+                                    title={isInvVerified?"موثّق":"اضغط للتوثيق"}
+                                    className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto transition-all ${isInvVerified?"bg-emerald-500 text-white":"border-2 border-dashed border-gray-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-400"}`}>
+                                    <CheckSquare size={12}/>
+                                  </button>
+                                </td>
+                                {editingRow===op.id && (
+                                  <td className="px-3 py-2 text-center">
+                                    <Btn size="sm" variant="success"><CheckCircle2 size={11}/></Btn>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                         <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                           <tr>
                             <td colSpan={4} className="px-3 py-2.5 font-bold text-gray-900 text-right">الإجمالي</td>
                             <td className="px-3 py-2.5 text-center font-black font-mono text-gray-900">{fmtAmt(invoices.reduce((s,i)=>s+i.amount,0))} ر.س</td>
+                            <td colSpan={2} className="px-3 py-2.5 text-center text-[10px] text-gray-500">
+                              {invoices.filter(inv=>verifiedInvoices[`${op.id}-${inv.invNum}`]).length}/{invoices.length} موثّق
+                            </td>
                             {editingRow===op.id && <td></td>}
                           </tr>
                         </tfoot>
@@ -2825,19 +2859,74 @@ function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, reje
             })
         }
       </div>
+
+      {/* Attachment Viewer Modal */}
+      {attachModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={()=>setAttachModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="px-5 py-4 bg-gradient-to-l from-blue-600 to-blue-700 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base">مرفقات الفاتورة — {attachModal.invNum}</h3>
+                <p className="text-blue-200 text-xs mt-0.5">مرفق {attachModal.idx+1} من {attachModal.total}</p>
+              </div>
+              <button onClick={()=>setAttachModal(null)} className="text-blue-200 hover:text-white"><X size={18}/></button>
+            </div>
+            {/* Attachment preview area */}
+            <div className="p-5">
+              <div className="bg-gray-100 rounded-xl h-52 flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
+                <Paperclip size={36} className="text-gray-300 mb-3"/>
+                <p className="text-sm font-semibold text-gray-600">{ATTACH_LABELS[attachModal.idx % ATTACH_LABELS.length]}</p>
+                <p className="text-xs text-gray-400 mt-1">invoice_{attachModal.invNum}_p{attachModal.idx+1}.pdf</p>
+                <button className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-all">
+                  <Eye size={14}/> عرض الملف الكامل
+                </button>
+              </div>
+              {/* Navigation */}
+              <div className="flex items-center justify-between mt-4">
+                <button disabled={attachModal.idx===0}
+                  onClick={()=>setAttachModal(p=>p?{...p,idx:p.idx-1}:p)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                  <ChevronRight size={14}/> السابق
+                </button>
+                <div className="flex gap-1.5">
+                  {Array.from({length:attachModal.total},(_,i)=>(
+                    <button key={i} onClick={()=>setAttachModal(p=>p?{...p,idx:i}:p)}
+                      className={`w-2.5 h-2.5 rounded-full transition-all ${i===attachModal.idx?"bg-blue-600":"bg-gray-300"}`}/>
+                  ))}
+                </div>
+                <button disabled={attachModal.idx===attachModal.total-1}
+                  onClick={()=>setAttachModal(p=>p?{...p,idx:p.idx+1}:p)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                  التالي <ChevronLeft size={14}/>
+                </button>
+              </div>
+            </div>
+            <div className="px-5 pb-4 flex gap-2 justify-end">
+              <Btn size="sm"><Download size={12}/> تحميل</Btn>
+              <Btn size="sm" variant="success" onClick={()=>{
+                toggleInvoiceVerify(`${attachModal.opId}-${attachModal.invNum}`);
+                setAttachModal(null);
+              }}><CheckSquare size={12}/> تم التحقق من المرفق</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approveOp, addCorrectiveOp }:PageProps) {
   const op = ops.find(o=>o.id===detailId) || ops[0];
+  const [verified, setVerified] = useState<Record<string,boolean>>({});
+  const toggleVerify = (name:string) => setVerified(p=>({...p,[name]:!p[name]}));
+
   const channels = [
-    { name:"نقدي",                  icon:"💵", entered:4200,  expected:4200  },
-    { name:"بنكي (بنك الرياض)",     icon:"🏦", entered:8500,  expected:8500  },
-    { name:"هنقرستيشن",             icon:"🟠", entered:2800,  expected:2800  },
-    { name:"جاهز",                  icon:"🟡", entered:1200,  expected:1350  },
-    { name:"تو يو (ToYou)",          icon:"🔵", entered:980,   expected:980   },
-    { name:"نينجا (Ninja)",          icon:"⚫", entered:660,   expected:660   },
+    { name:"نقدي",                  icon:"💵", entered:4200,  expected:4200, source:"إيصالات الصندوق" },
+    { name:"بنكي (بنك الرياض)",     icon:"🏦", entered:8500,  expected:8500, source:"كشف الحساب البنكي" },
+    { name:"هنقرستيشن",             icon:"🟠", entered:2800,  expected:2800, source:"تقرير المنصة" },
+    { name:"جاهز",                  icon:"🟡", entered:1200,  expected:1350, source:"تقرير المنصة" },
+    { name:"تو يو (ToYou)",          icon:"🔵", entered:980,   expected:980,  source:"تقرير المنصة" },
+    { name:"نينجا (Ninja)",          icon:"⚫", entered:660,   expected:660,  source:"تقرير المنصة" },
   ];
   const totalEntered = channels.reduce((s,c)=>s+c.entered,0);
   const totalExpected = channels.reduce((s,c)=>s+c.expected,0);
@@ -2909,7 +2998,16 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
 
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2 space-y-4">
-          <Card title="جدول المقارنة والتسوية" actions={<span className="text-xs text-gray-400">6 قنوات تحصيل</span>}>
+          <Card title="جدول المقارنة والتسوية" actions={
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">6 قنوات تحصيل</span>
+              {Object.values(verified).filter(Boolean).length > 0 && (
+                <Badge className="bg-emerald-50 text-emerald-700 text-[10px]">
+                  <CheckSquare size={10} className="ml-1"/> {Object.values(verified).filter(Boolean).length} موثّق
+                </Badge>
+              )}
+            </div>
+          }>
             <table className="w-full" dir="rtl">
               <thead className="bg-gray-50">
                 <tr className="text-xs text-gray-500 font-semibold">
@@ -2918,18 +3016,34 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
                   <th className="px-4 py-3 text-center">المتوقع</th>
                   <th className="px-4 py-3 text-center">الفرق</th>
                   <th className="px-4 py-3 text-center">الحالة</th>
+                  <th className="px-4 py-3 text-center">توثيق المحاسب</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {channels.map(ch=>{
                   const diff=ch.entered-ch.expected;
+                  const isVerified = verified[ch.name] || false;
                   return (
-                    <tr key={ch.name} className={`hover:bg-gray-50 ${diff!==0?"bg-red-50/50":""}`}>
-                      <td className="px-4 py-3 font-medium text-gray-800 text-sm">{ch.icon} {ch.name}</td>
+                    <tr key={ch.name} className={`hover:bg-gray-50 ${diff!==0?"bg-red-50/50":""} ${isVerified?"bg-emerald-50/30":""}`}>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="font-medium text-gray-800">{ch.icon} {ch.name}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{ch.source}</div>
+                      </td>
                       <td className="px-4 py-3 text-center font-mono font-semibold text-gray-800 text-sm">{ch.entered.toLocaleString()} ر.س</td>
                       <td className="px-4 py-3 text-center font-mono text-gray-600 text-sm">{ch.expected.toLocaleString()} ر.س</td>
                       <td className="px-4 py-3 text-center">{diff===0?<span className="text-emerald-600 font-mono text-sm">—</span>:<span className="text-red-600 font-bold font-mono text-sm">{diff} ر.س</span>}</td>
                       <td className="px-4 py-3 text-center">{diff===0?<Badge className="bg-emerald-50 text-emerald-700">✓ متطابق</Badge>:<Badge className="bg-red-50 text-red-700">⚠ فرق</Badge>}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={()=>toggleVerify(ch.name)}
+                          title={isVerified?"تم التوثيق — اضغط للإلغاء":"اضغط لتوثيق هذه القناة"}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all ${
+                            isVerified
+                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
+                              : "border-2 border-dashed border-gray-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-400"
+                          }`}>
+                          <CheckSquare size={14}/>
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -2941,6 +3055,7 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
                   <td className="px-4 py-3 text-center font-mono text-gray-600">{fmtAmt(totalExpected)} ر.س</td>
                   <td className="px-4 py-3 text-center font-mono text-red-600">{totalDiff!==0?`${totalDiff} ر.س`:"—"}</td>
                   <td className="px-4 py-3 text-center">{totalDiff===0?<Badge className="bg-emerald-50 text-emerald-700">✓ مطابق</Badge>:<Badge className="bg-red-50 text-red-700">⚠ فرق {Math.abs(totalDiff)} ر.س</Badge>}</td>
+                  <td className="px-4 py-3 text-center text-xs text-gray-400">{Object.values(verified).filter(Boolean).length}/{channels.length} موثّق</td>
                 </tr>
               </tfoot>
             </table>
@@ -3084,15 +3199,15 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
 }
 
 // Simulated purchase detail per operation
-const PURCHASE_DETAIL: Record<string,{supplier:string;invNum:string;items:{name:string;ordered:number;received:number;unit:string;price:number}[]}> = {
+const PURCHASE_DETAIL: Record<string,{supplier:string;invNum:string;items:{name:string;ordered:number;received:number;unit:string;price:number;dailyAvg:number;recommended:number;histPrice:number}[]}> = {
   default: {
     supplier:"شركة الخليج للأغذية",
     invNum:"PO-2025-1021",
     items:[
-      {name:"دجاج طازج",     ordered:50, received:48, unit:"كجم",   price:32},
-      {name:"حليب طازج",     ordered:100,received:100,unit:"لتر",   price:8},
-      {name:"خضار متنوعة",   ordered:30, received:27, unit:"كجم",   price:12},
-      {name:"بطاطس مجمدة",   ordered:80, received:80, unit:"كجم",   price:7},
+      {name:"دجاج طازج",     ordered:50, received:48, unit:"كجم",   price:32, dailyAvg:7,  recommended:49, histPrice:30},
+      {name:"حليب طازج",     ordered:100,received:100,unit:"لتر",   price:8,  dailyAvg:15, recommended:105,histPrice:8},
+      {name:"خضار متنوعة",   ordered:30, received:27, unit:"كجم",   price:12, dailyAvg:4,  recommended:28, histPrice:11},
+      {name:"بطاطس مجمدة",   ordered:80, received:80, unit:"كجم",   price:7,  dailyAvg:11, recommended:77, histPrice:7},
     ]
   }
 };
@@ -3217,30 +3332,45 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                         <p className="text-xs font-semibold text-gray-700">{op.branch}</p>
                       </div>
                     </div>
-                    {/* Line items with quantity + unit price */}
+                    {/* Line items with quantity + unit price + consumption intelligence */}
                     <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-3 py-2 text-right">الصنف</th>
                           <th className="px-3 py-2 text-center">الوحدة</th>
                           <th className="px-3 py-2 text-center">سعر الوحدة</th>
+                          <th className="px-3 py-2 text-center bg-sky-50 text-sky-700">سعر تاريخي</th>
                           <th className="px-3 py-2 text-center">مطلوب</th>
                           <th className="px-3 py-2 text-center">مستلم</th>
+                          <th className="px-3 py-2 text-center bg-amber-50 text-amber-700">استهلاك يومي</th>
+                          <th className="px-3 py-2 text-center bg-amber-50 text-amber-700">موصى به</th>
                           <th className="px-3 py-2 text-center">الإجمالي</th>
                           <th className="px-3 py-2 text-center">الحالة</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
                         {detail.items.map((row,i)=>{
-                          const diff  = row.ordered - row.received;
-                          const total = row.received * row.price;
+                          const diff      = row.ordered - row.received;
+                          const total     = row.received * row.price;
+                          const priceDiff = row.price - row.histPrice;
+                          const qtyVsRec  = row.received - row.recommended;
                           return (
                             <tr key={i} className={diff>0?"bg-red-50/50":""}>
                               <td className="px-3 py-2 font-semibold text-gray-800">{row.name}</td>
                               <td className="px-3 py-2 text-center text-gray-500">{row.unit}</td>
-                              <td className="px-3 py-2 text-center font-mono">{row.price} ر.س</td>
+                              <td className={`px-3 py-2 text-center font-mono font-semibold ${priceDiff>2?"text-red-600":priceDiff<-2?"text-emerald-600":"text-gray-800"}`}>
+                                {row.price} ر.س
+                                {priceDiff>2 && <div className="text-[9px] text-red-500">↑ أعلى من المعتاد</div>}
+                                {priceDiff<-2 && <div className="text-[9px] text-emerald-500">↓ أقل من المعتاد</div>}
+                              </td>
+                              <td className="px-3 py-2 text-center font-mono text-gray-500 bg-sky-50/30">{row.histPrice} ر.س</td>
                               <td className="px-3 py-2 text-center font-mono">{row.ordered}</td>
                               <td className={`px-3 py-2 text-center font-mono font-bold ${diff>0?"text-red-600":"text-gray-800"}`}>{row.received}</td>
+                              <td className="px-3 py-2 text-center font-mono text-amber-700 bg-amber-50/30">{row.dailyAvg}</td>
+                              <td className="px-3 py-2 text-center font-mono bg-amber-50/30">
+                                <span className={`font-semibold ${Math.abs(qtyVsRec)>5?"text-orange-600":"text-gray-700"}`}>{row.recommended}</span>
+                                {Math.abs(qtyVsRec)>5 && <div className="text-[9px] text-orange-500">{qtyVsRec>0?"زيادة":"نقص"} {Math.abs(qtyVsRec)}</div>}
+                              </td>
                               <td className="px-3 py-2 text-center font-mono font-semibold text-blue-700">{fmtAmt(total)} ر.س</td>
                               <td className="px-3 py-2 text-center">
                                 {diff===0
@@ -3253,7 +3383,7 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                       </tbody>
                       <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                         <tr>
-                          <td colSpan={5} className="px-3 py-2 font-bold text-gray-800 text-right">إجمالي الفاتورة</td>
+                          <td colSpan={8} className="px-3 py-2 font-bold text-gray-800 text-right">إجمالي الفاتورة</td>
                           <td className="px-3 py-2 text-center font-black font-mono text-blue-800">
                             {fmtAmt(detail.items.reduce((s,r)=>s+r.received*r.price,0))} ر.س
                           </td>
@@ -3261,6 +3391,18 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                         </tr>
                       </tfoot>
                     </table>
+                    {/* Price anomaly alert */}
+                    {detail.items.some(r=>r.price-r.histPrice>2) && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2" dir="rtl">
+                        <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0"/>
+                        <div>
+                          <p className="text-xs font-bold text-amber-900">تنبيه: أسعار أعلى من المعتاد التاريخي</p>
+                          <p className="text-[11px] text-amber-700 mt-0.5">
+                            {detail.items.filter(r=>r.price-r.histPrice>2).map(r=>`${r.name} (${r.price} بدلاً من ${r.histPrice} ر.س)`).join(" · ")}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -3896,40 +4038,437 @@ function AccCash({}: PageProps) {
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// FIXED ASSETS — Mobile ↔ Accountant Coordination Workflow
+// ════════════════════════════════════════════════════════════
 function AccAssets({}: PageProps) {
-  const assets = [
-    { name:"ثلاجة عرض كبيرة", cat:"معدات", branch:"الرياض - العليا", cost:28000, book:21000 },
-    { name:"نظام POS متكامل", cat:"تقنية", branch:"جدة - الحمراء", cost:15000, book:9000 },
-    { name:"شاشات عرض المنيو", cat:"تقنية", branch:"مكة - المعابدة", cost:8500, book:7083 },
-    { name:"فرن صناعي", cat:"معدات", branch:"الدمام", cost:45000, book:37500 },
-  ];
+  type AssetStatus = "pending_branch"|"pending_accountant"|"confirmed"|"registered";
+  interface AssetEntry {
+    id:string; name:string; cat:string; branch:string; cost:number; book:number;
+    case_:"branch_upload"|"acc_register"; status:AssetStatus; invNum:string; submittedBy:string; date:string;
+  }
+  const [assets, setAssets] = useState<AssetEntry[]>([
+    { id:"FA-001", name:"ثلاجة عرض كبيرة",   cat:"معدات", branch:"الرياض - العليا",  cost:28000, book:21000, case_:"branch_upload",  status:"pending_accountant", invNum:"INV-A001", submittedBy:"مدير الفرع: خالد العمري",  date:"12 أكت" },
+    { id:"FA-002", name:"نظام POS متكامل",   cat:"تقنية", branch:"جدة - الحمراء",    cost:15000, book:9000,  case_:"acc_register",   status:"pending_branch",     invNum:"INV-A002", submittedBy:"المحاسب: سارة الزهراني",   date:"11 أكت" },
+    { id:"FA-003", name:"شاشات عرض المنيو",  cat:"تقنية", branch:"مكة - المعابدة",   cost:8500,  book:7083,  case_:"branch_upload",  status:"confirmed",          invNum:"INV-A003", submittedBy:"مدير الفرع: فهد الشمري",    date:"10 أكت" },
+    { id:"FA-004", name:"فرن صناعي",          cat:"معدات", branch:"الدمام",            cost:45000, book:37500, case_:"acc_register",   status:"confirmed",          invNum:"INV-A004", submittedBy:"المحاسب: أحمد الفيصل",      date:"09 أكت" },
+    { id:"FA-005", name:"مكيف مركزي",         cat:"معدات", branch:"الرياض - السليمانية",cost:22000,book:18000, case_:"branch_upload", status:"pending_accountant", invNum:"INV-A005", submittedBy:"مدير الفرع: نواف السالم",    date:"13 أكت" },
+  ]);
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+  const confirmAsset = (id:string) => setAssets(p=>p.map(a=>a.id===id?{...a,status:"confirmed" as AssetStatus}:a));
+
+  const pendingAccountant = assets.filter(a=>a.status==="pending_accountant");
+  const pendingBranch     = assets.filter(a=>a.status==="pending_branch");
+  const confirmed         = assets.filter(a=>a.status==="confirmed");
+
+  const STATUS_ASSET: Record<AssetStatus, {label:string; cls:string}> = {
+    pending_branch:     { label:"ينتظر تأكيد الفرع",   cls:"bg-amber-50 text-amber-700 border border-amber-200" },
+    pending_accountant: { label:"ينتظر مراجعة المحاسب", cls:"bg-blue-50 text-blue-700 border border-blue-200" },
+    confirmed:          { label:"مؤكد — مكتمل",         cls:"bg-emerald-50 text-emerald-700 border border-emerald-200" },
+    registered:         { label:"مسجل",                 cls:"bg-purple-50 text-purple-700 border border-purple-200" },
+  };
+
   return (
-    <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي الأصول (الدفترية)" value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K ر.س`} sub="" icon={<Building2 size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="الاستهلاك الشهري" value="18,500 ر.س" sub="" icon={<TrendingUp size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="عدد الأصول" value={String(assets.length*4)} sub="تقديري في 50 فرع" icon={<BarChart3 size={18} className="text-blue-600"/>} accent="blue"/>
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
+          <p className="text-gray-400 text-sm mt-0.5">تنسيق بين مدير الفرع (موبايل) والمحاسب</p>
+        </div>
       </div>
-      <Card title="قائمة الأصول — عرض فقط">
-        <table className="w-full" dir="rtl">
-          <thead className="bg-gray-50"><tr className="text-xs text-gray-500 font-semibold">
-            <th className="px-4 py-3 text-right">الأصل</th><th className="px-4 py-3 text-right">الفئة</th><th className="px-4 py-3 text-right">الفرع</th>
-            <th className="px-4 py-3 text-center">التكلفة</th><th className="px-4 py-3 text-center">القيمة الدفترية</th>
-          </tr></thead>
-          <tbody className="divide-y divide-gray-100">
-            {assets.map((a,i)=>(
-              <tr key={i} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-sm text-gray-800">{a.name}</td>
-                <td className="px-4 py-3 text-xs"><Badge className="bg-blue-50 text-blue-700">{a.cat}</Badge></td>
-                <td className="px-4 py-3 text-xs text-gray-500">{a.branch}</td>
-                <td className="px-4 py-3 text-center font-mono text-sm">{fmtAmt(a.cost)} ر.س</td>
-                <td className="px-4 py-3 text-center font-mono text-sm font-semibold text-purple-700">{fmtAmt(a.book)} ر.س</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="بانتظار مراجعتي" value={String(pendingAccountant.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="بانتظار تأكيد الفرع" value={String(pendingBranch.length)} sub="سجّلها المحاسب" icon={<Smartphone size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="مكتمل ومؤكد" value={String(confirmed.length)} sub="تمت الموافقة" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="القيمة الدفترية" value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K ر.س`} sub="كل الأصول" icon={<Building2 size={18} className="text-purple-600"/>} accent="purple"/>
+      </div>
+
+      {/* Workflow explanation */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4" dir="rtl">
+          <div className="flex items-center gap-2 mb-2">
+            <Smartphone size={16} className="text-blue-600 flex-shrink-0"/>
+            <span className="text-sm font-bold text-blue-800">الحالة 1 — مدير الفرع يرفع عبر الموبايل</span>
+          </div>
+          <p className="text-xs text-blue-600">يرفع مدير الفرع صورة الأصل والفاتورة → يستلمها المحاسب هنا → يراجعها ويسجّلها في النظام</p>
+        </div>
+        <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4" dir="rtl">
+          <div className="flex items-center gap-2 mb-2">
+            <Clipboard size={16} className="text-amber-600 flex-shrink-0"/>
+            <span className="text-sm font-bold text-amber-800">الحالة 2 — المحاسب يسجّل الفاتورة</span>
+          </div>
+          <p className="text-xs text-amber-600">المحاسب يسجّل الفاتورة → يُرسل إشعاراً لمدير الفرع على الموبايل → مدير الفرع يؤكد الاستلام</p>
+        </div>
+      </div>
+
+      {/* Assets list */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">سجل الأصول — اضغط لعرض التفاصيل</h3>
+          <span className="text-xs text-gray-400">{assets.length} أصل</span>
+        </div>
+        {assets.map(a=>{
+          const isExpanded = expandedId===a.id;
+          const cfg = STATUS_ASSET[a.status];
+          return (
+            <div key={a.id} className="border-b border-gray-100 last:border-0">
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 cursor-pointer ${isExpanded?"bg-purple-50/20":""}`}
+                onClick={()=>setExpandedId(isExpanded?null:a.id)}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg flex-shrink-0 ${a.cat==="معدات"?"bg-blue-500":"bg-purple-500"}`}>
+                  {a.cat==="معدات"?"🔧":"💻"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{a.name}</span>
+                    <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{a.cat}</Badge>
+                    <Badge className={`${cfg.cls} text-[10px]`}>{cfg.label}</Badge>
+                    {a.case_==="branch_upload"
+                      ? <Badge className="bg-blue-50 text-blue-600 text-[10px]"><Smartphone size={9} className="ml-0.5"/> مُرفوع من الفرع</Badge>
+                      : <Badge className="bg-amber-50 text-amber-600 text-[10px]"><Clipboard size={9} className="ml-0.5"/> سجّله المحاسب</Badge>
+                    }
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{a.branch} · {a.date} · {a.submittedBy}</p>
+                </div>
+                <div className="text-left text-sm">
+                  <p className="font-mono font-bold text-gray-800">{fmtAmt(a.cost)} ر.س</p>
+                  <p className="text-xs text-gray-400 mt-0.5">دفترية: {fmtAmt(a.book)} ر.س</p>
+                </div>
+                {isExpanded?<ChevronUp size={14} className="text-gray-400"/>:<ChevronDown size={14} className="text-gray-400"/>}
+              </div>
+              {isExpanded && (
+                <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
+                  <div className="grid grid-cols-3 gap-3 mt-2">
+                    <div className="bg-white rounded-xl border border-gray-100 p-3">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">رقم الفاتورة</p>
+                      <p className="text-sm font-bold font-mono text-purple-700">{a.invNum}</p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 p-3">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">التكلفة الإجمالية</p>
+                      <p className="text-sm font-bold font-mono text-gray-800">{fmtAmt(a.cost)} ر.س</p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 p-3">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">القيمة الدفترية</p>
+                      <p className="text-sm font-bold font-mono text-gray-800">{fmtAmt(a.book)} ر.س</p>
+                    </div>
+                  </div>
+                  {/* Workflow state-specific actions */}
+                  {a.status==="pending_accountant" && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                      <Smartphone size={16} className="text-blue-600 mt-0.5 flex-shrink-0"/>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-blue-900">الخطوة: مراجعة وتأكيد الاستلام</p>
+                        <p className="text-xs text-blue-600 mt-0.5">رُفع الأصل والفاتورة من الفرع عبر تطبيق الموبايل. راجع البيانات ثم أكّد التسجيل.</p>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Btn size="sm"><Eye size={12}/> الفاتورة</Btn>
+                        <Btn size="sm" variant="success" onClick={()=>confirmAsset(a.id)}><CheckCircle2 size={12}/> تأكيد التسجيل</Btn>
+                      </div>
+                    </div>
+                  )}
+                  {a.status==="pending_branch" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                      <Smartphone size={16} className="text-amber-600 mt-0.5 flex-shrink-0"/>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-900">بانتظار تأكيد الفرع على الموبايل</p>
+                        <p className="text-xs text-amber-600 mt-0.5">سُجّلت الفاتورة من طرف المحاسب. أُرسل إشعار لمدير الفرع لتأكيد الاستلام الفعلي للأصل.</p>
+                      </div>
+                      <Badge className="bg-amber-100 text-amber-700 text-xs flex-shrink-0">⏳ ينتظر الفرع</Badge>
+                    </div>
+                  )}
+                  {a.status==="confirmed" && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                      <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0"/>
+                      <p className="text-sm text-emerald-800 font-medium">مكتمل — تم التأكيد من كلا الطرفين. الأصل مسجّل في النظام.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// WASTE / DAMAGE MODULE — موديول الهدر والتالف
+// ════════════════════════════════════════════════════════════
+function AccWaste({}: PageProps) {
+  type WasteClass = "هدر"|"تالف";
+  type Resp = "موظف"|"مطعم";
+  interface WasteProduct { name:string; qty:number; unit:string; class_:WasteClass; resp:Resp; hasImg:boolean }
+  interface WasteEntry { id:string; branch:string; date:string; status:"pending"|"approved"|"rejected"; products:WasteProduct[] }
+  const [entries, setEntries] = useState<WasteEntry[]>([
+    { id:"WD-001", branch:"فرع الرياض - العليا",    date:"14 أكت", status:"pending",
+      products:[
+        {name:"دجاج طازج",     qty:3,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true},
+        {name:"زيت قلي",       qty:10, unit:"لتر",   class_:"هدر",  resp:"مطعم",  hasImg:false},
+      ]},
+    { id:"WD-002", branch:"فرع جدة - الحمراء",      date:"13 أكت", status:"pending",
+      products:[
+        {name:"خبز برجر",       qty:20, unit:"قطعة",  class_:"هدر",  resp:"مطعم",  hasImg:false},
+        {name:"صوص مايونيز",   qty:2,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true},
+        {name:"مشروبات غازية", qty:6,  unit:"علبة",  class_:"هدر",  resp:"مطعم",  hasImg:false},
+      ]},
+    { id:"WD-003", branch:"فرع مكة - المعابدة",     date:"12 أكت", status:"approved",
+      products:[
+        {name:"دجاج طازج",     qty:1,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true},
+      ]},
+  ]);
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+  const toggleClass = (entryId:string, pIdx:number) => {
+    setEntries(prev=>prev.map(e=>e.id===entryId?{
+      ...e, products:e.products.map((p,i)=>i===pIdx?{...p, class_:p.class_==="هدر"?"تالف":"هدر" as WasteClass}:p)
+    }:e));
+  };
+  const toggleResp = (entryId:string, pIdx:number) => {
+    setEntries(prev=>prev.map(e=>e.id===entryId?{
+      ...e, products:e.products.map((p,i)=>i===pIdx?{...p, resp:p.resp==="موظف"?"مطعم":"موظف" as Resp}:p)
+    }:e));
+  };
+  const approve = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"approved" as const}:e));
+  const reject  = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"rejected" as const}:e));
+
+  const pending  = entries.filter(e=>e.status==="pending");
+  const approved = entries.filter(e=>e.status==="approved");
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">موديول الهدر والتالف</h2>
+          <p className="text-gray-400 text-sm mt-0.5">مراجعة بيانات الهدر — تعديل التصنيف وتحديد المسؤولية</p>
+        </div>
+        {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>setEntries(p=>p.map(e=>({...e,status:"approved" as const})))}><CheckCircle2 size={12}/> موافقة على الكل ({pending.length})</Btn>}
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="بانتظار المراجعة" value={String(pending.length)} sub="من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معتمد" value={String(approved.length)} sub="هذا الشهر" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="بنود هدر اليوم" value={String(entries.reduce((s,e)=>s+e.products.filter(p=>p.class_==="هدر").length,0))} sub="تصنيف هدر" icon={<Trash2 size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="بنود تالف" value={String(entries.reduce((s,e)=>s+e.products.filter(p=>p.class_==="تالف").length,0))} sub="تصنيف تالف" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">بيانات الهدر والتالف</h3>
+          <span className="text-xs text-gray-400">{entries.length} بيان — اضغط لعرض المنتجات</span>
+        </div>
+        {entries.map(entry=>{
+          const isExpanded = expandedId===entry.id;
+          const statusCls  = entry.status==="pending"?"bg-amber-50 text-amber-700 border border-amber-200":entry.status==="approved"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200";
+          const statusLbl  = entry.status==="pending"?"معلق":entry.status==="approved"?"معتمد":"مرفوض";
+          return (
+            <div key={entry.id} className="border-b border-gray-100 last:border-0">
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 cursor-pointer ${isExpanded?"bg-rose-50/20":""}`}
+                onClick={()=>setExpandedId(isExpanded?null:entry.id)}>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{entry.branch}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="font-mono text-xs text-rose-600">{entry.id}</span>
+                    <Badge className={`${statusCls} text-[10px]`}>{statusLbl}</Badge>
+                    <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{entry.products.length} منتج</Badge>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{entry.date}</p>
+                </div>
+                <div className="flex gap-1.5">
+                  {entry.status==="pending" && <>
+                    <Btn size="sm" variant="success" onClick={e=>{e.stopPropagation();approve(entry.id)}}><ThumbsUp size={12}/></Btn>
+                    <Btn size="sm" variant="danger"  onClick={e=>{e.stopPropagation();reject(entry.id)}}><ThumbsDown size={12}/></Btn>
+                  </>}
+                </div>
+                {isExpanded?<ChevronUp size={14} className="text-gray-400 flex-shrink-0"/>:<ChevronDown size={14} className="text-gray-400 flex-shrink-0"/>}
+              </div>
+              {isExpanded && (
+                <div className="px-5 pb-5 bg-gray-50/40">
+                  <p className="text-xs font-bold text-gray-600 mt-3 mb-2">
+                    المنتجات المشمولة — يمكن تعديل التصنيف والمسؤولية:
+                  </p>
+                  <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-right">الصنف</th>
+                        <th className="px-3 py-2 text-center">الكمية</th>
+                        <th className="px-3 py-2 text-center">الوحدة</th>
+                        <th className="px-3 py-2 text-center">الصورة</th>
+                        <th className="px-3 py-2 text-center">التصنيف</th>
+                        <th className="px-3 py-2 text-center">المسؤولية</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {entry.products.map((prod,pi)=>(
+                        <tr key={pi} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-semibold text-gray-800">{prod.name}</td>
+                          <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">{prod.qty}</td>
+                          <td className="px-3 py-2 text-center text-gray-500">{prod.unit}</td>
+                          <td className="px-3 py-2 text-center">
+                            {prod.hasImg
+                              ? <button className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 text-[10px] hover:bg-blue-100 transition-all">
+                                  <Eye size={10}/> عرض
+                                </button>
+                              : <span className="text-gray-300 text-[10px]">لا يوجد</span>}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {entry.status==="pending"
+                              ? <button onClick={()=>toggleClass(entry.id,pi)}
+                                  className={`px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.class_==="تالف"?"bg-red-50 text-red-700 border-red-200 hover:bg-red-100":"bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}>
+                                  {prod.class_==="تالف"?"🔴 تالف":"🟡 هدر"}
+                                </button>
+                              : <Badge className={prod.class_==="تالف"?"bg-red-50 text-red-700":"bg-amber-50 text-amber-700"}>{prod.class_}</Badge>
+                            }
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {entry.status==="pending"
+                              ? <button onClick={()=>toggleResp(entry.id,pi)}
+                                  className={`px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.resp==="موظف"?"bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100":"bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+                                  {prod.resp==="موظف"?"👤 موظف":"🏪 مطعم"}
+                                </button>
+                              : <Badge className={prod.resp==="موظف"?"bg-orange-50 text-orange-700":"bg-gray-50 text-gray-600"}>{prod.resp}</Badge>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {entry.status==="pending" && (
+                    <div className="mt-3 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+                      <p className="text-[11px] text-blue-700 font-medium">
+                        💡 التصنيف يحدد الجهة المحاسبة: <strong>تالف</strong> = يُحمَّل للموظف أو المطعم · <strong>هدر</strong> = خسارة تشغيلية مباشرة
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// REMINDERS SYSTEM — نظام التذكيرات للفروع
+// ════════════════════════════════════════════════════════════
+function AccReminders({}: PageProps) {
+  type ReminderStatus = "not_sent"|"sent"|"responded";
+  type ResponseType = "سيرسل لاحقاً"|"لا مشتريات اليوم"|"تم الجرد — قيد الرفع"|"توضيح: لا يوجد هدر اليوم"|null;
+  interface MissingReport { id:string; branch:string; reportType:string; requiredBy:string; daysMissing:number; urgency:"high"|"medium"|"low"; reminderStatus:ReminderStatus; response:ResponseType }
+
+  const [reminders, setReminders] = useState<MissingReport[]>([
+    { id:"R001", branch:"فرع الرياض - العليا",       reportType:"جرد المخزون اليومي",     requiredBy:"14 أكت",  daysMissing:1, urgency:"high",   reminderStatus:"not_sent", response:null },
+    { id:"R002", branch:"فرع جدة - الحمراء",         reportType:"تقرير المبيعات اليومي",  requiredBy:"14 أكت",  daysMissing:1, urgency:"high",   reminderStatus:"sent",     response:null },
+    { id:"R003", branch:"فرع مكة - المعابدة",        reportType:"طلب الشراء الأسبوعي",    requiredBy:"13 أكت",  daysMissing:2, urgency:"medium", reminderStatus:"responded", response:"سيرسل لاحقاً" },
+    { id:"R004", branch:"فرع الدمام",                reportType:"تقرير الهدر والتالف",    requiredBy:"13 أكت",  daysMissing:2, urgency:"low",    reminderStatus:"responded", response:"توضيح: لا يوجد هدر اليوم" },
+    { id:"R005", branch:"فرع الرياض - السليمانية",   reportType:"جرد المخزون اليومي",     requiredBy:"12 أكت",  daysMissing:3, urgency:"high",   reminderStatus:"not_sent", response:null },
+    { id:"R006", branch:"فرع جدة - العزيزية",        reportType:"تقرير المشتريات",         requiredBy:"12 أكت",  daysMissing:3, urgency:"medium", reminderStatus:"responded", response:"لا مشتريات اليوم" },
+  ]);
+  const [expandedId, setExpandedId] = useState<string|null>(null);
+  const [responseOptions] = useState<ResponseType[]>(["سيرسل لاحقاً","لا مشتريات اليوم","تم الجرد — قيد الرفع","توضيح: لا يوجد هدر اليوم"]);
+
+  const sendReminder = (id:string) => setReminders(p=>p.map(r=>r.id===id?{...r,reminderStatus:"sent" as ReminderStatus}:r));
+  const sendAll = () => setReminders(p=>p.map(r=>r.reminderStatus==="not_sent"?{...r,reminderStatus:"sent" as ReminderStatus}:r));
+
+  const notSent   = reminders.filter(r=>r.reminderStatus==="not_sent");
+  const sent      = reminders.filter(r=>r.reminderStatus==="sent");
+  const responded = reminders.filter(r=>r.reminderStatus==="responded");
+
+  const urgencyBadge = (u:string) =>
+    u==="high"  ? "bg-red-50 text-red-700 border border-red-200" :
+    u==="medium"? "bg-amber-50 text-amber-700 border border-amber-200" :
+                  "bg-gray-50 text-gray-600 border border-gray-200";
+  const urgencyLbl = (u:string) => u==="high"?"عاجل":u==="medium"?"متوسط":"منخفض";
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">التذكيرات — بيانات الفروع المفقودة</h2>
+          <p className="text-gray-400 text-sm mt-0.5">أرسل تذكيراً للفرع مباشرةً من هنا — يصل على تطبيق الموبايل</p>
+        </div>
+        {notSent.length>0 && (
+          <Btn variant="primary" size="sm" onClick={sendAll}>
+            <Send size={12}/> إرسال الكل ({notSent.length})
+          </Btn>
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="لم تُرسَل بعد" value={String(notSent.length)} sub="تنتظر إجراءً منك" icon={<Bell size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="تم الإرسال" value={String(sent.length)} sub="ينتظر رد الفرع" icon={<Send size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تم الرد" value={String(responded.length)} sub="استجاب مدير الفرع" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="إجمالي المفقود" value={String(reminders.length)} sub="تقارير وبيانات" icon={<AlertTriangle size={18} className="text-purple-600"/>} accent="purple"/>
+      </div>
+
+      {/* Reminders table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">البيانات المفقودة من الفروع</h3>
+          <span className="text-xs text-gray-400">{reminders.length} بيان مفقود</span>
+        </div>
+        {reminders.map(r=>{
+          const isExpanded = expandedId===r.id;
+          return (
+            <div key={r.id} className="border-b border-gray-100 last:border-0">
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 ${isExpanded?"bg-blue-50/20":""}`}>
+                <div className={`w-2 h-10 rounded-full flex-shrink-0 ${r.urgency==="high"?"bg-red-400":r.urgency==="medium"?"bg-amber-400":"bg-gray-300"}`}/>
+                <div className="flex-1 cursor-pointer" onClick={()=>setExpandedId(isExpanded?null:r.id)}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{r.branch}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-xs text-gray-600">{r.reportType}</span>
+                    <Badge className={`${urgencyBadge(r.urgency)} text-[10px]`}>{urgencyLbl(r.urgency)}</Badge>
+                    {r.daysMissing>1 && <Badge className="bg-red-50 text-red-700 text-[10px]">⏰ {r.daysMissing} أيام متأخر</Badge>}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <p className="text-xs text-gray-400">كان مطلوباً: {r.requiredBy}</p>
+                    {r.reminderStatus==="sent" && <Badge className="bg-amber-50 text-amber-700 text-[10px]">📤 تم الإرسال</Badge>}
+                    {r.reminderStatus==="responded" && r.response && <Badge className="bg-emerald-50 text-emerald-700 text-[10px]">✅ رد: {r.response}</Badge>}
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  {r.reminderStatus==="not_sent" && (
+                    <Btn size="sm" variant="primary" onClick={()=>sendReminder(r.id)}>
+                      <Send size={11}/> إرسال تذكير
+                    </Btn>
+                  )}
+                  {r.reminderStatus==="sent" && (
+                    <Btn size="sm" onClick={()=>sendReminder(r.id)}>
+                      <RefreshCw size={11}/> إعادة الإرسال
+                    </Btn>
+                  )}
+                  {r.reminderStatus==="responded" && (
+                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-3 py-1.5">
+                      <CheckCircle2 size={10} className="ml-1"/> استجاب
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              {/* Expanded: response options preview (simulates mobile response) */}
+              {isExpanded && r.reminderStatus==="sent" && (
+                <div className="px-5 pb-4 bg-gray-50/40">
+                  <p className="text-xs font-bold text-gray-600 mt-2 mb-2 flex items-center gap-1.5">
+                    <Smartphone size={12} className="text-gray-500"/> ردود سريعة متاحة لمدير الفرع على الموبايل:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {responseOptions.map(opt=>(
+                      <button key={opt} onClick={()=>{
+                        setReminders(p=>p.map(rm=>rm.id===r.id?{...rm,reminderStatus:"responded" as ReminderStatus,response:opt}:rm));
+                        setExpandedId(null);
+                      }} className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all">
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -5426,35 +5965,101 @@ function ProcOverview({ navigate }:PageProps) {
 
 function ProcNewOrders({}: PageProps) {
   const [orders, setOrders] = useState([
-    { branch:"فرع الرياض - العليا", items:4, total:4800, urgency:"عادي", status:"pending" as const, time:"قبل 30 دقيقة" },
-    { branch:"فرع جدة - الحمراء",   items:6, total:8200, urgency:"عاجل", status:"pending" as const, time:"قبل ساعة" },
-    { branch:"فرع مكة - المعابدة",  items:3, total:3100, urgency:"عادي", status:"pending" as const, time:"قبل ساعتين" },
-    { branch:"فرع الدمام",           items:5, total:5600, urgency:"عاجل", status:"pending" as const, time:"قبل 3 ساعات" },
+    { id:"PO-101", branch:"فرع الرياض - العليا", supplier:"شركة الدواجن الوطنية",  items:4, total:4800, urgency:"عادي", status:"pending" as const, time:"قبل 30 دقيقة" },
+    { id:"PO-102", branch:"فرع الرياض - العليا", supplier:"شركة الدواجن الوطنية",  items:2, total:2200, urgency:"عادي", status:"pending" as const, time:"قبل ساعة" },
+    { id:"PO-103", branch:"فرع الرياض - العليا", supplier:"مطاحن الملك",             items:3, total:1900, urgency:"عادي", status:"pending" as const, time:"قبل ساعتين" },
+    { id:"PO-104", branch:"فرع جدة - الحمراء",   supplier:"شركة الدواجن الوطنية",  items:6, total:8200, urgency:"عاجل", status:"pending" as const, time:"قبل ساعة" },
+    { id:"PO-105", branch:"فرع جدة - الحمراء",   supplier:"مزرعة الخير",            items:4, total:5400, urgency:"عاجل", status:"pending" as const, time:"قبل ساعتين" },
+    { id:"PO-106", branch:"فرع مكة - المعابدة",  supplier:"مطاحن الملك",            items:3, total:3100, urgency:"عادي", status:"pending" as const, time:"قبل ساعتين" },
+    { id:"PO-107", branch:"فرع الدمام",           supplier:"مزرعة الخير",            items:5, total:5600, urgency:"عاجل", status:"pending" as const, time:"قبل 3 ساعات" },
   ]);
-  const approve = (i:number) => setOrders(p=>p.map((o,j)=>j===i?{...o,status:"approved" as const}:o));
+  const [groupBy, setGroupBy] = useState<"branch"|"supplier">("branch");
+
+  const approveOne      = (id:string)     => setOrders(p=>p.map(o=>o.id===id?{...o,status:"approved" as const}:o));
+  const approveByBranch = (branch:string) => setOrders(p=>p.map(o=>o.branch===branch&&o.status==="pending"?{...o,status:"approved" as const}:o));
+  const approveBySupplier = (sup:string)  => setOrders(p=>p.map(o=>o.supplier===sup&&o.status==="pending"?{...o,status:"approved" as const}:o));
+  const approveAll      = ()              => setOrders(p=>p.map(o=>({...o,status:"approved" as const})));
+
   const pending = orders.filter(o=>o.status==="pending");
 
+  // Group orders
+  const groupKeys = [...new Set(orders.map(o=>groupBy==="branch"?o.branch:o.supplier))];
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir="rtl">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-800">الطلبات الجديدة</h2>
-        {pending.length>0 && <Btn variant="primary" size="sm" onClick={()=>setOrders(p=>p.map(o=>({...o,status:"approved" as const})))}><Package size={12}/> اعتماد الكل ({pending.length})</Btn>}
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">الطلبات الجديدة</h2>
+          <p className="text-gray-400 text-sm mt-0.5">اعتمد فردياً أو اعتمد كل طلبات فرع أو مورد دفعةً واحدة</p>
+        </div>
+        {pending.length>0 && <Btn variant="primary" size="sm" onClick={approveAll}><Package size={12}/> اعتماد الكل ({pending.length})</Btn>}
       </div>
-      <Card title={`${orders.length} طلب`}>
-        {orders.map((r,i)=>(
-          <div key={i} className={`px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 ${r.urgency==="عاجل"&&r.status==="pending"?"border-r-4 border-r-red-400":""}`}>
-            <div className="flex-1">
-              <div className="flex items-center gap-2"><span className="font-semibold text-sm text-gray-800">{r.branch}</span><Badge className={r.urgency==="عاجل"?"bg-red-50 text-red-700":"bg-gray-50 text-gray-600"}>{r.urgency}</Badge></div>
-              <p className="text-xs text-gray-400 mt-1">{r.items} أصناف · {r.time}</p>
+
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="طلبات جديدة معلقة" value={String(pending.length)} sub="من الفروع" icon={<ShoppingCart size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تم اعتمادها" value={String(orders.filter(o=>o.status==="approved").length)} sub="هذا الجلسة" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="الموردون المعنيون" value={String(new Set(pending.map(o=>o.supplier)).size)} sub="يحتاجون موافقة" icon={<Truck size={18} className="text-blue-600"/>} accent="blue"/>
+      </div>
+
+      {/* Group by toggle */}
+      <div className="flex items-center gap-3" dir="rtl">
+        <span className="text-xs font-semibold text-gray-500">تجميع حسب:</span>
+        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+          {(["branch","supplier"] as const).map(g=>(
+            <button key={g} onClick={()=>setGroupBy(g)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${groupBy===g?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              {g==="branch"?"الفرع":"المورد"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Grouped orders */}
+      <div className="space-y-3">
+        {groupKeys.map(groupKey=>{
+          const groupOrders = orders.filter(o=>(groupBy==="branch"?o.branch:o.supplier)===groupKey);
+          const groupPending = groupOrders.filter(o=>o.status==="pending");
+          const groupTotal   = groupOrders.reduce((s,o)=>s+o.total,0);
+          return (
+            <div key={groupKey} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* Group header */}
+              <div className="px-5 py-3 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-800 text-sm">{groupKey}</span>
+                  <Badge className="bg-blue-50 text-blue-700 text-[10px]">{groupOrders.length} طلب</Badge>
+                  {groupPending.length>0 && <Badge className="bg-amber-50 text-amber-700 text-[10px]">{groupPending.length} معلق</Badge>}
+                  <span className="font-mono font-bold text-gray-600 text-sm">{fmtAmt(groupTotal)} ر.س</span>
+                </div>
+                {groupPending.length>1 && (
+                  <Btn size="sm" variant="success"
+                    onClick={()=>groupBy==="branch"?approveByBranch(groupKey):approveBySupplier(groupKey)}>
+                    <CheckCircle2 size={11}/> اعتماد الكل ({groupPending.length} طلب)
+                  </Btn>
+                )}
+              </div>
+              {/* Orders in group */}
+              {groupOrders.map((r)=>(
+                <div key={r.id} className={`px-5 py-3.5 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 ${r.urgency==="عاجل"&&r.status==="pending"?"border-r-4 border-r-red-400":""}`}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs text-purple-600">{r.id}</span>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-xs text-gray-600">{groupBy==="branch"?r.supplier:r.branch}</span>
+                      <Badge className={r.urgency==="عاجل"?"bg-red-50 text-red-700 text-[10px]":"bg-gray-50 text-gray-600 text-[10px]"}>{r.urgency}</Badge>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{r.items} أصناف · {r.time}</p>
+                  </div>
+                  <span className="font-mono font-bold text-gray-800 text-sm">{fmtAmt(r.total)} ر.س</span>
+                  {r.status==="pending"
+                    ? <Btn size="sm" variant="success" onClick={()=>approveOne(r.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
+                    : <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">✓ معتمد</Badge>
+                  }
+                </div>
+              ))}
             </div>
-            <span className="font-mono font-bold text-gray-800">{fmtAmt(r.total)} ر.س</span>
-            {r.status==="pending"
-              ? <Btn size="sm" variant="success" onClick={()=>approve(i)}><CheckCircle2 size={12}/> اعتماد</Btn>
-              : <Badge className="bg-emerald-50 text-emerald-700">✓ تم الاعتماد</Badge>
-            }
-          </div>
-        ))}
-      </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
