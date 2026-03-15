@@ -3198,218 +3198,451 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
   );
 }
 
-// Simulated purchase detail per operation
-const PURCHASE_DETAIL: Record<string,{supplier:string;invNum:string;items:{name:string;ordered:number;received:number;unit:string;price:number;dailyAvg:number;recommended:number;histPrice:number}[]}> = {
-  default: {
-    supplier:"شركة الخليج للأغذية",
-    invNum:"PO-2025-1021",
+// ── Rich purchase records for Accountant module ─────────────────────────────
+interface PurItem { name:string; ordered:number; received:number; unit:string; price:number; histPrice:number; dailyAvg:number; recommended:number }
+interface PurRecord { id:string; branch:string; supplier:string; invNum:string; date:string; status:"pending"|"approved"|"rejected"; match:"exact"|"diff"; amount:number; items:PurItem[] }
+const PUR_RECORDS: PurRecord[] = [
+  { id:"PUR-001", branch:"فرع الرياض - العليا",       supplier:"شركة الدواجن الوطنية",  invNum:"INV-D001", date:"14 أكت", status:"pending",  match:"diff",  amount:5760,
     items:[
-      {name:"دجاج طازج",     ordered:50, received:48, unit:"كجم",   price:32, dailyAvg:7,  recommended:49, histPrice:30},
-      {name:"حليب طازج",     ordered:100,received:100,unit:"لتر",   price:8,  dailyAvg:15, recommended:105,histPrice:8},
-      {name:"خضار متنوعة",   ordered:30, received:27, unit:"كجم",   price:12, dailyAvg:4,  recommended:28, histPrice:11},
-      {name:"بطاطس مجمدة",   ordered:80, received:80, unit:"كجم",   price:7,  dailyAvg:11, recommended:77, histPrice:7},
-    ]
-  }
-};
+      {name:"دجاج طازج",   ordered:50,  received:48,  unit:"كجم", price:32, histPrice:30, dailyAvg:7,  recommended:49},
+      {name:"صدر دجاج",    ordered:30,  received:28,  unit:"كجم", price:45, histPrice:43, dailyAvg:4,  recommended:28},
+    ]},
+  { id:"PUR-002", branch:"فرع جدة - الحمراء",         supplier:"شركة الدواجن الوطنية",  invNum:"INV-D002", date:"13 أكت", status:"approved", match:"exact", amount:7040,
+    items:[
+      {name:"دجاج طازج",   ordered:60,  received:60,  unit:"كجم", price:32, histPrice:30, dailyAvg:9,  recommended:63},
+      {name:"أجنحة دجاج",  ordered:40,  received:40,  unit:"كجم", price:38, histPrice:36, dailyAvg:5,  recommended:35},
+    ]},
+  { id:"PUR-003", branch:"فرع مكة - المعابدة",         supplier:"شركة الدواجن الوطنية",  invNum:"INV-D003", date:"12 أكت", status:"pending",  match:"exact", amount:4800,
+    items:[
+      {name:"دجاج طازج",   ordered:50,  received:50,  unit:"كجم", price:32, histPrice:30, dailyAvg:7,  recommended:49},
+      {name:"صدر دجاج",    ordered:20,  received:20,  unit:"كجم", price:45, histPrice:43, dailyAvg:3,  recommended:21},
+    ]},
+  { id:"PUR-004", branch:"فرع الرياض - السليمانية",   supplier:"مطاحن الملك",            invNum:"INV-M001", date:"14 أكت", status:"pending",  match:"diff",  amount:3240,
+    items:[
+      {name:"دقيق أبيض",   ordered:100, received:90,  unit:"كجم", price:18, histPrice:18, dailyAvg:14, recommended:98},
+      {name:"سكر ناعم",    ordered:50,  received:50,  unit:"كجم", price:14, histPrice:14, dailyAvg:7,  recommended:49},
+    ]},
+  { id:"PUR-005", branch:"فرع الدمام",                 supplier:"مطاحن الملك",            invNum:"INV-M002", date:"13 أكت", status:"approved", match:"exact", amount:2800,
+    items:[
+      {name:"دقيق أبيض",   ordered:80,  received:80,  unit:"كجم", price:18, histPrice:18, dailyAvg:11, recommended:77},
+      {name:"ملح طعام",    ordered:20,  received:20,  unit:"كجم", price:5,  histPrice:5,  dailyAvg:3,  recommended:21},
+    ]},
+  { id:"PUR-006", branch:"فرع الدمام",                 supplier:"مزرعة الخير للخضار",    invNum:"INV-V001", date:"14 أكت", status:"pending",  match:"diff",  amount:1950,
+    items:[
+      {name:"خضار متنوعة", ordered:30,  received:27,  unit:"كجم", price:12, histPrice:11, dailyAvg:4,  recommended:28},
+      {name:"طماطم طازجة", ordered:20,  received:20,  unit:"كجم", price:8,  histPrice:8,  dailyAvg:3,  recommended:21},
+    ]},
+  { id:"PUR-007", branch:"فرع جدة - العزيزية",         supplier:"مزرعة الخير للخضار",    invNum:"INV-V002", date:"13 أكت", status:"approved", match:"exact", amount:2400,
+    items:[
+      {name:"خيار طازج",   ordered:15,  received:15,  unit:"كجم", price:9,  histPrice:9,  dailyAvg:2,  recommended:14},
+      {name:"طماطم طازجة", ordered:25,  received:25,  unit:"كجم", price:8,  histPrice:8,  dailyAvg:3,  recommended:21},
+      {name:"خضار متنوعة", ordered:20,  received:20,  unit:"كجم", price:12, histPrice:11, dailyAvg:3,  recommended:21},
+    ]},
+  { id:"PUR-008", branch:"فرع الرياض - العليا",       supplier:"موزع الأغذية الوطني",   invNum:"INV-N001", date:"14 أكت", status:"pending",  match:"exact", amount:3600,
+    items:[
+      {name:"بطاطس مجمدة", ordered:80,  received:80,  unit:"كجم", price:7,  histPrice:7,  dailyAvg:11, recommended:77},
+      {name:"زيت نباتي",   ordered:40,  received:40,  unit:"لتر", price:20, histPrice:19, dailyAvg:5,  recommended:35},
+    ]},
+  { id:"PUR-009", branch:"فرع جدة - الحمراء",         supplier:"موزع الأغذية الوطني",   invNum:"INV-N002", date:"12 أكت", status:"approved", match:"exact", amount:4100,
+    items:[
+      {name:"حليب طازج",   ordered:100, received:100, unit:"لتر", price:8,  histPrice:8,  dailyAvg:15, recommended:105},
+      {name:"بطاطس مجمدة", ordered:60,  received:60,  unit:"كجم", price:7,  histPrice:7,  dailyAvg:8,  recommended:56},
+    ]},
+];
 
+// Keep PURCHASE_DETAIL for backwards compatibility with any remaining references
+const PURCHASE_DETAIL = { default: PUR_RECORDS[0] ? { supplier: PUR_RECORDS[0].supplier, invNum: PUR_RECORDS[0].invNum, items: PUR_RECORDS[0].items } : { supplier:"", invNum:"", items:[] } };
+
+// ── Shared purchase reconciliation table (used in both AccPurchases and ProcNewOrders)
+function PurItemsTable({ items, verifiedMap, onToggleVerify }: { items:PurItem[]; verifiedMap?:Record<string,boolean>; onToggleVerify?:(key:string)=>void }) {
+  return (
+    <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
+      <thead className="bg-gray-100">
+        <tr>
+          <th className="px-3 py-2 text-right">الصنف</th>
+          <th className="px-3 py-2 text-center">الوحدة</th>
+          <th className="px-3 py-2 text-center">سعر الوحدة</th>
+          <th className="px-3 py-2 text-center bg-sky-50/80 text-sky-700">سعر تاريخي</th>
+          <th className="px-3 py-2 text-center">مطلوب</th>
+          <th className="px-3 py-2 text-center">مستلم</th>
+          <th className="px-3 py-2 text-center bg-amber-50/80 text-amber-700">استهلاك يومي</th>
+          <th className="px-3 py-2 text-center bg-amber-50/80 text-amber-700">موصى به</th>
+          <th className="px-3 py-2 text-center">الإجمالي</th>
+          <th className="px-3 py-2 text-center">الحالة</th>
+          {onToggleVerify && <th className="px-3 py-2 text-center text-emerald-700 bg-emerald-50/50">توثيق ✓</th>}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100 bg-white">
+        {items.map((row,i)=>{
+          const diff      = row.ordered - row.received;
+          const total     = row.received * row.price;
+          const priceDiff = row.price - row.histPrice;
+          const qtyVsRec  = row.received - row.recommended;
+          const vKey      = `${row.name}-${i}`;
+          const verified  = verifiedMap?.[vKey];
+          return (
+            <tr key={i} className={diff>0?"bg-red-50/40":verified?"bg-emerald-50/30":""}>
+              <td className="px-3 py-2 font-semibold text-gray-800">{row.name}</td>
+              <td className="px-3 py-2 text-center text-gray-500">{row.unit}</td>
+              <td className={`px-3 py-2 text-center font-mono font-semibold ${priceDiff>2?"text-red-600":priceDiff<-2?"text-emerald-600":"text-gray-800"}`}>
+                {row.price} ر.س
+                {priceDiff>2  && <div className="text-[9px] text-red-500">↑ أعلى من المعتاد</div>}
+                {priceDiff<-2 && <div className="text-[9px] text-emerald-500">↓ أقل من المعتاد</div>}
+              </td>
+              <td className="px-3 py-2 text-center font-mono text-gray-500 bg-sky-50/20">{row.histPrice} ر.س</td>
+              <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">{row.ordered}</td>
+              <td className={`px-3 py-2 text-center font-mono font-bold ${diff>0?"text-red-600":"text-gray-800"}`}>{row.received}</td>
+              <td className="px-3 py-2 text-center font-mono text-amber-700 bg-amber-50/20">{row.dailyAvg}</td>
+              <td className="px-3 py-2 text-center font-mono bg-amber-50/20">
+                <span className={`font-semibold ${Math.abs(qtyVsRec)>5?"text-orange-600":"text-gray-700"}`}>{row.recommended}</span>
+                {Math.abs(qtyVsRec)>5 && <div className="text-[9px] text-orange-500">{qtyVsRec>0?"زيادة":"نقص"} {Math.abs(qtyVsRec)}</div>}
+              </td>
+              <td className="px-3 py-2 text-center font-mono font-semibold text-blue-700">{fmtAmt(total)} ر.س</td>
+              <td className="px-3 py-2 text-center">
+                {diff===0 ? <Badge className="bg-emerald-50 text-emerald-700">مطابق</Badge>
+                           : <Badge className="bg-red-50 text-red-700">فرق {diff}</Badge>}
+              </td>
+              {onToggleVerify && (
+                <td className="px-3 py-2 text-center">
+                  <button onClick={()=>onToggleVerify(vKey)}
+                    className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center mx-auto transition-all ${verified?"bg-emerald-500 border-emerald-500 text-white":"border-gray-300 hover:border-emerald-400"}`}>
+                    {verified && <CheckCircle2 size={12}/>}
+                  </button>
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+        <tr>
+          <td colSpan={onToggleVerify?8:8} className="px-3 py-2 font-bold text-gray-800 text-right">إجمالي الفاتورة</td>
+          <td className="px-3 py-2 text-center font-black font-mono text-blue-800">
+            {fmtAmt(items.reduce((s,r)=>s+r.received*r.price,0))} ر.س
+          </td>
+          <td></td>
+          {onToggleVerify && <td></td>}
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ACCOUNTANT PURCHASES — Dual-Lens Professional View
+// ════════════════════════════════════════════════════════════
 function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
-  const [filters,    setFilters]    = useState<Filters>({branch:"",status:"",match:"",search:""});
-  const [expandedId, setExpandedId] = useState<string|null>(null);
-  const [supplier,   setSupplier]   = useState("");
-  const [brand,      setBrand]      = useState("");
-  const [dateFrom,   setDateFrom]   = useState("");
-  const filtered = applyFilters(ops, filters, "purchases");
-  const pending  = ops.filter(o=>o.moduleKey==="purchases"&&o.status==="pending");
+  const [viewMode, setViewMode] = useState<"supplier"|"branch">("supplier");
+  const [filterSupplier, setFilterSupplier] = useState("الكل");
+  const [filterBranch,   setFilterBranch]   = useState("الكل");
+  const [filterStatus,   setFilterStatus]   = useState("الكل");
+  const [filterMatch,    setFilterMatch]     = useState("الكل");
+  const [search,         setSearch]         = useState("");
+  const [expandedId,     setExpandedId]     = useState<string|null>(null);
+  const [verifiedRows,   setVerifiedRows]   = useState<Record<string,boolean>>({});
+  const [approvedIds,    setApprovedIds]    = useState<Set<string>>(new Set());
 
-  const SUPPLIERS = ["الكل","شركة الخليج للأغذية","مزرعة الوفاء","موزع الأغذية الوطني","شركة الإمارات للتوريد"];
-  const BRANDS    = ["الكل","برغر خليفة","بيتزا باكو","وسطاوي"];
+  const SUPPLIER_LIST = [...new Set(PUR_RECORDS.map(r=>r.supplier))];
+  const BRANCH_LIST   = [...new Set(PUR_RECORDS.map(r=>r.branch))];
+
+  const filtered = PUR_RECORDS.filter(r=>{
+    if(filterSupplier!=="الكل" && r.supplier!==filterSupplier) return false;
+    if(filterBranch!=="الكل"   && r.branch!==filterBranch)     return false;
+    if(filterStatus!=="الكل"   && r.status!==filterStatus)     return false;
+    if(filterMatch!=="الكل"    && r.match!==filterMatch)       return false;
+    if(search && !r.branch.includes(search)&&!r.supplier.includes(search)&&!r.invNum.includes(search)&&!r.items.some(it=>it.name.includes(search))) return false;
+    return true;
+  });
+
+  const effectiveFiltered = filtered.map(r=>approvedIds.has(r.id)?{...r,status:"approved" as const}:r);
+  const pending    = effectiveFiltered.filter(r=>r.status==="pending");
+  const totalVal   = effectiveFiltered.reduce((s,r)=>s+r.amount,0);
+  const diffCount  = effectiveFiltered.filter(r=>r.match==="diff").length;
+  const hasFilters = filterSupplier!=="الكل"||filterBranch!=="الكل"||filterStatus!=="الكل"||filterMatch!=="الكل"||search;
+
+  const approveRecord = (id:string) => setApprovedIds(p=>new Set([...p,id]));
+  const approveAll    = ()          => setApprovedIds(p=>new Set([...p,...pending.map(r=>r.id)]));
+  const toggleVerify  = (recId:string, key:string) => setVerifiedRows(p=>({...p,[recId+"-"+key]:!p[recId+"-"+key]}));
+
+  // Supplier groups for supplier-mode
+  const supplierGroups = SUPPLIER_LIST.map(sup=>{
+    const recs = effectiveFiltered.filter(r=>r.supplier===sup);
+    if(!recs.length) return null;
+    const branches = [...new Set(recs.map(r=>r.branch))];
+    const total    = recs.reduce((s,r)=>s+r.amount,0);
+    const pCount   = recs.filter(r=>r.status==="pending").length;
+    const dCount   = recs.filter(r=>r.match==="diff").length;
+    return { sup, recs, branches, total, pCount, dCount };
+  }).filter(Boolean);
+
+  // Branch groups for branch-mode
+  const branchGroups = BRANCH_LIST.map(br=>{
+    const recs = effectiveFiltered.filter(r=>r.branch===br);
+    if(!recs.length) return null;
+    const suppliers = [...new Set(recs.map(r=>r.supplier))];
+    const total     = recs.reduce((s,r)=>s+r.amount,0);
+    const pCount    = recs.filter(r=>r.status==="pending").length;
+    return { br, recs, suppliers, total, pCount };
+  }).filter(Boolean);
+
+  // Shared expandable product panel
+  const renderItemsPanel = (rec: PurRecord) => (
+    <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
+      <div className="flex items-center gap-4 mt-3 mb-1 p-3 bg-white rounded-xl border border-blue-100">
+        <div className="flex-1">
+          <p className="text-xs font-bold text-gray-700">المورد: <span className="text-blue-700">{rec.supplier}</span></p>
+          <p className="text-xs text-gray-500 mt-0.5">رقم الفاتورة: <span className="font-mono font-semibold text-purple-600">{rec.invNum}</span> · {rec.date}</p>
+        </div>
+        <div className="text-left">
+          <p className="text-xs text-gray-400">الفرع</p>
+          <p className="text-xs font-semibold text-gray-700">{rec.branch}</p>
+        </div>
+        <div className="text-left">
+          <p className="text-xs text-gray-400">إجمالي الفاتورة</p>
+          <p className="font-mono font-bold text-blue-700">{fmtAmt(rec.amount)} ر.س</p>
+        </div>
+      </div>
+      <PurItemsTable
+        items={rec.items}
+        verifiedMap={Object.fromEntries(Object.entries(verifiedRows).filter(([k])=>k.startsWith(rec.id+"-")).map(([k,v])=>[k.slice(rec.id.length+1),v]))}
+        onToggleVerify={(key)=>toggleVerify(rec.id, key)}
+      />
+      {rec.items.some(r=>r.price-r.histPrice>2) && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+          <AlertTriangle size={13} className="text-amber-600 mt-0.5 flex-shrink-0"/>
+          <div>
+            <p className="text-xs font-bold text-amber-900">تنبيه سعري: بنود أعلى من السعر التاريخي</p>
+            <p className="text-[11px] text-amber-700 mt-0.5">{rec.items.filter(r=>r.price-r.histPrice>2).map(r=>`${r.name} (${r.price} بدلاً من ${r.histPrice} ر.س)`).join(" · ")}</p>
+          </div>
+        </div>
+      )}
+      {effectiveFiltered.find(r=>r.id===rec.id)?.status==="pending" && (
+        <div className="flex gap-2 pt-1">
+          <Btn size="sm" variant="success" onClick={()=>approveRecord(rec.id)}><ThumbsUp size={12}/> موافقة على الفاتورة</Btn>
+          <Btn size="sm" variant="danger"><ThumbsDown size={12}/> رفض</Btn>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir="rtl">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">موديول المشتريات</h2>
-          <p className="text-gray-400 text-sm mt-0.5">مراجعة طلبات الشراء — المورد، الفرع، الفاتورة، والأصناف</p></div>
-        {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة جماعية ({pending.length})</Btn>}
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">موديول المشتريات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">مطابقة الفواتير بالمنتجات والموردين — عرض حسب المورد أو حسب الفرع</p>
+        </div>
+        {pending.length>0 && <Btn variant="success" size="sm" onClick={approveAll}><CheckCircle2 size={12}/> موافقة جماعية ({pending.length})</Btn>}
       </div>
 
+      {/* KPI cards */}
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي طلبات الشراء" value={String(ops.filter(o=>o.moduleKey==="purchases").length)} sub="كل الحالات" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="معلقة — قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="طلبات بها فروق" value={String(ops.filter(o=>o.moduleKey==="purchases"&&o.match==="diff").length)} sub="كمية أو سعر — تحتاج قرار" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
-        <KpiCard label="موردون نشطون" value="12" sub="هذا الشهر" icon={<Truck size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="إجمالي قيمة المشتريات" value={`${(totalVal/1000).toFixed(1)}K ر.س`} sub="الفترة المحددة" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="فواتير معلقة" value={String(pending.length)} sub="تنتظر المراجعة" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="فواتير بفروق" value={String(diffCount)} sub="كمية أو سعر" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="موردون نشطون" value={String(SUPPLIER_LIST.length)} sub="هذه الفترة" icon={<Truck size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
 
-      {/* Enhanced purchase filter bar */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
-        <div className="grid grid-cols-4 gap-3 mb-3">
-          <div>
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
-            <select value={filters.branch} onChange={e=>setFilters(p=>({...p,branch:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {["الكل",...BRANCHES].map(b=><option key={b} value={b==="الكل"?"":b}>{b}</option>)}
-            </select>
-          </div>
+      {/* View mode tabs */}
+      <div className="flex items-center justify-between">
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+          {([["supplier","🏭 عرض حسب المورد"],["branch","🏪 عرض حسب الفرع"]] as const).map(([mode,label])=>(
+            <button key={mode} onClick={()=>{ setViewMode(mode); setExpandedId(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode===mode?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="w-3 h-3 rounded bg-amber-200"/>استهلاك يومي
+          <div className="w-3 h-3 rounded bg-sky-200 mr-2"/>سعر تاريخي
+          <div className="w-3 h-3 rounded bg-emerald-400 mr-2"/>توثيق المحاسب
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-5 gap-3 mb-3">
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">المورد</label>
-            <select value={supplier} onChange={e=>setSupplier(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {SUPPLIERS.map(s=><option key={s}>{s}</option>)}
+            <select value={filterSupplier} onChange={e=>setFilterSupplier(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
+              <option>الكل</option>
+              {SUPPLIER_LIST.map(s=><option key={s}>{s}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
-            <select value={brand} onChange={e=>setBrand(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {BRANDS.map(b=><option key={b}>{b}</option>)}
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filterBranch} onChange={e=>setFilterBranch(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
+              <option>الكل</option>
+              {BRANCH_LIST.map(b=><option key={b}>{b}</option>)}
             </select>
           </div>
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
-            <select value={filters.status} onChange={e=>setFilters(p=>({...p,status:e.target.value==="الكل"?"":e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {["الكل","pending","approved","rejected","final-approved"].map(s=><option key={s} value={s==="الكل"?"":s}>{STATUS_CFG[s as OpStatus]?.label||s}</option>)}
+            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
+              {["الكل","pending","approved","rejected"].map(s=>(
+                <option key={s} value={s}>{s==="الكل"?"الكل":s==="pending"?"معلق":s==="approved"?"معتمد":"مرفوض"}</option>
+              ))}
             </select>
           </div>
-        </div>
-        <div className="grid grid-cols-4 gap-3">
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">من تاريخ</label>
-            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المطابقة</label>
+            <select value={filterMatch} onChange={e=>setFilterMatch(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
+              <option>الكل</option>
+              <option value="exact">مطابق تاماً</option>
+              <option value="diff">به فروق</option>
+            </select>
           </div>
-          <div className="col-span-3">
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">رقم الطلب / الفاتورة</label>
-            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
-              <Search size={13} className="text-gray-400"/>
-              <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder="رقم الطلب أو اسم المورد..." className="flex-1 text-sm outline-none"/>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث (فرع / مورد / منتج)</label>
+            <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-2">
+              <Search size={11} className="text-gray-400 flex-shrink-0"/>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث..." className="flex-1 text-xs outline-none min-w-0"/>
             </div>
           </div>
         </div>
-        {(filters.branch||filters.status||filters.search||supplier!=="الكل"&&supplier||brand!=="الكل"&&brand) && (
-          <button onClick={()=>{ setFilters({branch:"",status:"",match:"",search:""}); setSupplier(""); setBrand(""); setDateFrom(""); }}
-            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        {hasFilters && (
+          <button onClick={()=>{ setFilterSupplier("الكل"); setFilterBranch("الكل"); setFilterStatus("الكل"); setFilterMatch("الكل"); setSearch(""); }}
+            className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={10}/> مسح الفلاتر</button>
         )}
       </div>
 
-      <Card title="طلبات الشراء">
-        {filtered.length===0
-          ? <EmptyState icon="✅" title="لا توجد عمليات" desc="لا توجد عمليات تطابق الفلاتر"/>
-          : filtered.map(op=>(
-            <div key={op.id} className={`${op.match==="diff"?"border-r-4 border-r-red-400":""}`}>
-              <div className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 border-b border-gray-100">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-800 text-sm">{op.branch}</span>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-xs font-mono text-purple-600">{op.id}</span>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-xs text-gray-400">⏰ {op.timeAgo}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <Badge className={`${MATCH_CFG[op.match].cls} border`}>{MATCH_CFG[op.match].label}</Badge>
-                    {op.diff && <span className="text-xs text-red-600 font-medium">⚠ {op.diff}</span>}
-                    <Badge className={STATUS_CFG[op.status].cls}>{STATUS_CFG[op.status].label}</Badge>
-                  </div>
-                </div>
-                <div className="font-bold text-gray-800 font-mono text-sm">{fmtAmt(op.amount)} ر.س</div>
-                <div className="flex gap-1.5">
-                  <Btn size="sm" onClick={()=>setExpandedId(expandedId===op.id?null:op.id)}>
-                    {expandedId===op.id?<ChevronUp size={13}/>:<ChevronDown size={13}/>} تفاصيل
-                  </Btn>
-                  {op.status==="pending" && <>
-                    <Btn size="sm" variant="success" onClick={()=>approveOp(op.id)}><ThumbsUp size={13}/></Btn>
-                    <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><ThumbsDown size={13}/></Btn>
-                  </>}
-                </div>
-              </div>
-              {expandedId===op.id && (()=>{
-                const detail = PURCHASE_DETAIL[op.id] || PURCHASE_DETAIL["default"];
+      {effectiveFiltered.length===0
+        ? <div className="bg-white rounded-xl border border-gray-100 p-12 text-center"><EmptyState icon="🔍" title="لا توجد نتائج" desc="غيّر الفلاتر للحصول على نتائج أخرى"/></div>
+        : viewMode==="supplier"
+          ? (
+            /* ── SUPPLIER MODE: grouped by supplier ── */
+            <div className="space-y-4">
+              {supplierGroups.map(g=>{
+                if(!g) return null;
                 return (
-                  <div className="px-5 pb-4 bg-gray-50/40">
-                    {/* Supplier + invoice header */}
-                    <div className="flex items-center gap-4 mt-3 mb-2 p-3 bg-white rounded-xl border border-blue-100">
+                  <div key={g.sup} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Supplier header */}
+                    <div className="px-5 py-4 bg-gradient-to-l from-blue-50/30 to-white border-b border-gray-100 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-black text-lg flex-shrink-0">
+                        {g.sup.slice(0,1)}
+                      </div>
                       <div className="flex-1">
-                        <p className="text-xs font-bold text-gray-600">المورد: <span className="text-blue-700">{detail.supplier}</span></p>
-                        <p className="text-xs text-gray-500 mt-0.5">رقم الفاتورة: <span className="font-mono font-semibold text-purple-600">{detail.invNum}</span></p>
+                        <p className="font-bold text-gray-800">{g.sup}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{g.recs.length} فاتورة · {g.branches.length} {g.branches.length===1?"فرع":"فروع"}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">الفرع</p>
-                        <p className="text-xs font-semibold text-gray-700">{op.branch}</p>
-                      </div>
-                    </div>
-                    {/* Line items with quantity + unit price + consumption intelligence */}
-                    <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-3 py-2 text-right">الصنف</th>
-                          <th className="px-3 py-2 text-center">الوحدة</th>
-                          <th className="px-3 py-2 text-center">سعر الوحدة</th>
-                          <th className="px-3 py-2 text-center bg-sky-50 text-sky-700">سعر تاريخي</th>
-                          <th className="px-3 py-2 text-center">مطلوب</th>
-                          <th className="px-3 py-2 text-center">مستلم</th>
-                          <th className="px-3 py-2 text-center bg-amber-50 text-amber-700">استهلاك يومي</th>
-                          <th className="px-3 py-2 text-center bg-amber-50 text-amber-700">موصى به</th>
-                          <th className="px-3 py-2 text-center">الإجمالي</th>
-                          <th className="px-3 py-2 text-center">الحالة</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        {detail.items.map((row,i)=>{
-                          const diff      = row.ordered - row.received;
-                          const total     = row.received * row.price;
-                          const priceDiff = row.price - row.histPrice;
-                          const qtyVsRec  = row.received - row.recommended;
-                          return (
-                            <tr key={i} className={diff>0?"bg-red-50/50":""}>
-                              <td className="px-3 py-2 font-semibold text-gray-800">{row.name}</td>
-                              <td className="px-3 py-2 text-center text-gray-500">{row.unit}</td>
-                              <td className={`px-3 py-2 text-center font-mono font-semibold ${priceDiff>2?"text-red-600":priceDiff<-2?"text-emerald-600":"text-gray-800"}`}>
-                                {row.price} ر.س
-                                {priceDiff>2 && <div className="text-[9px] text-red-500">↑ أعلى من المعتاد</div>}
-                                {priceDiff<-2 && <div className="text-[9px] text-emerald-500">↓ أقل من المعتاد</div>}
-                              </td>
-                              <td className="px-3 py-2 text-center font-mono text-gray-500 bg-sky-50/30">{row.histPrice} ر.س</td>
-                              <td className="px-3 py-2 text-center font-mono">{row.ordered}</td>
-                              <td className={`px-3 py-2 text-center font-mono font-bold ${diff>0?"text-red-600":"text-gray-800"}`}>{row.received}</td>
-                              <td className="px-3 py-2 text-center font-mono text-amber-700 bg-amber-50/30">{row.dailyAvg}</td>
-                              <td className="px-3 py-2 text-center font-mono bg-amber-50/30">
-                                <span className={`font-semibold ${Math.abs(qtyVsRec)>5?"text-orange-600":"text-gray-700"}`}>{row.recommended}</span>
-                                {Math.abs(qtyVsRec)>5 && <div className="text-[9px] text-orange-500">{qtyVsRec>0?"زيادة":"نقص"} {Math.abs(qtyVsRec)}</div>}
-                              </td>
-                              <td className="px-3 py-2 text-center font-mono font-semibold text-blue-700">{fmtAmt(total)} ر.س</td>
-                              <td className="px-3 py-2 text-center">
-                                {diff===0
-                                  ? <Badge className="bg-emerald-50 text-emerald-700">مطابق</Badge>
-                                  : <Badge className="bg-red-50 text-red-700">فرق {diff}</Badge>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                        <tr>
-                          <td colSpan={8} className="px-3 py-2 font-bold text-gray-800 text-right">إجمالي الفاتورة</td>
-                          <td className="px-3 py-2 text-center font-black font-mono text-blue-800">
-                            {fmtAmt(detail.items.reduce((s,r)=>s+r.received*r.price,0))} ر.س
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                    {/* Price anomaly alert */}
-                    {detail.items.some(r=>r.price-r.histPrice>2) && (
-                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2" dir="rtl">
-                        <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0"/>
-                        <div>
-                          <p className="text-xs font-bold text-amber-900">تنبيه: أسعار أعلى من المعتاد التاريخي</p>
-                          <p className="text-[11px] text-amber-700 mt-0.5">
-                            {detail.items.filter(r=>r.price-r.histPrice>2).map(r=>`${r.name} (${r.price} بدلاً من ${r.histPrice} ر.س)`).join(" · ")}
-                          </p>
+                      <div className="flex gap-3 items-center">
+                        {g.dCount>0 && <Badge className="bg-red-50 text-red-700 border border-red-200 text-[10px]">⚠ {g.dCount} فرق</Badge>}
+                        {g.pCount>0 && <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">⏳ {g.pCount} معلق</Badge>}
+                        <div className="text-left">
+                          <p className="font-mono font-bold text-blue-700 text-base">{fmtAmt(g.total)} ر.س</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">يومياً: {fmtAmt(Math.round(g.total/30))} ر.س</p>
                         </div>
                       </div>
-                    )}
+                    </div>
+                    {/* Per-branch breakdown header */}
+                    <div className="px-5 py-2 bg-gray-50/50 border-b border-gray-100 flex gap-3 flex-wrap">
+                      {g.branches.map(br=>{
+                        const brRecs = g.recs.filter(r=>r.branch===br);
+                        const brTotal = brRecs.reduce((s,r)=>s+r.amount,0);
+                        return (
+                          <div key={br} className="flex items-center gap-1.5 text-xs">
+                            <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"/>
+                            <span className="text-gray-600 font-medium">{br}</span>
+                            <span className="font-mono text-blue-600">{fmtAmt(brTotal)} ر.س</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Invoice rows */}
+                    {g.recs.map(rec=>{
+                      const recStatus = effectiveFiltered.find(r=>r.id===rec.id)?.status??rec.status;
+                      return (
+                        <div key={rec.id} className={`border-b border-gray-100 last:border-0 ${rec.match==="diff"?"border-r-4 border-r-red-400":""}`}>
+                          <div className={`px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/60 cursor-pointer ${expandedId===rec.id?"bg-blue-50/20":""}`}
+                            onClick={()=>setExpandedId(expandedId===rec.id?null:rec.id)}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm text-gray-800">{rec.branch}</span>
+                                <span className="font-mono text-xs text-purple-600">{rec.invNum}</span>
+                                <Badge className={`${MATCH_CFG[rec.match].cls} border text-[10px]`}>{MATCH_CFG[rec.match].label}</Badge>
+                                <Badge className={`${STATUS_CFG[recStatus].cls} text-[10px]`}>{STATUS_CFG[recStatus].label}</Badge>
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{rec.items.length} أصناف · {rec.date}</p>
+                            </div>
+                            <span className="font-mono font-bold text-gray-800">{fmtAmt(rec.amount)} ر.س</span>
+                            {expandedId===rec.id?<ChevronUp size={13} className="text-gray-400"/>:<ChevronDown size={13} className="text-gray-400"/>}
+                          </div>
+                          {expandedId===rec.id && renderItemsPanel(rec)}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              })()}
+              })}
             </div>
-          ))
-        }
-      </Card>
+          )
+          : (
+            /* ── BRANCH MODE: grouped by branch ── */
+            <div className="space-y-4">
+              {branchGroups.map(g=>{
+                if(!g) return null;
+                return (
+                  <div key={g.br} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Branch header */}
+                    <div className="px-5 py-4 bg-gradient-to-l from-emerald-50/30 to-white border-b border-gray-100 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-base flex-shrink-0">🏪</div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-800">{g.br}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{g.recs.length} فاتورة · {g.suppliers.length} مورد</p>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        {g.pCount>0 && <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">⏳ {g.pCount} معلق</Badge>}
+                        <div className="text-left">
+                          <p className="font-mono font-bold text-emerald-700 text-base">{fmtAmt(g.total)} ر.س</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">إجمالي مشتريات الفرع</p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Supplier breakdown pills */}
+                    <div className="px-5 py-2 bg-gray-50/50 border-b border-gray-100 flex gap-2 flex-wrap">
+                      {g.suppliers.map(sup=>{
+                        const supRecs = g.recs.filter(r=>r.supplier===sup);
+                        const supTotal = supRecs.reduce((s,r)=>s+r.amount,0);
+                        return (
+                          <div key={sup} className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1">
+                            <Truck size={9} className="text-gray-400"/>
+                            <span className="text-gray-600">{sup}</span>
+                            <span className="font-mono font-semibold text-gray-700">{fmtAmt(supTotal)} ر.س</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Invoice rows */}
+                    {g.recs.map(rec=>{
+                      const recStatus = effectiveFiltered.find(r=>r.id===rec.id)?.status??rec.status;
+                      return (
+                        <div key={rec.id} className={`border-b border-gray-100 last:border-0 ${rec.match==="diff"?"border-r-4 border-r-red-400":""}`}>
+                          <div className={`px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/60 cursor-pointer ${expandedId===rec.id?"bg-emerald-50/20":""}`}
+                            onClick={()=>setExpandedId(expandedId===rec.id?null:rec.id)}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm text-gray-800">{rec.supplier}</span>
+                                <span className="font-mono text-xs text-purple-600">{rec.invNum}</span>
+                                <Badge className={`${MATCH_CFG[rec.match].cls} border text-[10px]`}>{MATCH_CFG[rec.match].label}</Badge>
+                                <Badge className={`${STATUS_CFG[recStatus].cls} text-[10px]`}>{STATUS_CFG[recStatus].label}</Badge>
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{rec.items.length} أصناف · {rec.date} · {rec.items.map(i=>i.name).join("، ")}</p>
+                            </div>
+                            <span className="font-mono font-bold text-gray-800">{fmtAmt(rec.amount)} ر.س</span>
+                            {expandedId===rec.id?<ChevronUp size={13} className="text-gray-400"/>:<ChevronDown size={13} className="text-gray-400"/>}
+                          </div>
+                          {expandedId===rec.id && renderItemsPanel(rec)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )
+      }
     </div>
   );
 }
@@ -5963,6 +6196,51 @@ function ProcOverview({ navigate }:PageProps) {
   );
 }
 
+// ── Per-order consumption intelligence data for Procurement Manager
+const PROC_ITEMS: Record<string, PurItem[]> = {
+  "PO-101": [
+    {name:"دجاج طازج",   ordered:50, received:0, unit:"كجم", price:32, histPrice:30, dailyAvg:7,  recommended:49},
+    {name:"أجنحة دجاج",  ordered:30, received:0, unit:"كجم", price:38, histPrice:36, dailyAvg:4,  recommended:28},
+    {name:"صدر دجاج",    ordered:20, received:0, unit:"كجم", price:45, histPrice:43, dailyAvg:3,  recommended:21},
+    {name:"كبدة دجاج",   ordered:10, received:0, unit:"كجم", price:22, histPrice:20, dailyAvg:1,  recommended:7 },
+  ],
+  "PO-102": [
+    {name:"حليب طازج",   ordered:100,received:0, unit:"لتر", price:8,  histPrice:8,  dailyAvg:15, recommended:105},
+    {name:"جبن",          ordered:20, received:0, unit:"كجم", price:35, histPrice:33, dailyAvg:3,  recommended:21},
+  ],
+  "PO-103": [
+    {name:"دقيق أبيض",   ordered:80, received:0, unit:"كجم", price:18, histPrice:18, dailyAvg:11, recommended:77},
+    {name:"سكر ناعم",    ordered:40, received:0, unit:"كجم", price:14, histPrice:14, dailyAvg:6,  recommended:42},
+    {name:"ملح",          ordered:15, received:0, unit:"كجم", price:5,  histPrice:5,  dailyAvg:2,  recommended:14},
+  ],
+  "PO-104": [
+    {name:"دجاج طازج",   ordered:60, received:0, unit:"كجم", price:32, histPrice:30, dailyAvg:9,  recommended:63},
+    {name:"أجنحة دجاج",  ordered:40, received:0, unit:"كجم", price:38, histPrice:36, dailyAvg:5,  recommended:35},
+    {name:"صدر دجاج",    ordered:35, received:0, unit:"كجم", price:45, histPrice:43, dailyAvg:5,  recommended:35},
+    {name:"كبدة دجاج",   ordered:15, received:0, unit:"كجم", price:22, histPrice:20, dailyAvg:2,  recommended:14},
+    {name:"مرق دجاج",    ordered:20, received:0, unit:"لتر", price:12, histPrice:11, dailyAvg:3,  recommended:21},
+    {name:"توابل مشوي",  ordered:5,  received:0, unit:"كجم", price:45, histPrice:40, dailyAvg:0,  recommended:3 },
+  ],
+  "PO-105": [
+    {name:"خضار متنوعة", ordered:30, received:0, unit:"كجم", price:12, histPrice:11, dailyAvg:4,  recommended:28},
+    {name:"طماطم طازجة", ordered:25, received:0, unit:"كجم", price:8,  histPrice:8,  dailyAvg:3,  recommended:21},
+    {name:"خيار طازج",   ordered:15, received:0, unit:"كجم", price:9,  histPrice:9,  dailyAvg:2,  recommended:14},
+    {name:"بصل",          ordered:20, received:0, unit:"كجم", price:6,  histPrice:6,  dailyAvg:3,  recommended:21},
+  ],
+  "PO-106": [
+    {name:"دقيق أبيض",   ordered:100,received:0, unit:"كجم", price:18, histPrice:18, dailyAvg:14, recommended:98},
+    {name:"سكر ناعم",    ordered:50, received:0, unit:"كجم", price:14, histPrice:14, dailyAvg:7,  recommended:49},
+    {name:"خميرة",        ordered:10, received:0, unit:"كجم", price:28, histPrice:25, dailyAvg:1,  recommended:7 },
+  ],
+  "PO-107": [
+    {name:"خضار متنوعة", ordered:35, received:0, unit:"كجم", price:12, histPrice:11, dailyAvg:5,  recommended:35},
+    {name:"طماطم طازجة", ordered:30, received:0, unit:"كجم", price:8,  histPrice:8,  dailyAvg:4,  recommended:28},
+    {name:"فلفل",         ordered:15, received:0, unit:"كجم", price:14, histPrice:13, dailyAvg:2,  recommended:14},
+    {name:"بصل",          ordered:25, received:0, unit:"كجم", price:6,  histPrice:6,  dailyAvg:3,  recommended:21},
+    {name:"ثوم",           ordered:5,  received:0, unit:"كجم", price:22, histPrice:20, dailyAvg:1,  recommended:7 },
+  ],
+};
+
 function ProcNewOrders({}: PageProps) {
   const [orders, setOrders] = useState([
     { id:"PO-101", branch:"فرع الرياض - العليا", supplier:"شركة الدواجن الوطنية",  items:4, total:4800, urgency:"عادي", status:"pending" as const, time:"قبل 30 دقيقة" },
@@ -5974,6 +6252,7 @@ function ProcNewOrders({}: PageProps) {
     { id:"PO-107", branch:"فرع الدمام",           supplier:"مزرعة الخير",            items:5, total:5600, urgency:"عاجل", status:"pending" as const, time:"قبل 3 ساعات" },
   ]);
   const [groupBy, setGroupBy] = useState<"branch"|"supplier">("branch");
+  const [expandedId, setExpandedId] = useState<string|null>(null);
 
   const approveOne      = (id:string)     => setOrders(p=>p.map(o=>o.id===id?{...o,status:"approved" as const}:o));
   const approveByBranch = (branch:string) => setOrders(p=>p.map(o=>o.branch===branch&&o.status==="pending"?{...o,status:"approved" as const}:o));
@@ -5990,7 +6269,7 @@ function ProcNewOrders({}: PageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-800">الطلبات الجديدة</h2>
-          <p className="text-gray-400 text-sm mt-0.5">اعتمد فردياً أو اعتمد كل طلبات فرع أو مورد دفعةً واحدة</p>
+          <p className="text-gray-400 text-sm mt-0.5">راجع الاستهلاك قبل الاعتماد — اعتمد فردياً أو للفرع/المورد دفعةً واحدة</p>
         </div>
         {pending.length>0 && <Btn variant="primary" size="sm" onClick={approveAll}><Package size={12}/> اعتماد الكل ({pending.length})</Btn>}
       </div>
@@ -6001,17 +6280,28 @@ function ProcNewOrders({}: PageProps) {
         <KpiCard label="الموردون المعنيون" value={String(new Set(pending.map(o=>o.supplier)).size)} sub="يحتاجون موافقة" icon={<Truck size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
 
+      {/* Consumption notice */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+        <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0"/>
+        <p className="text-xs text-amber-800">
+          <strong>تنبيه:</strong> قبل الاعتماد، اضغط على أي طلب لمراجعة بيانات الاستهلاك اليومي والكمية الموصى بها مقارنةً بما طلبه الفرع.
+        </p>
+      </div>
+
       {/* Group by toggle */}
       <div className="flex items-center gap-3" dir="rtl">
         <span className="text-xs font-semibold text-gray-500">تجميع حسب:</span>
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
           {(["branch","supplier"] as const).map(g=>(
-            <button key={g} onClick={()=>setGroupBy(g)}
+            <button key={g} onClick={()=>{ setGroupBy(g); setExpandedId(null); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${groupBy===g?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
               {g==="branch"?"الفرع":"المورد"}
             </button>
           ))}
         </div>
+        <span className="text-xs text-gray-400 mr-auto flex items-center gap-1">
+          <ChevronDown size={11}/> اضغط على الطلب لمراجعة بيانات الاستهلاك
+        </span>
       </div>
 
       {/* Grouped orders */}
@@ -6038,24 +6328,114 @@ function ProcNewOrders({}: PageProps) {
                 )}
               </div>
               {/* Orders in group */}
-              {groupOrders.map((r)=>(
-                <div key={r.id} className={`px-5 py-3.5 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 ${r.urgency==="عاجل"&&r.status==="pending"?"border-r-4 border-r-red-400":""}`}>
+              {groupOrders.map((r)=>{
+                const procItems = PROC_ITEMS[r.id] || [];
+                const hasAnomalies = procItems.some(it=>Math.abs(it.ordered-it.recommended)>5||it.price-it.histPrice>2);
+                return (
+                <div key={r.id} className={`border-b border-gray-100 last:border-0 ${r.urgency==="عاجل"&&r.status==="pending"?"border-r-4 border-r-red-400":""}`}>
+                  <div className={`px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 cursor-pointer ${expandedId===r.id?"bg-amber-50/20":""}`}
+                    onClick={()=>setExpandedId(expandedId===r.id?null:r.id)}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs text-purple-600">{r.id}</span>
                       <span className="text-gray-300">·</span>
                       <span className="text-xs text-gray-600">{groupBy==="branch"?r.supplier:r.branch}</span>
                       <Badge className={r.urgency==="عاجل"?"bg-red-50 text-red-700 text-[10px]":"bg-gray-50 text-gray-600 text-[10px]"}>{r.urgency}</Badge>
+                      {hasAnomalies && r.status==="pending" && <Badge className="bg-orange-50 text-orange-700 border border-orange-200 text-[10px]">⚠ تحقق من الاستهلاك</Badge>}
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">{r.items} أصناف · {r.time}</p>
                   </div>
                   <span className="font-mono font-bold text-gray-800 text-sm">{fmtAmt(r.total)} ر.س</span>
-                  {r.status==="pending"
-                    ? <Btn size="sm" variant="success" onClick={()=>approveOne(r.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
-                    : <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">✓ معتمد</Badge>
-                  }
+                  <div className="flex gap-1.5 flex-shrink-0" onClick={e=>e.stopPropagation()}>
+                    {r.status==="pending"
+                      ? <Btn size="sm" variant="success" onClick={()=>approveOne(r.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
+                      : <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">✓ معتمد</Badge>
+                    }
+                  </div>
+                  {expandedId===r.id?<ChevronUp size={13} className="text-gray-400 flex-shrink-0"/>:<ChevronDown size={13} className="text-gray-400 flex-shrink-0"/>}
+                  </div>
+                  {/* Consumption intelligence expansion panel */}
+                  {expandedId===r.id && procItems.length>0 && (
+                    <div className="px-5 pb-5 bg-amber-50/10 space-y-3 border-t border-amber-100">
+                      <div className="flex items-center gap-2 mt-3 mb-1">
+                        <BarChart3 size={13} className="text-amber-600"/>
+                        <p className="text-xs font-bold text-amber-900">بيانات الاستهلاك — راجع قبل الاعتماد</p>
+                        <span className="text-[10px] text-amber-600 mr-auto">{r.branch} · {r.supplier}</span>
+                      </div>
+                      {/* Consumption table: مطلوب / استهلاك يومي / موصى به / سعر */}
+                      <table className="w-full border border-amber-100 rounded-xl overflow-hidden text-xs" dir="rtl">
+                        <thead className="bg-amber-50">
+                          <tr>
+                            <th className="px-3 py-2 text-right">الصنف</th>
+                            <th className="px-3 py-2 text-center">الوحدة</th>
+                            <th className="px-3 py-2 text-center font-bold text-gray-800">مطلوب</th>
+                            <th className="px-3 py-2 text-center bg-amber-100/60 text-amber-700">استهلاك يومي</th>
+                            <th className="px-3 py-2 text-center bg-amber-100/60 text-amber-700">موصى به (7 أيام)</th>
+                            <th className="px-3 py-2 text-center bg-sky-50/80 text-sky-700">آخر سعر</th>
+                            <th className="px-3 py-2 text-center">السعر الحالي</th>
+                            <th className="px-3 py-2 text-center">التقييم</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-amber-50 bg-white">
+                          {procItems.map((it,pi)=>{
+                            const qtyDiff   = it.ordered - it.recommended;
+                            const priceDiff = it.price - it.histPrice;
+                            const qtyStatus = Math.abs(qtyDiff)<=5?"ok":qtyDiff>5?"over":"under";
+                            return (
+                              <tr key={pi} className={qtyStatus==="over"?"bg-orange-50/40":qtyStatus==="under"?"bg-blue-50/30":""}>
+                                <td className="px-3 py-2 font-semibold text-gray-800">{it.name}</td>
+                                <td className="px-3 py-2 text-center text-gray-500">{it.unit}</td>
+                                <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">{it.ordered}</td>
+                                <td className="px-3 py-2 text-center font-mono text-amber-700 bg-amber-50/30">{it.dailyAvg}</td>
+                                <td className="px-3 py-2 text-center font-mono bg-amber-50/30">
+                                  <span className={`font-bold ${qtyStatus==="over"?"text-orange-600":qtyStatus==="under"?"text-blue-600":"text-emerald-600"}`}>{it.recommended}</span>
+                                </td>
+                                <td className="px-3 py-2 text-center font-mono text-gray-500 bg-sky-50/20">{it.histPrice} ر.س</td>
+                                <td className={`px-3 py-2 text-center font-mono font-semibold ${priceDiff>2?"text-red-600":"text-gray-800"}`}>
+                                  {it.price} ر.س
+                                  {priceDiff>2 && <div className="text-[9px] text-red-500">↑ ارتفع</div>}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {qtyStatus==="ok"
+                                    ? <Badge className="bg-emerald-50 text-emerald-700 text-[10px]">✓ مناسب</Badge>
+                                    : qtyStatus==="over"
+                                      ? <Badge className="bg-orange-50 text-orange-700 border border-orange-200 text-[10px]">↑ أعلى بـ{qtyDiff}</Badge>
+                                      : <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px]">↓ أقل بـ{Math.abs(qtyDiff)}</Badge>
+                                  }
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {/* Summary alerts */}
+                      {procItems.some(it=>it.ordered-it.recommended>5) && (
+                        <div className="p-2.5 bg-orange-50 border border-orange-200 rounded-xl flex items-center gap-2">
+                          <AlertTriangle size={12} className="text-orange-600 flex-shrink-0"/>
+                          <p className="text-[11px] text-orange-800">
+                            <strong>تحذير:</strong> {procItems.filter(it=>it.ordered-it.recommended>5).map(it=>`${it.name} (مطلوب ${it.ordered} / موصى به ${it.recommended})`).join(" · ")}
+                          </p>
+                        </div>
+                      )}
+                      {procItems.some(it=>it.price-it.histPrice>2) && (
+                        <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                          <AlertTriangle size={12} className="text-red-500 flex-shrink-0"/>
+                          <p className="text-[11px] text-red-700">
+                            <strong>سعر مرتفع:</strong> {procItems.filter(it=>it.price-it.histPrice>2).map(it=>`${it.name} (${it.price} بدلاً من ${it.histPrice} ر.س)`).join(" · ")}
+                          </p>
+                        </div>
+                      )}
+                      {r.status==="pending" && (
+                        <div className="flex gap-2 pt-1">
+                          <Btn size="sm" variant="success" onClick={()=>{ approveOne(r.id); setExpandedId(null); }}><CheckCircle2 size={12}/> اعتماد بعد المراجعة</Btn>
+                          <Btn size="sm" variant="danger"><ThumbsDown size={12}/> رفض مع ملاحظة</Btn>
+                          <Btn size="sm" onClick={()=>setExpandedId(null)}>إغلاق</Btn>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+              );})}
             </div>
           );
         })}
