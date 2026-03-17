@@ -645,39 +645,68 @@ function buildAuditTrail(op: Op): AuditEvent[] {
 // LOGIN SCREEN
 // ─────────────────────────────────────────────
 function LoginScreen({ onLogin }:{ onLogin:(r:RoleId)=>void }) {
-  const roles:[RoleId, string, string, string, string, string][] = [
-    ["admin",       "🧠", "أدمن النظام",      "إدارة المستخدمين، الاشتراكات، وإعدادات النظام الكاملة",  "نظام",          "bg-red-500/20 text-red-200"],
-    ["head",        "👑", "رئيس الحسابات",    "الاعتماد النهائي للعمليات والإشراف على أداء المحاسبين",   "اعتماد نهائي",  "bg-amber-500/20 text-amber-200"],
-    ["accountant",  "🧮", "المحاسب",          "مراجعة وتدقيق العمليات اليومية من جميع الفروع المخصصة",  "مراجعة يومية", "bg-blue-500/20 text-blue-200"],
-    ["branch",      "🏪", "مدير الفرع",       "رفع البيانات اليومية وإدارة موظفي وموردي الفرع",          "فرع",           "bg-emerald-500/20 text-emerald-200"],
-    ["procurement", "🛒", "مدير المشتريات",   "تجميع طلبات الشراء والتنسيق مع الموردين",                "مشتريات",       "bg-purple-500/20 text-purple-200"],
-    ["supplier",    "🏭", "المورد",            "استلام طلبات التوريد وإدارة الكتالوج والأسعار",           "مورد",          "bg-cyan-500/20 text-cyan-200"],
+  const [hovered, setHovered] = useState<RoleId|null>(null);
+
+  const roles: { id:RoleId; icon:string; title:string; desc:string; badge:string; badgeCls:string; accent:string }[] = [
+    { id:"admin",       icon:"🧠", title:"أدمن النظام",      desc:"إدارة المستخدمين، الاشتراكات، وإعدادات النظام الكاملة",  badge:"نظام",          badgeCls:"bg-red-500/20 text-red-200",     accent:"#ef4444" },
+    { id:"head",        icon:"👑", title:"رئيس الحسابات",    desc:"الاعتماد النهائي للعمليات والإشراف على أداء المحاسبين",  badge:"اعتماد نهائي",  badgeCls:"bg-amber-500/20 text-amber-200",  accent:"#f59e0b" },
+    { id:"accountant",  icon:"🧮", title:"المحاسب",          desc:"مراجعة وتدقيق العمليات اليومية من جميع الفروع المخصصة", badge:"مراجعة يومية",  badgeCls:"bg-blue-500/20 text-blue-200",    accent:"#3b82f6" },
+    { id:"branch",      icon:"🏪", title:"مدير الفرع",       desc:"رفع البيانات اليومية وإدارة موظفي وموردي الفرع",         badge:"فرع",           badgeCls:"bg-emerald-500/20 text-emerald-200", accent:"#10b981" },
+    { id:"procurement", icon:"🛒", title:"مدير المشتريات",   desc:"تجميع طلبات الشراء والتنسيق مع الموردين",               badge:"مشتريات",       badgeCls:"bg-purple-500/20 text-purple-200", accent:"#8b5cf6" },
+    { id:"supplier",    icon:"🏭", title:"المورد",            desc:"استلام طلبات التوريد وإدارة الكتالوج والأسعار",          badge:"مورد",          badgeCls:"bg-cyan-500/20 text-cyan-200",    accent:"#06b6d4" },
   ];
+
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0F1C35 0%,#1B3A6B 60%,#2A5298 100%)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:36, padding:24 }}>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0F1C35 0%,#1B3A6B 60%,#2A5298 100%)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:36, padding:24 }} dir="rtl">
+      {/* Header */}
       <div style={{ textAlign:"center" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:8 }}>
           <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#7C3AED,#00D9FF)", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <span style={{ color:"#fff", fontWeight:900, fontSize:24 }}>ع</span>
           </div>
-          <div style={{ color:"#fff", fontWeight:800, fontSize:34, letterSpacing:-1 }}>عصب <span style={{ color:"#E8A020" }}>ASAB</span></div>
+          <div style={{ color:"#fff", fontWeight:800, fontSize:34, letterSpacing:-1 }}>
+            عصب <span style={{ color:"#E8A020" }}>ASAB</span>
+          </div>
         </div>
         <p style={{ color:"rgba(255,255,255,0.5)", fontSize:14 }}>نظام إدارة مالية المطاعم متعدد الفروع</p>
+        <p style={{ color:"rgba(255,255,255,0.3)", fontSize:12, marginTop:6 }}>اختر دورك للدخول إلى النموذج التفاعلي</p>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, maxWidth:860, width:"100%" }}>
-        {roles.map(([id, icon, title, desc, badge, badgeCls]) => (
-          <button key={id} onClick={() => onLogin(id)}
-            style={{ background:"rgba(255,255,255,0.07)", border:"1.5px solid rgba(255,255,255,0.13)", borderRadius:14, padding:"22px 18px", cursor:"pointer", textAlign:"center", fontFamily:"inherit", transition:"background 0.2s, border-color 0.2s, transform 0.2s" }}
-            onMouseEnter={e=>{ (e.currentTarget as HTMLButtonElement).style.cssText += "background:rgba(255,255,255,0.13);border-color:#E8A020;transform:translateY(-3px)"; }}
-            onMouseLeave={e=>{ (e.currentTarget as HTMLButtonElement).style.cssText += "background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.13);transform:translateY(0)"; }}
-          >
-            <div style={{ fontSize:36, marginBottom:10 }}>{icon}</div>
-            <div style={{ color:"#fff", fontWeight:700, fontSize:14, marginBottom:6 }}>{title}</div>
-            <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, lineHeight:1.6, marginBottom:10 }}>{desc}</div>
-            <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:10, fontWeight:700 }} className={badgeCls}>{badge}</span>
-          </button>
-        ))}
+
+      {/* Role cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, maxWidth:900, width:"100%" }}>
+        {roles.map(r => {
+          const isHov = hovered === r.id;
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onLogin(r.id)}
+              onMouseEnter={() => setHovered(r.id)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                background: isHov ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
+                border: `1.5px solid ${isHov ? r.accent : "rgba(255,255,255,0.13)"}`,
+                borderRadius: 16,
+                padding: "24px 18px",
+                cursor: "pointer",
+                textAlign: "center",
+                fontFamily: "inherit",
+                transform: isHov ? "translateY(-4px)" : "translateY(0)",
+                transition: "all 0.18s ease",
+                outline: "none",
+                boxShadow: isHov ? `0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px ${r.accent}33` : "none",
+              }}
+            >
+              <div style={{ fontSize:38, marginBottom:10 }}>{r.icon}</div>
+              <div style={{ color:"#fff", fontWeight:700, fontSize:15, marginBottom:6 }}>{r.title}</div>
+              <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, lineHeight:1.65, marginBottom:12, minHeight:32 }}>{r.desc}</div>
+              <span style={{ display:"inline-block", padding:"4px 12px", borderRadius:20, fontSize:10, fontWeight:700, background:`${r.accent}33`, color:isHov ? "#fff" : "rgba(255,255,255,0.7)", border:`1px solid ${r.accent}55`, transition:"all 0.18s" }}>{r.badge}</span>
+            </button>
+          );
+        })}
       </div>
+
+      <p style={{ color:"rgba(255,255,255,0.2)", fontSize:11 }}>نموذج تفاعلي — ASAB Prototype v2.0</p>
     </div>
   );
 }
