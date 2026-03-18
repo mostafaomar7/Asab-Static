@@ -6023,6 +6023,38 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
   const [roleFilter, setRoleFilter] = useState("");
   const [brandFilter,setBrandFilter]= useState("");
   const [expandedRow,setExpandedRow]= useState<string|null>(null);
+  const [usersTab,   setUsersTab]   = useState<"list"|"distribute">("list");
+
+  // ── Distribution data ──
+  const [headSel,  setHeadSel]   = useState<string|null>("h1");
+  const [accSel,   setAccSel]    = useState<string|null>("acc1");
+  const [distAccs, setDistAccs]  = useState([
+    { id:"acc1", name:"أحمد محمد الشهري", avatar:"أ", headId:"h1", restaurants:["مطعم الريم — العليا","مطعم الريم — جدة","هرفي — الرياض"] },
+    { id:"acc2", name:"سارة العمري",      avatar:"س", headId:"h1", restaurants:["هرفي — جدة","ماكدونالدز — الرياض"] },
+    { id:"acc3", name:"محمد الحربي",      avatar:"م", headId:"h2", restaurants:["هرفي — مكة","ماكدونالدز — الدمام"] },
+    { id:"acc4", name:"فاطمة السالم",     avatar:"ف", headId:"h2", restaurants:["بروستد الوطني — الطائف"] },
+    { id:"acc5", name:"خلود العتيبي",     avatar:"خ", headId:null, restaurants:[] },
+  ]);
+  const distHeads = [
+    { id:"h1", name:"خالد العمري",  avatar:"خ", color:"bg-amber-100 text-amber-700" },
+    { id:"h2", name:"نورة السعيد",  avatar:"ن", color:"bg-purple-100 text-purple-700" },
+  ];
+  const ALL_RESTS = [
+    "مطعم الريم — العليا","مطعم الريم — جدة",
+    "هرفي — الرياض","هرفي — جدة","هرفي — مكة",
+    "ماكدونالدز — الرياض","ماكدونالدز — الدمام",
+    "بروستد الوطني — الطائف",
+  ];
+  const assignedRests = distAccs.flatMap(a=>a.restaurants);
+  const freeRests     = ALL_RESTS.filter(r=>!assignedRests.includes(r));
+  const accsUnderHead = distAccs.filter(a=>a.headId===headSel);
+  const selAccData    = distAccs.find(a=>a.id===accSel);
+  const selAccRests   = selAccData?.restaurants||[];
+  const availableForAcc = freeRests.filter(r=>!selAccRests.includes(r));
+
+  const removeRestFromAcc = (accId:string, rest:string) => setDistAccs(p=>p.map(a=>a.id===accId?{...a,restaurants:a.restaurants.filter(r=>r!==rest)}:a));
+  const addRestToAcc = (accId:string, rest:string) => setDistAccs(p=>p.map(a=>a.id===accId?{...a,restaurants:[...a.restaurants,rest]}:a));
+  const moveAccToHead = (accId:string, headId:string) => setDistAccs(p=>p.map(a=>a.id===accId?{...a,headId}:a));
 
   const roleCls: Record<string,string> = {
     "محاسب":"bg-blue-50 text-blue-700 border-blue-200",
@@ -6057,6 +6089,181 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
         <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> مستخدم جديد</Btn>
       </div>
 
+      {/* Main tabs */}
+      <div className="flex gap-0 border-b border-gray-200">
+        {([{id:"list" as const,label:"👤 قائمة المستخدمين"},{id:"distribute" as const,label:"🏢 توزيع المطاعم"}]).map(t=>(
+          <button key={t.id} onClick={()=>setUsersTab(t.id)}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${usersTab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── DISTRIBUTION TAB ── */}
+      {usersTab==="distribute" && (
+        <div className="space-y-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-amber-700">{distHeads.length}</p><p className="text-[11px] text-gray-400">رؤساء الحسابات</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-blue-700">{distAccs.filter(a=>a.headId).length}</p><p className="text-[11px] text-gray-400">محاسبون مُعيَّنون</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-emerald-700">{assignedRests.length}</p><p className="text-[11px] text-gray-400">مطاعم مُوزَّعة</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-red-600">{freeRests.length}</p><p className="text-[11px] text-gray-400">مطاعم غير مُوزَّعة</p></div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {/* Column 1: رؤساء الحسابات */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
+                <p className="font-bold text-amber-800 text-sm">🏅 رؤساء الحسابات</p>
+                <p className="text-[11px] text-amber-600 mt-0.5">اختر رئيساً لعرض محاسبيه</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {distHeads.map(head=>{
+                  const cnt = distAccs.filter(a=>a.headId===head.id).length;
+                  const restCnt = distAccs.filter(a=>a.headId===head.id).flatMap(a=>a.restaurants).length;
+                  return (
+                    <button key={head.id} onClick={()=>{ setHeadSel(head.id); setAccSel(distAccs.find(a=>a.headId===head.id)?.id||null); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-right transition-colors ${headSel===head.id?"bg-amber-50/60 border-r-2 border-amber-400":"hover:bg-gray-50"}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${head.color}`}>{head.avatar}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800">{head.name}</p>
+                        <p className="text-[11px] text-gray-400">{cnt} محاسب · {restCnt} مطعم</p>
+                      </div>
+                      {headSel===head.id && <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"/>}
+                    </button>
+                  );
+                })}
+                {/* Unassigned accountants */}
+                {distAccs.filter(a=>!a.headId).length>0 && (
+                  <button onClick={()=>{ setHeadSel(null); setAccSel(distAccs.find(a=>!a.headId)?.id||null); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-right transition-colors ${headSel===null?"bg-red-50/60 border-r-2 border-red-400":"hover:bg-gray-50"}`}>
+                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm flex-shrink-0">⚠️</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-gray-600">محاسبون غير مُعيَّنين</p>
+                      <p className="text-[11px] text-gray-400">{distAccs.filter(a=>!a.headId).length} محاسب</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Column 2: المحاسبون */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                <p className="font-bold text-blue-800 text-sm">👨‍💼 المحاسبون</p>
+                <p className="text-[11px] text-blue-600 mt-0.5">
+                  {headSel ? `تابعون لـ ${distHeads.find(h=>h.id===headSel)?.name}` : "غير مُعيَّنين"}
+                </p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {(headSel===null ? distAccs.filter(a=>!a.headId) : distAccs.filter(a=>a.headId===headSel)).map(acc=>(
+                  <div key={acc.id}>
+                    <button onClick={()=>setAccSel(acc.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-right transition-colors ${accSel===acc.id?"bg-blue-50/60 border-r-2 border-blue-400":"hover:bg-gray-50"}`}>
+                      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold flex-shrink-0">{acc.avatar}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800 truncate">{acc.name}</p>
+                        <p className="text-[11px] text-gray-400">{acc.restaurants.length} مطعم مُخصَّص</p>
+                      </div>
+                      {accSel===acc.id && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"/>}
+                    </button>
+                    {accSel===acc.id && headSel===null && (
+                      <div className="px-4 pb-3">
+                        <p className="text-[11px] text-gray-500 mb-1">نقل إلى رئيس حسابات:</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {distHeads.map(h=>(
+                            <button key={h.id} onClick={()=>moveAccToHead(acc.id,h.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${h.color} border-current/20 hover:opacity-80`}>
+                              + {h.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {(headSel===null ? distAccs.filter(a=>!a.headId) : distAccs.filter(a=>a.headId===headSel)).length===0 && (
+                  <div className="px-4 py-6 text-center text-gray-400 text-xs">لا يوجد محاسبون</div>
+                )}
+              </div>
+            </div>
+
+            {/* Column 3: المطاعم */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+                <p className="font-bold text-emerald-800 text-sm">🏢 المطاعم</p>
+                <p className="text-[11px] text-emerald-600 mt-0.5">
+                  {selAccData ? `مخصصة لـ ${selAccData.name}` : "اختر محاسباً"}
+                </p>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                {selAccData && (
+                  <>
+                    {/* Assigned restaurants */}
+                    {selAccRests.length===0
+                      ? <div className="px-4 py-4 text-center text-xs text-gray-400">لا توجد مطاعم مخصصة</div>
+                      : selAccRests.map(rest=>(
+                          <div key={rest} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"/>
+                            <span className="text-sm text-gray-700 flex-1">{rest}</span>
+                            <button onClick={()=>removeRestFromAcc(accSel!,rest)} className="text-red-400 hover:text-red-600 flex-shrink-0 text-xs px-1.5 py-0.5 rounded hover:bg-red-50">✕</button>
+                          </div>
+                        ))
+                    }
+                    {/* Available restaurants */}
+                    {availableForAcc.length>0 && (
+                      <div className="px-4 py-2 bg-gray-50/50">
+                        <p className="text-[10px] font-bold text-gray-400 mb-1.5">إضافة مطاعم:</p>
+                        {availableForAcc.map(rest=>(
+                          <div key={rest} className="flex items-center gap-2.5 py-1.5 hover:bg-white rounded px-1">
+                            <div className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0"/>
+                            <span className="text-xs text-gray-500 flex-1">{rest}</span>
+                            <button onClick={()=>addRestToAcc(accSel!,rest)} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0 text-xs px-1.5 py-0.5 rounded hover:bg-emerald-50 font-bold">+</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                {!selAccData && <div className="px-4 py-8 text-center text-gray-400 text-sm">اختر محاسباً من العمود المجاور</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Distribution summary */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <p className="font-bold text-sm text-gray-700 mb-3">ملخص التوزيع الكامل</p>
+            <div className="space-y-2">
+              {distHeads.map(head=>(
+                <div key={head.id} className="bg-gray-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${head.color}`}>{head.avatar}</div>
+                    <p className="font-bold text-sm text-gray-800">{head.name}</p>
+                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 mr-auto">رئيس حسابات</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mr-9">
+                    {distAccs.filter(a=>a.headId===head.id).map(acc=>(
+                      <div key={acc.id} className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center">{acc.avatar}</div>
+                          <p className="text-xs font-semibold text-gray-700">{acc.name}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {acc.restaurants.length===0
+                            ? <span className="text-[10px] text-gray-400">لا مطاعم</span>
+                            : acc.restaurants.map(r=><span key={r} className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 rounded px-1.5 py-0.5">{r.split("—")[0].trim()}</span>)
+                          }
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIST TAB ── */}
+      {usersTab==="list" && (<>
       {/* Role breakdown */}
       <div className="grid grid-cols-6 gap-3">
         {[["محاسب","blue"],["رئيس حسابات","amber"],["مدير فرع","emerald"],["مدير مشتريات","purple"],["مورد","orange"],["أدمن","red"]].map(([r,c])=>(
@@ -6165,6 +6372,7 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
             </div>
         }
       </Card>
+      </>)}
     </div>
   );
 }
@@ -6216,6 +6424,24 @@ function AdminRestaurants({}: PageProps) {
   const [restTab, setRestTab]               = useState<"structure"|"upload">("structure");
   const [empUploaded, setEmpUploaded]       = useState(false);
   const [itemsUploaded, setItemsUploaded]   = useState(false);
+
+  // Per-restaurant subscription state
+  type RestSub = { plan:"فضي"|"ذهبي"|"بلاتيني"; status:"active"|"warning"|"danger"|"expired"; expires:string; daysLeft:number; price:number };
+  const [restSubs, setRestSubs] = useState<Record<string,RestSub>>({
+    r1:{ plan:"بلاتيني", status:"active",   expires:"15 يناير 2027",  daysLeft:307, price:2499 },
+    r2:{ plan:"ذهبي",    status:"warning",  expires:"20 أبريل 2026",  daysLeft:35,  price:1499 },
+    r3:{ plan:"ذهبي",    status:"warning",  expires:"15 مارس 2026",   daysLeft:1,   price:1499 },
+    r4:{ plan:"فضي",     status:"active",   expires:"1 ديسمبر 2026",  daysLeft:260, price:799  },
+    r5:{ plan:"فضي",     status:"danger",   expires:"25 مارس 2026",   daysLeft:10,  price:799  },
+    r6:{ plan:"بلاتيني", status:"active",   expires:"10 فبراير 2027", daysLeft:333, price:2499 },
+    r7:{ plan:"بلاتيني", status:"danger",   expires:"21 أبريل 2026",  daysLeft:38,  price:2499 },
+    r8:{ plan:"فضي",     status:"expired",  expires:"9 أكتوبر 2025",  daysLeft:-156,price:799  },
+  });
+  const renewSub = (id:string) => setRestSubs(p=>({...p,[id]:{...p[id],status:"active",daysLeft:365,expires:"مارس 2027"}}));
+
+  const subClsRest = { active:"bg-emerald-50 text-emerald-700 border-emerald-200", warning:"bg-amber-50 text-amber-700 border-amber-200", danger:"bg-red-50 text-red-700 border-red-200", expired:"bg-red-100 text-red-800 border-red-300" };
+  const subLblRest = { active:"نشط", warning:"ينتهي قريباً", danger:"إنذار انتهاء", expired:"منتهي" };
+  const planIcon   = { "فضي":"🥈","ذهبي":"🥇","بلاتيني":"💎" };
 
   const totalRests   = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.length,0);
   const totalBranches = BRANDS_DATA.reduce((s,b)=>s+b.restaurants.reduce((ss,r)=>ss+r.branches.length,0),0);
@@ -6431,6 +6657,7 @@ function AdminRestaurants({}: PageProps) {
 
                   {brand.restaurants.map(rest=>{
                     const isRExp = expandedRest===rest.id;
+                    const rsub = restSubs[rest.id];
                     return (
                       <div key={rest.id} className="border-b border-gray-50 last:border-0">
                         {/* Restaurant row */}
@@ -6438,17 +6665,46 @@ function AdminRestaurants({}: PageProps) {
                           onClick={()=>setExpandedRest(isRExp?null:rest.id)}>
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{background:brand.color+"99"}}>{rest.name[0]}</div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold text-sm text-gray-800">{rest.name}</p>
                               <Badge className={rest.status==="active"?"bg-emerald-50 text-emerald-600 text-[10px]":"bg-red-50 text-red-600 text-[10px]"}>{rest.status==="active"?"نشط":"موقوف"}</Badge>
+                              {rsub && <Badge className={`text-[10px] border ${subClsRest[rsub.status]}`}>{planIcon[rsub.plan]} باقة {rsub.plan} · {subLblRest[rsub.status]}</Badge>}
+                              {rsub && rsub.status!=="active" && <Badge className="bg-gray-50 text-gray-500 text-[10px]">{rsub.daysLeft<0?`منتهي منذ ${Math.abs(rsub.daysLeft)} يوم`:`ينتهي خلال ${rsub.daysLeft} يوم`}</Badge>}
                             </div>
-                            <p className="text-xs text-gray-400">{rest.city} · {rest.branches.length} فروع · {rest.accountants} محاسب مخصص</p>
+                            <p className="text-xs text-gray-400">{rest.city} · {rest.branches.length} فروع · {rest.accountants} محاسب مخصص{rsub?` · ${rsub.price} ر.س/شهر`:""}</p>
                           </div>
                           <div className="flex items-center gap-2">
+                            {rsub && (rsub.status==="expired"||rsub.status==="danger") && (
+                              <button onClick={e=>{e.stopPropagation();renewSub(rest.id);}}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold ${rsub.status==="expired"?"bg-red-600 text-white hover:bg-red-700":"bg-amber-500 text-white hover:bg-amber-600"} transition-colors`}>
+                                {rsub.status==="expired"?"تفعيل":"تجديد"}
+                              </button>
+                            )}
                             <Btn size="sm" variant="ghost" onClick={e=>{e.stopPropagation();}}><Edit2 size={11}/></Btn>
                             <ChevronDown size={13} className={`text-gray-400 transition-transform ${isRExp?"rotate-180":""}`}/>
                           </div>
                         </div>
+
+                        {/* Subscription + Branches when expanded */}
+                        {isRExp && rsub && (
+                          <div className="mx-6 mb-2 rounded-xl border overflow-hidden" style={{borderColor: rsub.status==="active"?"#d1fae5":rsub.status==="expired"?"#fecaca":"#fde68a"}}>
+                            <div className={`px-4 py-2.5 flex items-center gap-3 ${rsub.status==="active"?"bg-emerald-50":rsub.status==="expired"?"bg-red-50":"bg-amber-50"}`}>
+                              <span className="text-lg">{planIcon[rsub.plan]}</span>
+                              <div className="flex-1">
+                                <p className={`font-bold text-xs ${rsub.status==="active"?"text-emerald-800":rsub.status==="expired"?"text-red-800":"text-amber-800"}`}>
+                                  باقة {rsub.plan} — {subLblRest[rsub.status]}
+                                </p>
+                                <p className={`text-[10px] ${rsub.status==="active"?"text-emerald-600":rsub.status==="expired"?"text-red-600":"text-amber-600"}`}>
+                                  {rsub.status==="expired"?`انتهى: ${rsub.expires}`:`ينتهي: ${rsub.expires}`} · {rsub.price} ر.س/شهر
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {rsub.status!=="active" && <button onClick={()=>renewSub(rest.id)} className="px-3 py-1 rounded-lg text-xs font-semibold bg-white border border-current text-current hover:opacity-80">{rsub.status==="expired"?"تفعيل مجدداً":"تجديد الاشتراك"}</button>}
+                                <button className="px-3 py-1 rounded-lg text-xs font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">تغيير الباقة ↗</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Branches table */}
                         {isRExp && (
@@ -6620,157 +6876,376 @@ function AdminSubscriptions({}: PageProps) {
 }
 
 function AdminReports({}: PageProps) {
-  const [step, setStep] = useState(0);
-  const [uploaded, setUploaded] = useState(false);
-  const [reportType, setReportType] = useState<string>("pl");
+  const [adminRepTab,  setAdminRepTab]  = useState<"reports"|"status">("reports");
+  const [activeReport, setActiveReport] = useState<string|null>(null);
+  const [step,         setStep]         = useState(0);
+  const [uploaded,     setUploaded]     = useState(false);
+  const [sentReports,  setSentReports]  = useState<Set<string>>(new Set(["pl","sales-channel"]));
+  const [statusFilter, setStatusFilter] = useState("pl");
+  const [addRestModal, setAddRestModal] = useState(false);
 
-  const reportTypes = [
-    { id:"pl",      label:"قائمة الدخل",       sub:"P&L",               icon:"📈", color:"bg-purple-100 text-purple-700", border:"border-purple-300 bg-purple-50/40" },
-    { id:"balance", label:"الميزانية العمومية", sub:"Balance Sheet",     icon:"⚖️", color:"bg-blue-100 text-blue-700",    border:"border-blue-300 bg-blue-50/40"   },
-    { id:"cashflow",label:"التدفقات النقدية",  sub:"Cash Flow",         icon:"💧", color:"bg-cyan-100 text-cyan-700",    border:"border-cyan-300 bg-cyan-50/40"   },
-    { id:"sales",   label:"تحليل المبيعات",    sub:"Sales Analysis",    icon:"🛒", color:"bg-emerald-100 text-emerald-700",border:"border-emerald-300 bg-emerald-50/40" },
-    { id:"expenses",label:"تحليل المصروفات",   sub:"Expense Analysis",  icon:"💸", color:"bg-amber-100 text-amber-700",  border:"border-amber-300 bg-amber-50/40" },
-    { id:"compare", label:"مقارنات الأداء",    sub:"Performance Comp.", icon:"📊", color:"bg-indigo-100 text-indigo-700",border:"border-indigo-300 bg-indigo-50/40"},
+  const PERIOD = "أكتوبر 2025";
+
+  const coreReports = [
+    { id:"pl",           label:"قائمة الأرباح والخسائر",   sub:"تحليل مالي متعمق — 3 مستويات",       icon:"📈", tc:"text-purple-700", bc:"bg-purple-50", brd:"border-purple-200" },
+    { id:"sales-channel",label:"تحليل قنوات المبيعات",     sub:"تحليل شامل للقنوات مع النسب",        icon:"🛒", tc:"text-emerald-700",bc:"bg-emerald-50",brd:"border-emerald-200" },
+    { id:"smart-compare",label:"المقارنات الذكية",          sub:"مقارنات شهرية وبين الفروع",           icon:"📊", tc:"text-blue-700",   bc:"bg-blue-50",  brd:"border-blue-200"   },
   ];
-  const selectedType = reportTypes.find(r=>r.id===reportType)!;
+  const specializedReports = [
+    { id:"profit-cash",  label:"مقاربة الأرباح مع النقدية",sub:"الفرق بين أموالك وأرباحك",           icon:"💰", tc:"text-amber-700",  bc:"bg-amber-50", brd:"border-amber-200"  },
+    { id:"breakeven",    label:"تحليل نقطة التعادل",       sub:"تحليل المخاطر والأمان المالي",       icon:"⚖️", tc:"text-red-700",    bc:"bg-red-50",   brd:"border-red-200"    },
+    { id:"op-profit",    label:"الربحية التشغيلية",        sub:"مؤشرات الأداء ومقارنات القطاع",      icon:"🏆", tc:"text-indigo-700", bc:"bg-indigo-50",brd:"border-indigo-200" },
+    { id:"menu-eng",     label:"هندسة القوائم",            sub:"مؤشرات الأداء ومقارنات القطاع",      icon:"🍽️", tc:"text-cyan-700",   bc:"bg-cyan-50",  brd:"border-cyan-200"   },
+  ];
+  const allReports = [...coreReports,...specializedReports];
 
-  const previewRows: Record<string, {label:string;value:string;type:string;header?:boolean}[]> = {
-    pl:[
-      {label:"إجمالي الإيرادات",value:"842,500",type:"income",header:true},{label:"   مبيعات المطعم",value:"820,000",type:"income"},{label:"   إيرادات أخرى",value:"22,500",type:"income"},
-      {label:"إجمالي المصروفات",value:"(612,000)",type:"expense",header:true},{label:"   تكلفة المواد الخام",value:"(320,000)",type:"expense"},{label:"   رواتب الموظفين",value:"(180,000)",type:"expense"},
-      {label:"صافي الربح",value:"230,500",type:"profit",header:true},{label:"هامش الربح",value:"27.4%",type:"profit",header:true}
-    ],
-    balance:[
-      {label:"الأصول المتداولة",value:"950,000",type:"income",header:true},{label:"   النقدية وما يعادلها",value:"420,000",type:"income"},{label:"   حسابات القبض",value:"310,000",type:"income"},{label:"   المخزون",value:"220,000",type:"income"},
-      {label:"الأصول الثابتة",value:"1,200,000",type:"income",header:true},
-      {label:"إجمالي الأصول",value:"2,150,000",type:"profit",header:true},
-      {label:"الخصوم",value:"(890,000)",type:"expense",header:true},{label:"حقوق الملكية",value:"1,260,000",type:"profit",header:true},
-    ],
-    cashflow:[
-      {label:"التدفقات التشغيلية",value:"315,000",type:"income",header:true},{label:"   صافي الدخل",value:"230,500",type:"income"},{label:"   الإهلاك",value:"85,000",type:"income"},
-      {label:"التدفقات الاستثمارية",value:"(120,000)",type:"expense",header:true},{label:"   شراء أصول",value:"(120,000)",type:"expense"},
-      {label:"التدفقات التمويلية",value:"(60,000)",type:"expense",header:true},
-      {label:"صافي التدفق النقدي",value:"135,000",type:"profit",header:true},
-    ],
-    sales:[
-      {label:"فرع الرياض - العليا",value:"320,000",type:"income",header:false},{label:"فرع جدة - الحمراء",value:"280,000",type:"income",header:false},{label:"فرع مكة - المعابدة",value:"242,500",type:"income",header:false},
-      {label:"إجمالي المبيعات",value:"842,500",type:"profit",header:true},{label:"متوسط المبيعات / فرع",value:"280,833",type:"income",header:true},{label:"أعلى مبيعات",value:"فرع العليا",type:"profit",header:false},
-    ],
-    expenses:[
-      {label:"تكلفة المواد الخام",value:"(320,000)",type:"expense",header:true},{label:"رواتب الموظفين",value:"(180,000)",type:"expense",header:false},{label:"إيجارات",value:"(65,000)",type:"expense",header:false},
-      {label:"مصاريف إدارية",value:"(35,000)",type:"expense",header:false},{label:"مصاريف أخرى",value:"(12,000)",type:"expense",header:false},
-      {label:"إجمالي المصروفات",value:"(612,000)",type:"expense",header:true},{label:"نسبة من الإيرادات",value:"72.6%",type:"profit",header:true},
-    ],
-    compare:[
-      {label:"المبيعات — أكتوبر",value:"842,500",type:"income",header:false},{label:"المبيعات — سبتمبر",value:"791,000",type:"income",header:false},{label:"التغيير",value:"+6.5% ↑",type:"profit",header:false},
-      {label:"المصروفات — أكتوبر",value:"612,000",type:"expense",header:false},{label:"المصروفات — سبتمبر",value:"589,000",type:"expense",header:false},{label:"التغيير",value:"+3.9% ↑",type:"expense",header:false},
-      {label:"صافي الربح — أكتوبر",value:"230,500",type:"profit",header:true},{label:"صافي الربح — سبتمبر",value:"202,000",type:"profit",header:false},{label:"التحسن",value:"+14.1% ↑",type:"profit",header:false},
-    ],
+  const RESTAURANTS = [
+    { id:"r1", name:"مطعم الريم — العليا",   owner:"فيصل الريم",             email:"faisal@reem.sa"        },
+    { id:"r2", name:"مطعم الريم — جدة",     owner:"فيصل الريم",             email:"faisal@reem.sa"        },
+    { id:"r3", name:"هرفي — الرياض",        owner:"طلال الحسين",            email:"talal@herfy.sa"        },
+    { id:"r4", name:"هرفي — جدة",          owner:"طلال الحسين",            email:"talal@herfy.sa"        },
+    { id:"r5", name:"هرفي — مكة",          owner:"طلال الحسين",            email:"talal@herfy.sa"        },
+    { id:"r6", name:"ماكدونالدز — الرياض",  owner:"شركة المطعم العالمي",    email:"ops@mcd-sa.com"        },
+    { id:"r7", name:"ماكدونالدز — الدمام",  owner:"شركة المطعم العالمي",    email:"ops@mcd-sa.com"        },
+    { id:"r8", name:"بروستد الوطني",        owner:"محمد السعيد",            email:"msaeed@broasted.sa"    },
+  ];
+
+  const [repStatus, setRepStatus] = useState<Record<string,Record<string,{sent:boolean;sentDate:string;viewed:boolean;viewedDate:string}>>>({
+    "pl":          { r1:{sent:true,sentDate:"1 أكتوبر",viewed:true, viewedDate:"2 أكتوبر"}, r2:{sent:true,sentDate:"1 أكتوبر",viewed:true, viewedDate:"3 أكتوبر"}, r3:{sent:true,sentDate:"1 أكتوبر",viewed:false,viewedDate:""}, r4:{sent:true,sentDate:"1 أكتوبر",viewed:false,viewedDate:""}, r5:{sent:true,sentDate:"1 أكتوبر",viewed:true, viewedDate:"5 أكتوبر"}, r6:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r7:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r8:{sent:false,sentDate:"",viewed:false,viewedDate:""} },
+    "sales-channel":{ r1:{sent:true,sentDate:"1 أكتوبر",viewed:true, viewedDate:"2 أكتوبر"}, r2:{sent:true,sentDate:"1 أكتوبر",viewed:false,viewedDate:""}, r3:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r4:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r5:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r6:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r7:{sent:false,sentDate:"",viewed:false,viewedDate:""}, r8:{sent:false,sentDate:"",viewed:false,viewedDate:""} },
+  });
+  const getStatus = (repId:string, restId:string) => repStatus[repId]?.[restId] || {sent:false,sentDate:"",viewed:false,viewedDate:""};
+
+  const sendReport = (repId:string) => {
+    const now = "14 أكتوبر 2025";
+    setRepStatus(p=>({ ...p, [repId]:Object.fromEntries(RESTAURANTS.map(r=>[r.id,{sent:true,sentDate:now,viewed:false,viewedDate:""}])) }));
+    setSentReports(p=>{ const s=new Set(p); s.add(repId); return s; });
+    setStep(3);
   };
 
-  return (
-    <div className="space-y-5">
-      <div><h2 className="text-xl font-bold text-gray-800">مدير التقارير</h2><p className="text-gray-400 text-sm mt-0.5">استيراد تقارير ERP ومراجعتها وإرسالها لأصحاب المطاعم</p></div>
+  const previewRows: Record<string,{label:string;value:string;type:string;header?:boolean}[]> = {
+    "pl":           [{label:"إجمالي الإيرادات",value:"842,500",type:"income",header:true},{label:"   مبيعات المطعم",value:"820,000",type:"income"},{label:"   إيرادات أخرى",value:"22,500",type:"income"},{label:"إجمالي المصروفات",value:"(612,000)",type:"expense",header:true},{label:"   تكلفة المواد",value:"(320,000)",type:"expense"},{label:"   رواتب",value:"(180,000)",type:"expense"},{label:"صافي الربح",value:"230,500",type:"profit",header:true},{label:"هامش الربح",value:"27.4%",type:"profit",header:true}],
+    "sales-channel":[{label:"تطبيق المطعم",value:"42%",type:"income",header:false},{label:"طلبات أجرجر",value:"28%",type:"income",header:false},{label:"هنقرستيشن",value:"18%",type:"income",header:false},{label:"كاونتر مباشر",value:"12%",type:"income",header:false},{label:"الإجمالي",value:"842,500 ر.س",type:"profit",header:true},{label:"أعلى قناة ربحية",value:"تطبيق المطعم",type:"profit",header:false}],
+    "smart-compare":[{label:"مبيعات أكتوبر",value:"842,500",type:"income",header:false},{label:"مبيعات سبتمبر",value:"791,000",type:"income",header:false},{label:"التغيير",value:"+6.5% ↑",type:"profit",header:false},{label:"مصروفات أكتوبر",value:"612,000",type:"expense",header:false},{label:"مصروفات سبتمبر",value:"589,000",type:"expense",header:false},{label:"صافي التحسن",value:"+14.1% ↑",type:"profit",header:true}],
+    "profit-cash":  [{label:"صافي الربح المحاسبي",value:"230,500",type:"profit",header:true},{label:"التدفق النقدي الفعلي",value:"185,000",type:"income",header:true},{label:"الفارق",value:"45,500",type:"expense",header:false},{label:"المخزون غير المحقق",value:"32,000",type:"expense",header:false},{label:"الذمم المدينة",value:"13,500",type:"expense",header:false}],
+    "breakeven":    [{label:"إيرادات التعادل",value:"580,000",type:"income",header:true},{label:"المصروفات الثابتة",value:"245,000",type:"expense",header:false},{label:"هامش المساهمة",value:"42.3%",type:"profit",header:false},{label:"هامش الأمان",value:"31.1%",type:"profit",header:true},{label:"أيام التعادل الشهري",value:"17 يوم",type:"income",header:false}],
+    "op-profit":    [{label:"ربحية فرع العليا",value:"18.2%",type:"profit",header:false},{label:"ربحية فرع الحمراء",value:"21.5%",type:"profit",header:false},{label:"ربحية فرع مكة",value:"14.8%",type:"income",header:false},{label:"متوسط القطاع",value:"16%",type:"income",header:true},{label:"أعلى من المتوسط",value:"فرعان",type:"profit",header:false}],
+    "menu-eng":     [{label:"البنود النجمية ⭐",value:"12 صنف",type:"profit",header:false},{label:"بنود البقرة النقدية 🐄",value:"8 أصناف",type:"income",header:false},{label:"بنود الاستفهام ❓",value:"5 أصناف",type:"expense",header:false},{label:"بنود الكلب 🐕",value:"3 أصناف",type:"expense",header:false},{label:"هامش الربح العلوي",value:"الجمبري المشوي",type:"profit",header:true}],
+  };
 
-      {/* ── Report Type Selector ── */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <p className="text-sm font-bold text-gray-700 mb-3">اختر نوع التقرير</p>
-        <div className="grid grid-cols-3 gap-2.5">
-          {reportTypes.map(rt=>(
-            <button key={rt.id} onClick={()=>{ setReportType(rt.id); setStep(0); setUploaded(false); }}
-              className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-right ${reportType===rt.id?rt.border:"border-gray-100 bg-white hover:border-gray-200"}`}>
-              <span className="text-xl">{rt.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-xs font-bold ${reportType===rt.id?rt.color.split(" ")[1]:"text-gray-700"}`}>{rt.label}</p>
-                <p className="text-[10px] text-gray-400">{rt.sub}</p>
-              </div>
-              {reportType===rt.id && <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0"><span className="text-white text-[8px]">✓</span></div>}
-            </button>
-          ))}
-        </div>
-      </div>
+  const selectedReport = allReports.find(r=>r.id===activeReport);
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-base">{selectedType.icon}</span>
-          <span className="font-bold text-gray-800">{selectedType.label}</span>
-          <Badge className={selectedType.color}>{selectedType.sub}</Badge>
+  // ── 4-step flow for active report ──
+  if (activeReport && selectedReport) {
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-2">
+          <button onClick={()=>{ setActiveReport(null); setStep(0); setUploaded(false); }} className="text-purple-600 hover:underline text-sm flex items-center gap-1"><ChevronUp size={13} className="rotate-90"/> مدير التقارير</button>
+          <span className="text-gray-300">/</span>
+          <span className="text-gray-600 text-sm font-semibold">{selectedReport.label}</span>
+          <Badge className={`${selectedReport.bc} ${selectedReport.tc} border ${selectedReport.brd} mr-auto`}>شهري · {PERIOD}</Badge>
         </div>
-        <div className="flex items-center gap-0 mb-6">
-          {[{n:1,label:"1. تصدير من ERP",icon:"🔗"},{n:2,label:"2. رفع Excel",icon:"📊"},{n:3,label:"3. مراجعة",icon:"👁"},{n:4,label:"4. الإرسال",icon:"📤"}].map((s,i)=>(
-            <div key={i} className="flex items-center flex-1">
-              <button onClick={()=>setStep(s.n-1)} className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all ${step===s.n-1?"bg-purple-600 text-white":step>s.n-1?"bg-emerald-100 text-emerald-700":"bg-gray-100 text-gray-400"}`}>
-                <span>{step>=s.n?"✓":s.icon}</span><span className="text-xs font-semibold whitespace-nowrap">{s.label}</span>
-              </button>
-              {i<3 && <div className={`flex-1 h-0.5 mx-1 ${step>i?"bg-emerald-300":"bg-gray-200"}`}></div>}
-            </div>
-          ))}
-        </div>
-        {step===0 && <div className="text-center py-6 space-y-4">
-          <div className="text-5xl">{selectedType.icon}</div>
-          <h3 className="font-bold text-gray-800">تصدير {selectedType.label} من نظام ERP</h3>
-          <div className="bg-blue-50 rounded-xl p-4 text-sm text-blue-700 text-right max-w-sm mx-auto">
-            <p className="font-semibold mb-1">الخطوات في نظام ERP:</p>
-            <ol className="list-decimal list-inside space-y-1 text-xs"><li>افتح نظام ERP → التقارير</li><li>اختر {selectedType.label}</li><li>حدد الفترة الزمنية</li><li>اضغط تصدير Excel</li></ol>
+
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-2xl">{selectedReport.icon}</span>
+            <div><p className="font-bold text-gray-800">{selectedReport.label}</p><p className="text-xs text-gray-400">{selectedReport.sub}</p></div>
           </div>
-          <Btn variant="primary" onClick={()=>setStep(1)} className="mx-auto">انتقل لرفع الملف →</Btn>
-        </div>}
-        {step===1 && <div className="space-y-4">
-          {!uploaded
-            ? <div onClick={()=>setUploaded(true)} className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all">
-                <div className="text-5xl mb-3">📊</div>
-                <p className="font-semibold text-gray-700 mb-1">اسحب وأفلت ملف Excel هنا</p>
-                <p className="text-xs text-gray-400 mb-4">أو اضغط للاختيار · xlsx, xls, csv</p>
-                <Btn variant="primary" className="mx-auto"><Upload size={14}/> اختيار الملف</Btn>
+          <div className="flex items-center gap-0 mb-6">
+            {[{n:1,label:"تصدير من ERP",icon:"🔗"},{n:2,label:"رفع Excel",icon:"📊"},{n:3,label:"مراجعة",icon:"👁"},{n:4,label:"إرسال لكل المطاعم",icon:"📤"}].map((s,i)=>(
+              <div key={i} className="flex items-center flex-1">
+                <button onClick={()=>setStep(s.n-1)} className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all ${step===s.n-1?"bg-purple-600 text-white":step>s.n-1?"bg-emerald-100 text-emerald-700":"bg-gray-100 text-gray-400"}`}>
+                  <span className="text-xs">{step>=s.n?"✓":s.icon}</span><span className="text-xs font-semibold whitespace-nowrap">{s.label}</span>
+                </button>
+                {i<3 && <div className={`flex-1 h-0.5 mx-1 ${step>i?"bg-emerald-300":"bg-gray-200"}`}/>}
               </div>
-            : <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0"/>
-                  <div><p className="font-semibold text-sm text-emerald-800">تم رفع الملف بنجاح</p><p className="text-xs text-emerald-600">تقرير_اكتوبر_2025.xlsx ✓</p></div>
-                  <button onClick={()=>setUploaded(false)} className="mr-auto text-emerald-400 hover:text-emerald-600"><X size={14}/></button>
-                </div>
-                <Btn variant="primary" onClick={()=>setStep(2)} className="w-full justify-center">معاينة التقرير →</Btn>
-              </div>
-          }
-        </div>}
-        {step===2 && <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-800">معاينة: {selectedType.label}</h3>
-            <Badge className="bg-blue-50 text-blue-700">للعرض فقط</Badge>
-          </div>
-          <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-            <div className="bg-purple-700 text-white px-5 py-3 text-center">
-              <p className="font-bold">{selectedType.icon} {selectedType.label} — أكتوبر 2025</p>
-              <p className="text-purple-200 text-xs mt-0.5">مطعم هرفي · جميع الفروع</p>
-            </div>
-            <table className="w-full" dir="rtl"><tbody className="divide-y divide-gray-200">
-              {(previewRows[reportType] || previewRows["pl"]).map((row,i)=>(
-                <tr key={i} className={row.header?"bg-gray-100":"bg-white"}>
-                  <td className={`px-5 py-2.5 text-sm ${row.header?"font-bold text-gray-800":"text-gray-600"}`}>{row.label}</td>
-                  <td className={`px-5 py-2.5 text-left font-mono text-sm ${row.type==="profit"?"text-emerald-700 font-bold":row.type==="expense"?"text-red-600":"text-gray-800"}`} dir="ltr">{row.value}</td>
-                </tr>
-              ))}
-            </tbody></table>
-          </div>
-          <div className="flex gap-3"><Btn onClick={()=>setStep(1)}>← رجوع</Btn><Btn variant="primary" onClick={()=>setStep(3)} className="flex-1 justify-center">إرسال لأصحاب المطاعم →</Btn></div>
-        </div>}
-        {step===3 && <div className="space-y-4">
-          <h3 className="font-bold text-gray-800">إرسال التقارير</h3>
-          <div className="space-y-2">
-            {["مطعم هرفي — طلال الحسين","ماكدونالدز السعودية — شركة المطعم العالمي","مطعم الريم — فيصل الريم"].map((r,i)=>(
-              <label key={i} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
-                <input type="checkbox" defaultChecked className="rounded"/>
-                <span className="text-sm font-medium text-gray-700">{r}</span>
-                <span className="text-xs text-gray-400 mr-auto">البريد الإلكتروني + إشعار</span>
-              </label>
             ))}
           </div>
-          <div className="flex gap-3">
-            <Btn onClick={()=>setStep(2)}>← رجوع</Btn>
-            <button onClick={()=>{ setStep(0); setUploaded(false); }} className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700">📤 إرسال التقارير الآن</button>
-          </div>
-        </div>}
+
+          {step===0 && <div className="text-center py-6 space-y-4">
+            <div className="text-5xl">{selectedReport.icon}</div>
+            <h3 className="font-bold text-gray-800">تصدير {selectedReport.label} من ERP</h3>
+            <div className="bg-blue-50 rounded-xl p-4 text-right max-w-sm mx-auto">
+              <p className="font-semibold text-blue-800 text-sm mb-2">الخطوات:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700"><li>افتح نظام ERP → التقارير</li><li>اختر {selectedReport.label}</li><li>الفترة: {PERIOD}</li><li>اضغط تصدير Excel</li></ol>
+            </div>
+            <Btn variant="primary" onClick={()=>setStep(1)} className="mx-auto">انتقل لرفع الملف →</Btn>
+          </div>}
+
+          {step===1 && <div className="space-y-4">
+            {!uploaded
+              ? <div onClick={()=>setUploaded(true)} className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all">
+                  <div className="text-5xl mb-3">📊</div>
+                  <p className="font-semibold text-gray-700 mb-1">اسحب وأفلت ملف Excel هنا</p>
+                  <p className="text-xs text-gray-400 mb-4">xlsx, xls, csv · {PERIOD}</p>
+                  <Btn variant="primary" className="mx-auto"><Upload size={14}/> اختيار الملف</Btn>
+                </div>
+              : <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0"/>
+                    <div><p className="font-semibold text-sm text-emerald-800">تم رفع الملف بنجاح</p><p className="text-xs text-emerald-600">{selectedReport.label}_{PERIOD.replace(" ","_")}.xlsx ✓</p></div>
+                    <button onClick={()=>setUploaded(false)} className="mr-auto text-emerald-400 hover:text-emerald-600"><X size={14}/></button>
+                  </div>
+                  <Btn variant="primary" onClick={()=>setStep(2)} className="w-full justify-center">معاينة التقرير →</Btn>
+                </div>}
+          </div>}
+
+          {step===2 && <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-800">معاينة: {selectedReport.label} — {PERIOD}</h3>
+              <Badge className="bg-blue-50 text-blue-700">للعرض فقط</Badge>
+            </div>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+              <div className="bg-purple-700 text-white px-5 py-3 text-center">
+                <p className="font-bold">{selectedReport.icon} {selectedReport.label} — {PERIOD}</p>
+                <p className="text-purple-200 text-xs mt-0.5">جميع المطاعم المشتركة · {RESTAURANTS.length} مطاعم</p>
+              </div>
+              <table className="w-full" dir="rtl"><tbody className="divide-y divide-gray-200">
+                {(previewRows[activeReport]||previewRows["pl"]).map((row,i)=>(
+                  <tr key={i} className={row.header?"bg-gray-100":"bg-white"}>
+                    <td className={`px-5 py-2.5 text-sm ${row.header?"font-bold text-gray-800":"text-gray-600"}`}>{row.label}</td>
+                    <td className={`px-5 py-2.5 text-left font-mono text-sm ${row.type==="profit"?"text-emerald-700 font-bold":row.type==="expense"?"text-red-600":"text-gray-800"}`} dir="ltr">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+            <div className="flex gap-3"><Btn onClick={()=>setStep(1)}>← رجوع</Btn><Btn variant="primary" onClick={()=>setStep(3-1+1)} className="flex-1 justify-center">متابعة للإرسال →</Btn></div>
+          </div>}
+
+          {step===3 && !sentReports.has(activeReport) && <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-800">إرسال لجميع المطاعم المشتركة</h3>
+              <Badge className="bg-emerald-50 text-emerald-700">{RESTAURANTS.length} مطاعم</Badge>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-amber-700 text-sm">
+              <Bell size={14} className="flex-shrink-0"/>
+              سيُرسَل تقرير <strong>{selectedReport.label} — {PERIOD}</strong> لجميع أصحاب المطاعم بالبريد الإلكتروني + إشعار داخل التطبيق.
+            </div>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {RESTAURANTS.map((r)=>(
+                <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white">
+                  <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0"/>
+                  <div className="flex-1"><p className="text-sm font-medium text-gray-700">{r.name}</p><p className="text-xs text-gray-400">{r.owner} · {r.email}</p></div>
+                  <span className="text-xs text-gray-400">إيميل + إشعار</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Btn onClick={()=>setStep(2)}>← رجوع</Btn>
+              <button onClick={()=>sendReport(activeReport)} className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700 flex items-center justify-center gap-2">
+                <Upload size={15}/> إرسال التقرير لجميع المطاعم
+              </button>
+            </div>
+          </div>}
+
+          {(step===3 && sentReports.has(activeReport)) && <div className="text-center py-8 space-y-4">
+            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto border-2 border-emerald-200">
+              <CheckCircle2 size={36} className="text-emerald-600"/>
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">تم الإرسال بنجاح!</h3>
+            <p className="text-gray-500 text-sm">تم إرسال <strong>{selectedReport.label} — {PERIOD}</strong> لـ {RESTAURANTS.length} مطاعم</p>
+            <div className="flex gap-3 justify-center">
+              <Btn onClick={()=>{ setActiveReport(null); setAdminRepTab("status"); setStatusFilter(activeReport!); setStep(0); setUploaded(false); }}>
+                <Eye size={13}/> عرض حالة التقارير
+              </Btn>
+              <Btn variant="primary" onClick={()=>{ setActiveReport(null); setStep(0); setUploaded(false); }}>
+                العودة للتقارير
+              </Btn>
+            </div>
+          </div>}
+        </div>
       </div>
+    );
+  }
+
+  // ── Main reports manager grid ──
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">مدير التقارير</h2><p className="text-gray-400 text-sm mt-0.5">تقارير شهرية — ترسَل لكل المطاعم المشتركة</p></div>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-purple-50 text-purple-700 border border-purple-200">📅 {PERIOD}</Badge>
+          <Badge className="bg-gray-50 text-gray-600">{RESTAURANTS.length} مطاعم مشتركة</Badge>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-gray-200">
+        {[{id:"reports" as const,label:"📋 التقارير"},{id:"status" as const,label:"📊 حالة التقارير"}].map(t=>(
+          <button key={t.id} onClick={()=>setAdminRepTab(t.id)}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${adminRepTab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── REPORTS TAB ── */}
+      {adminRepTab==="reports" && (
+        <div className="space-y-5">
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-gray-800">{allReports.length}</p><p className="text-[11px] text-gray-400">إجمالي التقارير</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-emerald-700">{sentReports.size}</p><p className="text-[11px] text-gray-400">تم الإرسال</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-amber-600">{allReports.length-sentReports.size}</p><p className="text-[11px] text-gray-400">لم تُرسَل بعد</p></div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-blue-700">{RESTAURANTS.length}</p><p className="text-[11px] text-gray-400">مطعم مشترك</p></div>
+          </div>
+
+          {/* Core Reports */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="font-bold text-gray-800 text-sm">التقارير الأساسية</h3>
+              <Badge className="bg-gray-100 text-gray-500">{coreReports.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {coreReports.map(rep=>{
+                const isSent = sentReports.has(rep.id);
+                const statusData = repStatus[rep.id];
+                const sentCount = statusData ? Object.values(statusData).filter(s=>s.sent).length : 0;
+                const viewedCount = statusData ? Object.values(statusData).filter(s=>s.viewed).length : 0;
+                return (
+                  <div key={rep.id} className={`bg-white rounded-xl border shadow-sm p-4 flex items-center gap-4 hover:shadow transition-shadow cursor-pointer ${isSent?"border-emerald-100":"border-gray-100"}`}
+                    onClick={()=>{ setActiveReport(rep.id); setStep(0); setUploaded(false); }}>
+                    <div className={`w-11 h-11 rounded-xl ${rep.bc} border ${rep.brd} flex items-center justify-center text-xl flex-shrink-0`}>{rep.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold text-sm ${rep.tc}`}>{rep.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{rep.sub}</p>
+                    </div>
+                    {isSent
+                      ? <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-center"><p className="text-sm font-bold text-emerald-700">{sentCount}/{RESTAURANTS.length}</p><p className="text-[10px] text-gray-400">أُرسل</p></div>
+                          <div className="text-center"><p className="text-sm font-bold text-blue-700">{viewedCount}/{RESTAURANTS.length}</p><p className="text-[10px] text-gray-400">اطّلع</p></div>
+                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">✓ مُرسَل</Badge>
+                        </div>
+                      : <Badge className="bg-amber-50 text-amber-700 border border-amber-200 flex-shrink-0">⏳ لم يُرسَل</Badge>
+                    }
+                    <ChevronDown size={14} className="text-gray-400 rotate-[-90deg] flex-shrink-0"/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Specialized Reports */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="font-bold text-gray-800 text-sm">التقارير المتخصصة</h3>
+              <Badge className="bg-gray-100 text-gray-500">{specializedReports.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {specializedReports.map(rep=>{
+                const isSent = sentReports.has(rep.id);
+                const statusData = repStatus[rep.id];
+                const sentCount = statusData ? Object.values(statusData).filter(s=>s.sent).length : 0;
+                const viewedCount = statusData ? Object.values(statusData).filter(s=>s.viewed).length : 0;
+                return (
+                  <div key={rep.id} className={`bg-white rounded-xl border shadow-sm p-4 flex items-center gap-4 hover:shadow transition-shadow cursor-pointer ${isSent?"border-emerald-100":"border-gray-100"}`}
+                    onClick={()=>{ setActiveReport(rep.id); setStep(0); setUploaded(false); }}>
+                    <div className={`w-11 h-11 rounded-xl ${rep.bc} border ${rep.brd} flex items-center justify-center text-xl flex-shrink-0`}>{rep.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold text-sm ${rep.tc}`}>{rep.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{rep.sub}</p>
+                    </div>
+                    {isSent
+                      ? <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-center"><p className="text-sm font-bold text-emerald-700">{sentCount}/{RESTAURANTS.length}</p><p className="text-[10px] text-gray-400">أُرسل</p></div>
+                          <div className="text-center"><p className="text-sm font-bold text-blue-700">{viewedCount}/{RESTAURANTS.length}</p><p className="text-[10px] text-gray-400">اطّلع</p></div>
+                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">✓ مُرسَل</Badge>
+                        </div>
+                      : <Badge className="bg-amber-50 text-amber-700 border border-amber-200 flex-shrink-0">⏳ لم يُرسَل</Badge>
+                    }
+                    <ChevronDown size={14} className="text-gray-400 rotate-[-90deg] flex-shrink-0"/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── STATUS TAB ── */}
+      {adminRepTab==="status" && (
+        <div className="space-y-4">
+          {/* Report filter */}
+          <div className="flex flex-wrap gap-2">
+            {allReports.map(r=>(
+              <button key={r.id} onClick={()=>setStatusFilter(r.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${statusFilter===r.id?`${r.bc} ${r.tc} ${r.brd}`:"bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
+                <span>{r.icon}</span> {r.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Status summary cards */}
+          {(() => {
+            const repData = repStatus[statusFilter] || {};
+            const sent    = RESTAURANTS.filter(r=>repData[r.id]?.sent).length;
+            const notSent = RESTAURANTS.length - sent;
+            const viewed  = RESTAURANTS.filter(r=>repData[r.id]?.viewed).length;
+            const notView = sent - viewed;
+            const selRep  = allReports.find(r=>r.id===statusFilter)!;
+            return (
+              <>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center"><p className="text-2xl font-extrabold font-mono text-emerald-700">{sent}</p><p className="text-xs text-emerald-600">✅ أُرسل التقرير</p></div>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center"><p className="text-2xl font-extrabold font-mono text-red-700">{notSent}</p><p className="text-xs text-red-600">❌ لم يُرسَل بعد</p></div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center"><p className="text-2xl font-extrabold font-mono text-blue-700">{viewed}</p><p className="text-xs text-blue-600">👁 اطّلع صاحب المطعم</p></div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center"><p className="text-2xl font-extrabold font-mono text-amber-700">{notView}</p><p className="text-xs text-amber-600">⏳ لم يطّلع بعد</p></div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                    <span>{selRep?.icon}</span>
+                    <p className="font-bold text-sm text-gray-700">{selRep?.label} — {PERIOD}</p>
+                    <Badge className={`mr-auto ${sentReports.has(statusFilter)?"bg-emerald-50 text-emerald-700":"bg-amber-50 text-amber-700"}`}>{sentReports.has(statusFilter)?"مُرسَل":"لم يُرسَل بعد"}</Badge>
+                  </div>
+                  <table className="w-full" dir="rtl">
+                    <thead className="bg-gray-50/50">
+                      <tr className="text-xs text-gray-500 font-semibold">
+                        <th className="px-4 py-3 text-right">المطعم</th>
+                        <th className="px-4 py-3 text-right">صاحب المطعم</th>
+                        <th className="px-4 py-3 text-center">أُرسل؟</th>
+                        <th className="px-4 py-3 text-center">تاريخ الإرسال</th>
+                        <th className="px-4 py-3 text-center">اطّلع؟</th>
+                        <th className="px-4 py-3 text-center">تاريخ الاطلاع</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {RESTAURANTS.map(rest=>{
+                        const st = repData[rest.id] || {sent:false,sentDate:"",viewed:false,viewedDate:""};
+                        return (
+                          <tr key={rest.id} className="hover:bg-gray-50/50">
+                            <td className="px-4 py-3 font-semibold text-sm text-gray-800">{rest.name}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500">{rest.owner}</td>
+                            <td className="px-4 py-3 text-center">
+                              {st.sent
+                                ? <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs"><CheckCircle2 size={13}/> نعم</span>
+                                : <span className="inline-flex items-center gap-1 text-red-500 text-xs"><X size={13}/> لا</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center text-xs text-gray-500">{st.sentDate||"—"}</td>
+                            <td className="px-4 py-3 text-center">
+                              {st.viewed
+                                ? <span className="inline-flex items-center gap-1 text-blue-700 font-semibold text-xs"><Eye size={13}/> نعم</span>
+                                : st.sent
+                                  ? <span className="text-amber-600 text-xs font-medium">⏳ لم يطّلع</span>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center text-xs text-gray-500">{st.viewedDate||"—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
+
+          {!sentReports.has(statusFilter) && (
+            <button onClick={()=>{ setAdminRepTab("reports"); setActiveReport(statusFilter); setStep(0); setUploaded(false); }}
+              className="w-full py-2.5 rounded-xl border-2 border-dashed border-purple-300 text-purple-600 font-semibold text-sm hover:bg-purple-50 flex items-center justify-center gap-2">
+              <Upload size={14}/> إرسال هذا التقرير الآن
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -6803,6 +7278,7 @@ function AdminAudit({}: PageProps) {
 
 function AdminPermissions({}: PageProps) {
   type Permission = "view" | "submit" | "review" | "approve" | "final" | "none";
+  const PERM_CYCLE: Permission[] = ["none","view","submit","review","approve","final"];
   const permCls: Record<Permission,string> = {
     view:    "bg-blue-50 text-blue-600 border-blue-200",
     submit:  "bg-cyan-50 text-cyan-600 border-cyan-200",
@@ -6812,14 +7288,18 @@ function AdminPermissions({}: PageProps) {
     none:    "bg-gray-50 text-gray-300 border-gray-100",
   };
   const permLabel: Record<Permission,string> = { view:"عرض", submit:"إدخال", review:"مراجعة", approve:"اعتماد", final:"نهائي", none:"—" };
-
   const roles = ["محاسب","رئيس حسابات","مدير فرع","مدير مشتريات","مورد","أدمن"];
   const scopeRow: Record<string,string> = {
     "محاسب":"علامة/مطعم محدد","رئيس حسابات":"علامة محددة","مدير فرع":"فرع واحد",
     "مدير مشتريات":"علامات محددة","مورد":"نطاق المورد","أدمن":"كامل",
   };
+  const roleBadgeCls: Record<string,string> = {
+    "محاسب":"bg-blue-50 text-blue-700","رئيس حسابات":"bg-amber-50 text-amber-700",
+    "مدير فرع":"bg-emerald-50 text-emerald-700","مدير مشتريات":"bg-purple-50 text-purple-700",
+    "مورد":"bg-orange-50 text-orange-700","أدمن":"bg-red-50 text-red-700",
+  };
 
-  const matrix: {module:string; perms: Permission[]}[] = [
+  const [matrix, setMatrix] = useState<{module:string; perms: Permission[]}[]>([
     { module:"المبيعات",         perms:["review","final","submit","none","none","approve"] },
     { module:"المصروفات",        perms:["review","final","submit","none","none","approve"] },
     { module:"المشتريات",        perms:["review","final","none","approve","submit","approve"] },
@@ -6831,30 +7311,71 @@ function AdminPermissions({}: PageProps) {
     { module:"تصدير ERP",        perms:["none","approve","none","none","none","approve"] },
     { module:"إدارة المستخدمين", perms:["none","none","none","none","none","approve"] },
     { module:"إدارة الاشتراكات", perms:["none","none","none","none","none","approve"] },
-  ];
+  ]);
+  const [editMode,  setEditMode]  = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [changes,   setChanges]   = useState(0);
 
-  const roleBadgeCls: Record<string,string> = {
-    "محاسب":"bg-blue-50 text-blue-700","رئيس حسابات":"bg-amber-50 text-amber-700",
-    "مدير فرع":"bg-emerald-50 text-emerald-700","مدير مشتريات":"bg-purple-50 text-purple-700",
-    "مورد":"bg-orange-50 text-orange-700","أدمن":"bg-red-50 text-red-700",
+  const cyclePermission = (rowIdx:number, colIdx:number) => {
+    if (!editMode) return;
+    setMatrix(prev => {
+      const next = prev.map((r,i) => i!==rowIdx ? r : {
+        ...r,
+        perms: r.perms.map((p,j) => {
+          if (j!==colIdx) return p;
+          const idx = PERM_CYCLE.indexOf(p);
+          return PERM_CYCLE[(idx+1)%PERM_CYCLE.length];
+        })
+      });
+      return next;
+    });
+    setChanges(c=>c+1);
+    setSaved(false);
   };
+
+  const saveChanges = () => { setSaved(true); setChanges(0); };
+  const resetAll    = () => { setMatrix(prev=>prev); setSaved(false); setChanges(0); };
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-800">مصفوفة الصلاحيات</h2>
-          <p className="text-gray-400 text-sm mt-0.5">صلاحيات الأدوار مع نطاق الوصول لكل علامة تجارية</p>
+          <p className="text-gray-400 text-sm mt-0.5">صلاحيات الأدوار — {editMode?"وضع التعديل نشط · اضغط على أي خلية لتغيير الصلاحية":"للتعديل فعّل وضع التحرير"}</p>
         </div>
-        <div className="flex gap-1.5 flex-wrap justify-end">
-          {(Object.keys(permCls) as Permission[]).filter(p=>p!=="none").map(p=>(
-            <span key={p} className={`text-[10px] px-2 py-0.5 rounded-full border ${permCls[p]}`}>{permLabel[p]}</span>
-          ))}
+        <div className="flex items-center gap-2">
+          {editMode && changes>0 && (
+            <>
+              <Badge className="bg-amber-50 text-amber-700 border border-amber-200">{changes} تعديل معلّق</Badge>
+              <button onClick={saveChanges} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1.5">
+                <CheckCircle2 size={12}/> حفظ التعديلات
+              </button>
+            </>
+          )}
+          {saved && <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">✓ تم الحفظ</Badge>}
+          <button onClick={()=>{ setEditMode(!editMode); if(editMode) resetAll(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${editMode?"bg-red-50 text-red-600 border border-red-200 hover:bg-red-100":"bg-purple-600 text-white hover:bg-purple-700"}`}>
+            {editMode?<><X size={12}/> إلغاء التعديل</>:<><Edit2 size={12}/> تعديل الصلاحيات</>}
+          </button>
         </div>
       </div>
 
-      {/* Scope row */}
+      {/* Legend */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-gray-500 font-semibold">الصلاحيات:</span>
+        {(Object.keys(permCls) as Permission[]).filter(p=>p!=="none").map(p=>(
+          <span key={p} className={`text-[10px] px-2.5 py-1 rounded-full border font-semibold ${permCls[p]}`}>{permLabel[p]}</span>
+        ))}
+        {editMode && <span className="text-[10px] px-2.5 py-1 rounded-full border bg-gray-50 text-gray-500 border-gray-200 font-semibold animate-pulse">اضغط على الخلايا للتعديل ←</span>}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        {editMode && (
+          <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
+            <Edit2 size={13} className="text-purple-600"/>
+            <p className="text-xs text-purple-700 font-semibold">وضع التعديل نشط — اضغط على أي خلية لتدوير الصلاحية (—→عرض→إدخال→مراجعة→اعتماد→نهائي)</p>
+          </div>
+        )}
         <table className="w-full text-xs" dir="rtl">
           <thead>
             <tr className="border-b border-gray-100">
@@ -6871,13 +7392,16 @@ function AdminPermissions({}: PageProps) {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {matrix.map((row,i)=>(
-              <tr key={i} className={`hover:bg-gray-50/50 ${i%2===0?"":"bg-gray-50/20"}`}>
+              <tr key={i} className={`${i%2===0?"":"bg-gray-50/20"} ${editMode?"":"hover:bg-gray-50/50"}`}>
                 <td className="px-4 py-2.5 font-semibold text-gray-700">{row.module}</td>
                 {row.perms.map((p,j)=>(
                   <td key={j} className="px-3 py-2.5 text-center">
-                    <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full border text-[10px] font-semibold min-w-[52px] ${permCls[p]}`}>
+                    <button
+                      onClick={()=>cyclePermission(i,j)}
+                      disabled={!editMode}
+                      className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full border text-[10px] font-semibold min-w-[56px] transition-all ${permCls[p]} ${editMode?"cursor-pointer hover:scale-110 hover:shadow-sm active:scale-95":"cursor-default"}`}>
                       {permLabel[p]}
-                    </span>
+                    </button>
                   </td>
                 ))}
               </tr>
@@ -6885,6 +7409,13 @@ function AdminPermissions({}: PageProps) {
           </tbody>
         </table>
       </div>
+
+      {editMode && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2 text-amber-700 text-xs">
+          <span className="flex-shrink-0 mt-0.5">ℹ️</span>
+          <p>اضغط على أي خلية لتدوير مستوى الصلاحية. تسري التغييرات فور حفظها. صلاحيات <strong>الأدمن</strong> لا يُنصح بتخفيضها.</p>
+        </div>
+      )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p className="text-xs font-bold text-blue-700 mb-2">ملاحظة حول نطاق الوصول</p>
