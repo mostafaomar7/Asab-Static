@@ -6431,8 +6431,16 @@ function AdminRestaurants({}: PageProps) {
   const [showAddBrand,  setShowAddBrand]    = useState(false);
   const [showAddRest,   setShowAddRest]     = useState<string|null>(null);
   const [restTab, setRestTab]               = useState<"structure"|"upload">("structure");
-  const [empUploaded, setEmpUploaded]       = useState(false);
-  const [itemsUploaded, setItemsUploaded]   = useState(false);
+  type UploadKey = "sales"|"materials"|"employees"|"suppliers";
+  const [uploadBrand,   setUploadBrand]     = useState<string>("reem");
+  const [brandUploads,  setBrandUploads]    = useState<Record<string,Record<UploadKey,boolean>>>({
+    reem:     { sales:true,  materials:true,  employees:false, suppliers:false },
+    herfy:    { sales:true,  materials:false, employees:false, suppliers:false },
+    mcd:      { sales:false, materials:false, employees:false, suppliers:false },
+    broasted: { sales:false, materials:false, employees:false, suppliers:false },
+  });
+  const setUploaded = (brandId:string, key:UploadKey) =>
+    setBrandUploads(p=>({...p,[brandId]:{...p[brandId],[key]:true}}));
 
   // Per-restaurant subscription state
   type RestSub = { plan:"فضي"|"ذهبي"|"بلاتيني"; status:"active"|"warning"|"danger"|"expired"; expires:string; daysLeft:number; price:number };
@@ -6483,133 +6491,170 @@ function AdminRestaurants({}: PageProps) {
         ))}
       </div>
 
-      {/* ── Excel Upload Tab ── */}
-      {restTab==="upload" && (
-        <div className="space-y-5">
-          {/* Stats bar */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-extrabold font-mono text-purple-700">25</p>
-              <p className="text-xs text-gray-400 mt-0.5">موظف نشط</p>
+      {/* ── Upload Tab ── */}
+      {restTab==="upload" && (()=>{
+        const selBrand = BRANDS_DATA.find(b=>b.id===uploadBrand)!;
+        const ups = brandUploads[uploadBrand] ?? { sales:false, materials:false, employees:false, suppliers:false };
+
+        // per-restaurant employee upload state
+        const empKey = (rid:string) => `${uploadBrand}_${rid}`;
+        const restEmpDone = (rid:string) => brandUploads[empKey(rid)]?.employees ?? false;
+        const setRestEmp  = (rid:string) => setUploaded(empKey(rid),"employees");
+
+        type UploadCardProps = { icon:React.ReactNode; iconBg:string; title:string; subtitle:string; cols:string[]; colColor:string; done:boolean; countLabel:string; onUpload:()=>void };
+        const UploadCard = ({icon,iconBg,title,subtitle,cols,colColor,done,countLabel,onUpload}:UploadCardProps) => (
+          <div className={`bg-white rounded-xl border shadow-sm p-4 ${done?"border-emerald-200":"border-gray-100"}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>{icon}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-800 text-sm">{title}</p>
+                <p className="text-[11px] text-gray-400">{subtitle}</p>
+              </div>
+              {done && <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0"/>}
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-extrabold font-mono text-blue-700">150</p>
-              <p className="text-xs text-gray-400 mt-0.5">صنف نشط</p>
+            <div className="bg-gray-50 rounded-lg p-2.5 mb-3">
+              <p className="text-[10px] font-bold text-gray-400 mb-1.5">الأعمدة المطلوبة:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {cols.map(c=><span key={c} className={`text-[10px] ${colColor} px-2 py-0.5 rounded-full`}>{c}</span>)}
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-extrabold font-mono text-emerald-700">12</p>
-              <p className="text-xs text-gray-400 mt-0.5">مورد مسجل</p>
+            {done
+              ? <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold mb-3 bg-emerald-50 rounded-lg px-3 py-2"><CheckCircle2 size={13}/>{countLabel}</div>
+              : <div onClick={onUpload} className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-purple-300 hover:bg-purple-50/10 transition-all mb-3">
+                  <Upload size={18} className="text-gray-300 mx-auto mb-1"/>
+                  <p className="text-xs text-gray-400">اضغط لرفع ملف Excel</p>
+                </div>
+            }
+            <div className="flex gap-2">
+              <Btn variant="primary" size="sm" className="flex-1 justify-center" onClick={onUpload}><Upload size={11}/> رفع</Btn>
+              <Btn size="sm"><Download size={11}/> نموذج</Btn>
             </div>
           </div>
+        );
 
-          {/* Upload cards */}
-          <div className="grid grid-cols-2 gap-5">
+        return (
+          <div className="space-y-6">
 
-            {/* Employees upload */}
-            <div className={`bg-white rounded-xl border shadow-sm p-5 ${empUploaded?"border-emerald-200":"border-gray-100"}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <Users size={18} className="text-blue-600"/>
-                </div>
-                <div>
-                  <p className="font-bold text-gray-800 text-sm">رفع أسماء الموظفين</p>
-                  <p className="text-xs text-gray-400">ملف Excel بيانات الموظفين</p>
-                </div>
-              </div>
-              {/* Column guide */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <p className="text-[10px] font-bold text-gray-500 mb-2">الأعمدة المطلوبة في الملف:</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {["الاسم","رقم الهوية","الوظيفة","الراتب","تاريخ التعيين"].map(col=>(
-                    <div key={col} className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"/>
-                      <span className="text-xs text-gray-600">{col}</span>
+            {/* Brand selector */}
+            <div className="flex gap-2 flex-wrap">
+              {BRANDS_DATA.map(b=>{
+                const bUps = brandUploads[b.id] ?? { sales:false, materials:false, employees:false, suppliers:false };
+                const done = Object.values(bUps).filter(Boolean).length;
+                const total = 2 + b.restaurants.length;
+                return (
+                  <button key={b.id} onClick={()=>setUploadBrand(b.id)}
+                    className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 transition-all ${uploadBrand===b.id?"border-purple-500 bg-purple-50":"border-gray-200 bg-white hover:border-purple-300"}`}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{background:b.color}}>{b.abbr}</div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${uploadBrand===b.id?"text-purple-800":"text-gray-700"}`}>{b.name}</p>
+                      <p className="text-[10px] text-gray-400">{done} / {total} ملف مرفوع</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-              {empUploaded
-                ? <div className="flex items-center gap-2 text-emerald-700 text-sm mb-3"><CheckCircle2 size={16}/><span className="font-medium">تم الرفع بنجاح — 25 موظف</span></div>
-                : <div onClick={()=>setEmpUploaded(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition-all mb-3">
-                    <FileText size={24} className="text-gray-300 mx-auto mb-2"/>
-                    <p className="text-sm font-medium text-gray-500">اضغط لرفع ملف Excel</p>
-                    <p className="text-xs text-gray-400 mt-0.5">xlsx, xls — حتى 10 MB</p>
-                  </div>
-              }
-              <div className="flex gap-2">
-                <Btn variant="primary" size="sm" className="flex-1 justify-center" onClick={()=>setEmpUploaded(true)}>
-                  <Upload size={12}/> رفع الآن
-                </Btn>
-                <Btn size="sm"><Download size={12}/> نموذج Excel</Btn>
-              </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Items upload */}
-            <div className={`bg-white rounded-xl border shadow-sm p-5 ${itemsUploaded?"border-emerald-200":"border-gray-100"}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <Package size={18} className="text-purple-600"/>
-                </div>
+            {/* ── Section 1: Brand-level shared data ── */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-1 h-5 rounded-full" style={{background:selBrand.color}}/>
                 <div>
-                  <p className="font-bold text-gray-800 text-sm">رفع أسماء الأصناف</p>
-                  <p className="text-xs text-gray-400">ملف Excel بيانات الأصناف</p>
+                  <p className="font-bold text-gray-800 text-sm">بيانات مشتركة — {selBrand.name}</p>
+                  <p className="text-[11px] text-gray-400">تُرفع مرة واحدة وتنطبق على جميع مطاعم العلامة</p>
                 </div>
               </div>
-              {/* Column guide */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <p className="text-[10px] font-bold text-gray-500 mb-2">الأعمدة المطلوبة في الملف:</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {["رمز الصنف","اسم الصنف","الفئة","الوحدة"].map(col=>(
-                    <div key={col} className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0"/>
-                      <span className="text-xs text-gray-600">{col}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {itemsUploaded
-                ? <div className="flex items-center gap-2 text-emerald-700 text-sm mb-3"><CheckCircle2 size={16}/><span className="font-medium">تم الرفع بنجاح — 150 صنف</span></div>
-                : <div onClick={()=>setItemsUploaded(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all mb-3">
-                    <Package size={24} className="text-gray-300 mx-auto mb-2"/>
-                    <p className="text-sm font-medium text-gray-500">اضغط لرفع ملف Excel</p>
-                    <p className="text-xs text-gray-400 mt-0.5">xlsx, xls — حتى 10 MB</p>
-                  </div>
-              }
-              <div className="flex gap-2">
-                <Btn variant="primary" size="sm" className="flex-1 justify-center" onClick={()=>setItemsUploaded(true)}>
-                  <Upload size={12}/> رفع الآن
-                </Btn>
-                <Btn size="sm"><Download size={12}/> نموذج Excel</Btn>
+              <div className="grid grid-cols-2 gap-4">
+                <UploadCard
+                  icon={<TrendingUp size={16} className="text-purple-600"/>} iconBg="bg-purple-100"
+                  title="أصناف المبيعات" subtitle="قائمة المنتجات والأسعار للعلامة كاملة"
+                  cols={["رمز الصنف","اسم الصنف","الفئة","وحدة البيع","السعر"]}
+                  colColor="bg-purple-50 text-purple-700"
+                  done={ups.sales} countLabel={`تم الرفع — ${selBrand.name}`}
+                  onUpload={()=>setUploaded(uploadBrand,"sales")}
+                />
+                <UploadCard
+                  icon={<Package size={16} className="text-orange-600"/>} iconBg="bg-orange-100"
+                  title="مواد خام المشتريات" subtitle="أصناف المواد المشتراة من الموردين"
+                  cols={["رمز المادة","اسم المادة","الفئة","وحدة القياس","تكلفة الوحدة"]}
+                  colColor="bg-orange-50 text-orange-700"
+                  done={ups.materials} countLabel={`تم الرفع — ${selBrand.name}`}
+                  onUpload={()=>setUploaded(uploadBrand,"materials")}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Upload history */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <p className="font-semibold text-sm text-gray-700">سجل الرفع السابق</p>
-              <Badge className="bg-gray-50 text-gray-500">آخر 5 رفعات</Badge>
-            </div>
-            {[
-              {file:"employees_oct2025.xlsx",type:"موظفون",count:"25 موظف",date:"14 أكتوبر 2025",user:"أحمد الإداري"},
-              {file:"items_oct2025.xlsx",type:"أصناف",count:"148 صنف",date:"14 أكتوبر 2025",user:"أحمد الإداري"},
-              {file:"employees_sep2025.xlsx",type:"موظفون",count:"23 موظف",date:"1 سبتمبر 2025",user:"مريم المديرة"},
-              {file:"items_sep2025.xlsx",type:"أصناف",count:"140 صنف",date:"1 سبتمبر 2025",user:"مريم المديرة"},
-            ].map((r,i)=>(
-              <div key={i} className="px-5 py-3 flex items-center gap-4 border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                <FileText size={14} className="text-gray-400 flex-shrink-0"/>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">{r.file}</p>
-                  <p className="text-xs text-gray-400">{r.user} · {r.date}</p>
+            {/* ── Section 2: Per-restaurant employees ── */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-1 h-5 rounded-full bg-blue-500"/>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">موظفو المطاعم — {selBrand.name}</p>
+                  <p className="text-[11px] text-gray-400">كل مطعم له قائمة موظفين مستقلة</p>
                 </div>
-                <Badge className="bg-blue-50 text-blue-700">{r.type}</Badge>
-                <span className="text-xs text-emerald-700 font-semibold">{r.count}</span>
-                <button className="text-gray-300 hover:text-blue-500"><Download size={14}/></button>
               </div>
-            ))}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="grid grid-cols-5 gap-0 bg-gray-50 border-b border-gray-200 px-4 py-2">
+                  <p className="text-[10px] font-bold text-gray-500 col-span-2">المطعم</p>
+                  <p className="text-[10px] font-bold text-gray-500 text-center">حالة الرفع</p>
+                  <p className="text-[10px] font-bold text-gray-500 text-center">آخر تحديث</p>
+                  <p className="text-[10px] font-bold text-gray-500 text-center">إجراء</p>
+                </div>
+                {selBrand.restaurants.map((rest,ri)=>{
+                  const done = restEmpDone(rest.id);
+                  const dates = ["14 مارس 2026","1 مارس 2026","20 فبراير 2026","5 فبراير 2026","28 يناير 2026"];
+                  return (
+                    <div key={rest.id} className="grid grid-cols-5 gap-0 items-center px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                      <div className="col-span-2 flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{background:selBrand.color+"cc"}}>{rest.name[0]}</div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-800">{rest.name}</p>
+                          <p className="text-[10px] text-gray-400">{rest.city}</p>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        {done
+                          ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><CheckCircle2 size={10}/> مرفوع</span>
+                          : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full"><Clock size={10}/> لم يُرفع</span>
+                        }
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400">{done?(dates[ri]||"—"):"—"}</p>
+                      </div>
+                      <div className="text-center flex items-center justify-center gap-1">
+                        <button onClick={()=>setRestEmp(rest.id)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors flex items-center gap-1 ${done?"bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700":"bg-blue-600 text-white hover:bg-blue-700"}`}>
+                          <Upload size={10}/>{done?"تحديث":"رفع"}
+                        </button>
+                        <Btn size="sm"><Download size={10}/></Btn>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Upload summary */}
+            <div className="bg-gradient-to-l from-purple-50 to-blue-50 rounded-xl border border-purple-100 p-4">
+              <p className="text-xs font-bold text-purple-800 mb-2">ملخص رفع البيانات — {selBrand.name}</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-lg font-extrabold text-purple-700">{ups.sales&&ups.materials?2:ups.sales||ups.materials?1:0}/2</p>
+                  <p className="text-[10px] text-purple-600">بيانات مشتركة</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-extrabold text-blue-700">{selBrand.restaurants.filter(r=>restEmpDone(r.id)).length}/{selBrand.restaurants.length}</p>
+                  <p className="text-[10px] text-blue-600">مطاعم مكتملة</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-extrabold text-emerald-700">{Math.round(((ups.sales&&ups.materials?2:ups.sales||ups.materials?1:0)/2 + selBrand.restaurants.filter(r=>restEmpDone(r.id)).length/selBrand.restaurants.length)/2*100)}%</p>
+                  <p className="text-[10px] text-emerald-600">اكتمال الإعداد</p>
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {restTab==="structure" && (
       <div className="space-y-3">
