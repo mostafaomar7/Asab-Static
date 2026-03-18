@@ -6441,6 +6441,12 @@ function AdminRestaurants({}: PageProps) {
   });
   const setUploaded = (brandId:string, key:UploadKey) =>
     setBrandUploads(p=>({...p,[brandId]:{...p[brandId],[key]:true}}));
+  const [branchAssets, setBranchAssets] = useState<Record<string,boolean>>({
+    "reem_r1_0":true, "reem_r1_1":false,
+    "reem_r2_0":false,"reem_r2_1":false,
+    "herfy_r5_0":true,"herfy_r5_1":true,
+  });
+  const setBranchAsset = (key:string) => setBranchAssets(p=>({...p,[key]:true}));
 
   // Per-restaurant subscription state
   type RestSub = { plan:"فضي"|"ذهبي"|"بلاتيني"; status:"active"|"warning"|"danger"|"expired"; expires:string; daysLeft:number; price:number };
@@ -6562,23 +6568,36 @@ function AdminRestaurants({}: PageProps) {
                   <p className="font-bold text-gray-800 text-sm">بيانات مشتركة — {selBrand.name}</p>
                   <p className="text-[11px] text-gray-400">تُرفع مرة واحدة وتنطبق على جميع مطاعم العلامة</p>
                 </div>
+                <div className="mr-auto flex items-center gap-1.5 text-[10px] font-semibold">
+                  <span className={`px-2 py-0.5 rounded-full ${[ups.sales,ups.materials,ups.suppliers].filter(Boolean).length===3?"bg-emerald-100 text-emerald-700":"bg-amber-50 text-amber-700"}`}>
+                    {[ups.sales,ups.materials,ups.suppliers].filter(Boolean).length}/3 مكتمل
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <UploadCard
                   icon={<TrendingUp size={16} className="text-purple-600"/>} iconBg="bg-purple-100"
-                  title="أصناف المبيعات" subtitle="قائمة المنتجات والأسعار للعلامة كاملة"
+                  title="أصناف المبيعات" subtitle="قائمة المنتجات والأسعار"
                   cols={["رمز الصنف","اسم الصنف","الفئة","وحدة البيع","السعر"]}
                   colColor="bg-purple-50 text-purple-700"
-                  done={ups.sales} countLabel={`تم الرفع — ${selBrand.name}`}
+                  done={ups.sales} countLabel="تم الرفع ✓"
                   onUpload={()=>setUploaded(uploadBrand,"sales")}
                 />
                 <UploadCard
                   icon={<Package size={16} className="text-orange-600"/>} iconBg="bg-orange-100"
-                  title="مواد خام المشتريات" subtitle="أصناف المواد المشتراة من الموردين"
-                  cols={["رمز المادة","اسم المادة","الفئة","وحدة القياس","تكلفة الوحدة"]}
+                  title="مواد خام المشتريات" subtitle="أصناف المواد الخام"
+                  cols={["رمز المادة","اسم المادة","الفئة","وحدة القياس","التكلفة"]}
                   colColor="bg-orange-50 text-orange-700"
-                  done={ups.materials} countLabel={`تم الرفع — ${selBrand.name}`}
+                  done={ups.materials} countLabel="تم الرفع ✓"
                   onUpload={()=>setUploaded(uploadBrand,"materials")}
+                />
+                <UploadCard
+                  icon={<Truck size={16} className="text-teal-600"/>} iconBg="bg-teal-100"
+                  title="الموردون" subtitle="قائمة موردي العلامة التجارية"
+                  cols={["رقم المورد","اسم المورد","الفئة","جهة الاتصال","شروط الدفع"]}
+                  colColor="bg-teal-50 text-teal-700"
+                  done={ups.suppliers} countLabel="تم الرفع ✓"
+                  onUpload={()=>setUploaded(uploadBrand,"suppliers")}
                 />
               </div>
             </div>
@@ -6633,21 +6652,95 @@ function AdminRestaurants({}: PageProps) {
               </div>
             </div>
 
-            {/* Upload summary */}
-            <div className="bg-gradient-to-l from-purple-50 to-blue-50 rounded-xl border border-purple-100 p-4">
-              <p className="text-xs font-bold text-purple-800 mb-2">ملخص رفع البيانات — {selBrand.name}</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <p className="text-lg font-extrabold text-purple-700">{ups.sales&&ups.materials?2:ups.sales||ups.materials?1:0}/2</p>
-                  <p className="text-[10px] text-purple-600">بيانات مشتركة</p>
+            {/* ── Section 3: Per-branch fixed assets ── */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-1 h-5 rounded-full bg-emerald-500"/>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-800 text-sm">الأصول الثابتة — {selBrand.name}</p>
+                  <p className="text-[11px] text-gray-400">كل فرع له قائمة أصول ثابتة مستقلة (معدات، أجهزة، مفروشات...)</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-lg font-extrabold text-blue-700">{selBrand.restaurants.filter(r=>restEmpDone(r.id)).length}/{selBrand.restaurants.length}</p>
-                  <p className="text-[10px] text-blue-600">مطاعم مكتملة</p>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                  {selBrand.restaurants.flatMap((r,_)=>r.branches.map((_,bi)=>branchAssets[`${uploadBrand}_${r.id}_${bi}`]??false)).filter(Boolean).length}
+                  /{selBrand.restaurants.reduce((s,r)=>s+r.branches.length,0)} فرع
+                </span>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="grid grid-cols-6 gap-0 bg-gray-50 border-b border-gray-200 px-4 py-2">
+                  <p className="text-[10px] font-bold text-gray-500 col-span-2">المطعم</p>
+                  <p className="text-[10px] font-bold text-gray-500 col-span-2">الفرع</p>
+                  <p className="text-[10px] font-bold text-gray-500 text-center">حالة الرفع</p>
+                  <p className="text-[10px] font-bold text-gray-500 text-center">إجراء</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-lg font-extrabold text-emerald-700">{Math.round(((ups.sales&&ups.materials?2:ups.sales||ups.materials?1:0)/2 + selBrand.restaurants.filter(r=>restEmpDone(r.id)).length/selBrand.restaurants.length)/2*100)}%</p>
-                  <p className="text-[10px] text-emerald-600">اكتمال الإعداد</p>
+                {selBrand.restaurants.flatMap(rest=>
+                  rest.branches.map((br,bi)=>{
+                    const aKey = `${uploadBrand}_${rest.id}_${bi}`;
+                    const done = branchAssets[aKey]??false;
+                    return (
+                      <div key={aKey} className="grid grid-cols-6 gap-0 items-center px-4 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                        <div className="col-span-2 flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{background:selBrand.color+"aa"}}>{rest.name[0]}</div>
+                          <p className="text-[10px] text-gray-500 truncate">{rest.name}</p>
+                        </div>
+                        <div className="col-span-2 flex items-center gap-2">
+                          <Home size={10} className="text-gray-300 flex-shrink-0"/>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700">{br.name}</p>
+                            <p className="text-[10px] text-gray-400">{br.manager}</p>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          {done
+                            ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><CheckCircle2 size={9}/> مرفوع</span>
+                            : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full"><Clock size={9}/> لم يُرفع</span>
+                          }
+                        </div>
+                        <div className="text-center flex items-center justify-center gap-1">
+                          <button onClick={()=>setBranchAsset(aKey)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors flex items-center gap-1 ${done?"bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700":"bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+                            <Upload size={9}/>{done?"تحديث":"رفع"}
+                          </button>
+                          <Btn size="sm"><Download size={9}/></Btn>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* ── Upload summary ── */}
+            <div className="bg-gradient-to-l from-purple-50 to-emerald-50 rounded-xl border border-purple-100 p-4">
+              <p className="text-xs font-bold text-purple-800 mb-3">ملخص رفع البيانات — {selBrand.name}</p>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="text-center bg-white rounded-lg p-2.5 border border-purple-100">
+                  <p className="text-base font-extrabold text-purple-700">{[ups.sales,ups.materials,ups.suppliers].filter(Boolean).length}/3</p>
+                  <p className="text-[10px] text-purple-500 mt-0.5">بيانات مشتركة</p>
+                </div>
+                <div className="text-center bg-white rounded-lg p-2.5 border border-blue-100">
+                  <p className="text-base font-extrabold text-blue-700">{selBrand.restaurants.filter(r=>restEmpDone(r.id)).length}/{selBrand.restaurants.length}</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">موظفو المطاعم</p>
+                </div>
+                <div className="text-center bg-white rounded-lg p-2.5 border border-emerald-100">
+                  <p className="text-base font-extrabold text-emerald-700">
+                    {selBrand.restaurants.flatMap((r,_)=>r.branches.map((_,bi)=>branchAssets[`${uploadBrand}_${r.id}_${bi}`]??false)).filter(Boolean).length}
+                    /{selBrand.restaurants.reduce((s,r)=>s+r.branches.length,0)}
+                  </p>
+                  <p className="text-[10px] text-emerald-500 mt-0.5">أصول الفروع</p>
+                </div>
+                <div className="text-center bg-white rounded-lg p-2.5 border border-gray-100">
+                  {(()=>{
+                    const sharedDone  = [ups.sales,ups.materials,ups.suppliers].filter(Boolean).length;
+                    const empDone     = selBrand.restaurants.filter(r=>restEmpDone(r.id)).length;
+                    const allBranches = selBrand.restaurants.reduce((s,r)=>s+r.branches.length,0);
+                    const assetsDone  = selBrand.restaurants.flatMap((r,_ri)=>r.branches.map((_b,bi)=>branchAssets[`${uploadBrand}_${r.id}_${bi}`]??false)).filter(Boolean).length;
+                    const pct         = Math.round(((sharedDone/3)+(empDone/selBrand.restaurants.length)+(assetsDone/(allBranches||1)))/3*100);
+                    const pctCls      = pct===100?"text-emerald-700":pct>=60?"text-amber-600":"text-gray-500";
+                    return (<>
+                      <p className={`text-base font-extrabold ${pctCls}`}>{pct}%</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">اكتمال الإعداد</p>
+                    </>);
+                  })()}
                 </div>
               </div>
             </div>
