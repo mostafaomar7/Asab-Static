@@ -6028,12 +6028,13 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
   // ── Distribution data ──
   const [headSel,  setHeadSel]   = useState<string|null>("h1");
   const [accSel,   setAccSel]    = useState<string|null>("acc1");
-  const [distAccs, setDistAccs]  = useState([
+  type DistAcc = { id:string; name:string; avatar:string; headId:string|null; restaurants:string[] };
+  const [distAccs, setDistAccs]  = useState<DistAcc[]>([
     { id:"acc1", name:"أحمد محمد الشهري", avatar:"أ", headId:"h1", restaurants:["مطعم الريم — العليا","مطعم الريم — جدة","هرفي — الرياض"] },
     { id:"acc2", name:"سارة العمري",      avatar:"س", headId:"h1", restaurants:["هرفي — جدة","ماكدونالدز — الرياض"] },
     { id:"acc3", name:"محمد الحربي",      avatar:"م", headId:"h2", restaurants:["هرفي — مكة","ماكدونالدز — الدمام"] },
     { id:"acc4", name:"فاطمة السالم",     avatar:"ف", headId:"h2", restaurants:["بروستد الوطني — الطائف"] },
-    { id:"acc5", name:"خلود العتيبي",     avatar:"خ", headId:null, restaurants:[] },
+    { id:"acc5", name:"خلود العتيبي",     avatar:"خ", headId:null,  restaurants:[] },
   ]);
   const distHeads = [
     { id:"h1", name:"خالد العمري",  avatar:"خ", color:"bg-amber-100 text-amber-700" },
