@@ -6447,6 +6447,7 @@ function AdminRestaurants({}: PageProps) {
     "herfy_r5_0":true,"herfy_r5_1":true,
   });
   const setBranchAsset = (key:string) => setBranchAssets(p=>({...p,[key]:true}));
+  const [uploadRestFilter, setUploadRestFilter] = useState("");
 
   // Per-restaurant subscription state
   type RestSub = { plan:"فضي"|"ذهبي"|"بلاتيني"; status:"active"|"warning"|"danger"|"expired"; expires:string; daysLeft:number; price:number };
@@ -6606,9 +6607,15 @@ function AdminRestaurants({}: PageProps) {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-1 h-5 rounded-full bg-blue-500"/>
-                <div>
+                <div className="flex-1">
                   <p className="font-bold text-gray-800 text-sm">موظفو المطاعم — {selBrand.name}</p>
                   <p className="text-[11px] text-gray-400">كل مطعم له قائمة موظفين مستقلة</p>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-sm">
+                  <Search size={11} className="text-gray-400 flex-shrink-0"/>
+                  <input value={uploadRestFilter} onChange={e=>setUploadRestFilter(e.target.value)}
+                    className="text-[11px] text-gray-600 bg-transparent outline-none w-28" placeholder="بحث باسم المطعم..."/>
+                  {uploadRestFilter && <button onClick={()=>setUploadRestFilter("")} className="text-gray-400 hover:text-gray-600"><X size={10}/></button>}
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -6618,7 +6625,7 @@ function AdminRestaurants({}: PageProps) {
                   <p className="text-[10px] font-bold text-gray-500 text-center">آخر تحديث</p>
                   <p className="text-[10px] font-bold text-gray-500 text-center">إجراء</p>
                 </div>
-                {selBrand.restaurants.map((rest,ri)=>{
+                {selBrand.restaurants.filter(r=>!uploadRestFilter||r.name.includes(uploadRestFilter)).map((rest,ri)=>{
                   const done = restEmpDone(rest.id);
                   const dates = ["14 مارس 2026","1 مارس 2026","20 فبراير 2026","5 فبراير 2026","28 يناير 2026"];
                   return (
@@ -6672,7 +6679,7 @@ function AdminRestaurants({}: PageProps) {
                   <p className="text-[10px] font-bold text-gray-500 text-center">حالة الرفع</p>
                   <p className="text-[10px] font-bold text-gray-500 text-center">إجراء</p>
                 </div>
-                {selBrand.restaurants.flatMap(rest=>
+                {selBrand.restaurants.filter(r=>!uploadRestFilter||r.name.includes(uploadRestFilter)).flatMap(rest=>
                   rest.branches.map((br,bi)=>{
                     const aKey = `${uploadBrand}_${rest.id}_${bi}`;
                     const done = branchAssets[aKey]??false;
