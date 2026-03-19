@@ -4698,202 +4698,546 @@ function AccCash({}: PageProps) {
 }
 
 // ════════════════════════════════════════════════════════════
-// FIXED ASSETS — Mobile ↔ Accountant Coordination Workflow
+// FIXED ASSETS — Mobile ↔ Accountant Coordination + Branch Report
 // ════════════════════════════════════════════════════════════
 function AccAssets({}: PageProps) {
   type AssetStatus = "pending_branch"|"pending_accountant"|"confirmed"|"registered";
+  type AssetCat    = "معدات"|"تقنية"|"أثاث"|"مركبات"|"أخرى";
+  interface TransferLog { date:string; from:string; to:string; note:string; by:string; }
   interface AssetEntry {
-    id:string; name:string; cat:string; branch:string; cost:number; book:number;
-    case_:"branch_upload"|"acc_register"; status:AssetStatus; invNum:string; submittedBy:string; date:string;
+    id:string; name:string; cat:AssetCat; branch:string; cost:number; book:number; usefulLife:number;
+    case_:"branch_upload"|"acc_register"; status:AssetStatus; invNum:string;
+    submittedBy:string; date:string; custodian:string;
+    history:TransferLog[];
   }
+
+  const CAT_ICON: Record<AssetCat,string> = { "معدات":"🔧","تقنية":"💻","أثاث":"🪑","مركبات":"🚗","أخرى":"📦" };
+  const CAT_CLR:  Record<AssetCat,string> = { "معدات":"bg-blue-500","تقنية":"bg-purple-500","أثاث":"bg-amber-500","مركبات":"bg-green-500","أخرى":"bg-gray-400" };
+
   const [assets, setAssets] = useState<AssetEntry[]>([
-    { id:"FA-001", name:"ثلاجة عرض كبيرة",   cat:"معدات", branch:"الرياض - العليا",  cost:28000, book:21000, case_:"branch_upload",  status:"pending_accountant", invNum:"INV-A001", submittedBy:"مدير الفرع: خالد العمري",  date:"12 أكت" },
-    { id:"FA-002", name:"نظام POS متكامل",   cat:"تقنية", branch:"جدة - الحمراء",    cost:15000, book:9000,  case_:"acc_register",   status:"pending_branch",     invNum:"INV-A002", submittedBy:"المحاسب: سارة الزهراني",   date:"11 أكت" },
-    { id:"FA-003", name:"شاشات عرض المنيو",  cat:"تقنية", branch:"مكة - المعابدة",   cost:8500,  book:7083,  case_:"branch_upload",  status:"confirmed",          invNum:"INV-A003", submittedBy:"مدير الفرع: فهد الشمري",    date:"10 أكت" },
-    { id:"FA-004", name:"فرن صناعي",          cat:"معدات", branch:"الدمام",            cost:45000, book:37500, case_:"acc_register",   status:"confirmed",          invNum:"INV-A004", submittedBy:"المحاسب: أحمد الفيصل",      date:"09 أكت" },
-    { id:"FA-005", name:"مكيف مركزي",         cat:"معدات", branch:"الرياض - السليمانية",cost:22000,book:18000, case_:"branch_upload", status:"pending_accountant", invNum:"INV-A005", submittedBy:"مدير الفرع: نواف السالم",    date:"13 أكت" },
+    { id:"FA-001", name:"ثلاجة عرض كبيرة",    cat:"معدات", branch:"فرع الرياض - العليا",     cost:28000, book:21000, usefulLife:60,  case_:"branch_upload",  status:"pending_accountant", invNum:"INV-A001", submittedBy:"مدير الفرع: خالد العمري", date:"12 أكت", custodian:"خالد العمري",
+      history:[{date:"12 أكت", from:"—",       to:"خالد العمري",   note:"تسجيل أولي عبر الموبايل",      by:"مدير الفرع"}] },
+    { id:"FA-002", name:"نظام POS متكامل",    cat:"تقنية", branch:"فرع جدة - الحمراء",       cost:15000, book:9000,  usefulLife:36,  case_:"acc_register",   status:"pending_branch",     invNum:"INV-A002", submittedBy:"المحاسب: سارة الزهراني",  date:"11 أكت", custodian:"مدير الفرع — قيد التأكيد",
+      history:[{date:"11 أكت", from:"—",       to:"—",             note:"سُجِّل من المحاسب — ينتظر تأكيد الفرع", by:"المحاسب"}] },
+    { id:"FA-003", name:"شاشات عرض المنيو",   cat:"تقنية", branch:"فرع مكة - المعابدة",      cost:8500,  book:7083,  usefulLife:48,  case_:"branch_upload",  status:"confirmed",          invNum:"INV-A003", submittedBy:"مدير الفرع: فهد الشمري",  date:"10 أكت", custodian:"فهد الشمري",
+      history:[
+        {date:"01 سبت", from:"—",              to:"فهد الشمري",    note:"تسجيل أولي",                    by:"مدير الفرع"},
+        {date:"10 أكت", from:"فهد الشمري",     to:"فهد الشمري",    note:"تأكيد من المحاسب — مسجّل رسمياً", by:"المحاسب"},
+      ]},
+    { id:"FA-004", name:"فرن صناعي",           cat:"معدات", branch:"فرع الدمام - الخبر",      cost:45000, book:37500, usefulLife:120, case_:"acc_register",   status:"confirmed",          invNum:"INV-A004", submittedBy:"المحاسب: أحمد الفيصل",    date:"09 أكت", custodian:"ماجد المحيسن",
+      history:[
+        {date:"01 يون", from:"—",              to:"ناصر البقمي",   note:"استلام أولي",                   by:"مدير الفرع"},
+        {date:"15 أغس", from:"ناصر البقمي",    to:"ماجد المحيسن",  note:"نقل عهدة بسبب تغيير المناوبة",   by:"المحاسب"},
+        {date:"09 أكت", from:"ماجد المحيسن",   to:"ماجد المحيسن",  note:"تأكيد المحاسب للعهدة",           by:"المحاسب"},
+      ]},
+    { id:"FA-005", name:"مكيف مركزي",          cat:"معدات", branch:"فرع الرياض - السليمانية", cost:22000, book:18000, usefulLife:96,  case_:"branch_upload",  status:"pending_accountant", invNum:"INV-A005", submittedBy:"مدير الفرع: نواف السالم",  date:"13 أكت", custodian:"نواف السالم",
+      history:[{date:"13 أكت", from:"—",       to:"نواف السالم",   note:"تسجيل أولي عبر الموبايل",      by:"مدير الفرع"}] },
+    { id:"FA-006", name:"طاولات وكراسي خدمة",  cat:"أثاث", branch:"فرع جدة - الحمراء",       cost:12000, book:10000, usefulLife:60,  case_:"acc_register",   status:"confirmed",          invNum:"INV-A006", submittedBy:"المحاسب: سارة الزهراني",  date:"05 أكت", custodian:"طارق الرشيدي",
+      history:[
+        {date:"01 مار", from:"—",              to:"طارق الرشيدي",  note:"شراء وتسجيل",                   by:"المحاسب"},
+        {date:"05 أكت", from:"طارق الرشيدي",   to:"طارق الرشيدي",  note:"مراجعة سنوية — بدون تغيير",    by:"المحاسب"},
+      ]},
   ]);
-  const [expandedId,    setExpandedId]   = useState<string|null>(null);
-  const [filterStatus,  setFilterStatus] = useState<"الكل"|AssetStatus>("الكل");
-  const [assetAttach,   setAssetAttach]  = useState<{assetId:string; name:string}|null>(null);
-  const confirmAsset = (id:string) => setAssets(p=>p.map(a=>a.id===id?{...a,status:"confirmed" as AssetStatus}:a));
+
+  const [expandedId,     setExpandedId]    = useState<string|null>(null);
+  const [filterStatus,   setFilterStatus]  = useState<"الكل"|AssetStatus>("الكل");
+  const [viewMode,       setViewMode]      = useState<"list"|"branch_report">("list");
+  const [filterBranch,   setFilterBranch]  = useState("الكل");
+  const [assetAttach,    setAssetAttach]   = useState<{assetId:string; name:string}|null>(null);
+  const [showAddModal,   setShowAddModal]  = useState(false);
+  const [showTransfer,   setShowTransfer]  = useState<string|null>(null);
+
+  // New asset form
+  const [newAsset, setNewAsset] = useState({ name:"", cat:"معدات" as AssetCat, branch:"", invNum:"", cost:"", usefulLife:"60", custodian:"", notes:"" });
+  const [addSent,  setAddSent]  = useState(false);
+  const [transferForm, setTransferForm] = useState({to:"",note:""});
+
+  const confirmAsset   = (id:string) => setAssets(p=>p.map(a=>a.id===id?{...a,status:"confirmed" as AssetStatus}:a));
+  const submitNewAsset = () => {
+    const id = `FA-${String(assets.length+1).padStart(3,"0")}`;
+    setAssets(p=>[...p, {
+      id, name:newAsset.name, cat:newAsset.cat, branch:newAsset.branch,
+      cost:parseFloat(newAsset.cost)||0, book:parseFloat(newAsset.cost)||0,
+      usefulLife:parseInt(newAsset.usefulLife)||60, case_:"acc_register",
+      status:"pending_branch", invNum:newAsset.invNum||`INV-${id}`,
+      submittedBy:"المحاسب", date:"اليوم", custodian:newAsset.custodian||"قيد التعيين",
+      history:[{date:"اليوم", from:"—", to:newAsset.custodian||"—", note:"تسجيل من المحاسب — أُرسل إشعار للفرع", by:"المحاسب"}]
+    }]);
+    setAddSent(true);
+    setTimeout(()=>{ setShowAddModal(false); setAddSent(false); setNewAsset({name:"",cat:"معدات",branch:"",invNum:"",cost:"",usefulLife:"60",custodian:"",notes:""}); },1200);
+  };
+  const submitTransfer = (id:string) => {
+    setAssets(p=>p.map(a=>{
+      if(a.id!==id) return a;
+      const t:TransferLog = {date:"اليوم", from:a.custodian, to:transferForm.to, note:transferForm.note||"نقل عهدة", by:"المحاسب"};
+      return {...a, custodian:transferForm.to, history:[...a.history,t]};
+    }));
+    setShowTransfer(null);
+    setTransferForm({to:"",note:""});
+  };
 
   const pendingAccountant = assets.filter(a=>a.status==="pending_accountant");
   const pendingBranch     = assets.filter(a=>a.status==="pending_branch");
   const confirmed         = assets.filter(a=>a.status==="confirmed");
-  const displayedAssets   = filterStatus==="الكل" ? assets : assets.filter(a=>a.status===filterStatus);
+  const displayedAssets   = (filterStatus==="الكل"?assets:assets.filter(a=>a.status===filterStatus));
+  const ASSET_BRANCHES    = [...new Set(assets.map(a=>a.branch))];
+  const branchFiltered    = filterBranch==="الكل"?assets:assets.filter(a=>a.branch===filterBranch);
 
-  const STATUS_ASSET: Record<AssetStatus, {label:string; cls:string}> = {
-    pending_branch:     { label:"ينتظر تأكيد الفرع",   cls:"bg-amber-50 text-amber-700 border border-amber-200" },
-    pending_accountant: { label:"ينتظر مراجعة المحاسب", cls:"bg-blue-50 text-blue-700 border border-blue-200" },
-    confirmed:          { label:"مؤكد — مكتمل",         cls:"bg-emerald-50 text-emerald-700 border border-emerald-200" },
-    registered:         { label:"مسجل",                 cls:"bg-purple-50 text-purple-700 border border-purple-200" },
+  const STATUS_ASSET: Record<AssetStatus,{label:string;cls:string}> = {
+    pending_branch:     {label:"ينتظر تأكيد الفرع",   cls:"bg-amber-50 text-amber-700 border border-amber-200"},
+    pending_accountant: {label:"ينتظر مراجعة المحاسب", cls:"bg-blue-50 text-blue-700 border border-blue-200"},
+    confirmed:          {label:"مؤكد — مكتمل",         cls:"bg-emerald-50 text-emerald-700 border border-emerald-200"},
+    registered:         {label:"مسجل",                 cls:"bg-purple-50 text-purple-700 border border-purple-200"},
   };
 
   return (
     <div className="space-y-5" dir="rtl">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
-          <p className="text-gray-400 text-sm mt-0.5">تنسيق بين مدير الفرع (موبايل) والمحاسب</p>
+          <p className="text-gray-400 text-sm mt-0.5">تسجيل وتتبع الأصول — سجل العهدة والنقل التاريخي بين الموظفين</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+            {([["list","قائمة الأصول"],["branch_report","تقرير الفروع"]] as const).map(([v,l])=>(
+              <button key={v} onClick={()=>setViewMode(v)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode===v?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <Btn variant="primary" size="sm" onClick={()=>setShowAddModal(true)}><Plus size={13}/> إضافة أصل جديد</Btn>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="بانتظار مراجعتي" value={String(pendingAccountant.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="بانتظار تأكيد الفرع" value={String(pendingBranch.length)} sub="سجّلها المحاسب" icon={<Smartphone size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="مكتمل ومؤكد" value={String(confirmed.length)} sub="تمت الموافقة" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="القيمة الدفترية" value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K ر.س`} sub="كل الأصول" icon={<Building2 size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="بانتظار مراجعتي"    value={String(pendingAccountant.length)} sub="رُفعت من الفروع"  icon={<Clock size={18} className="text-blue-600"/>}         accent="blue"/>
+        <KpiCard label="بانتظار تأكيد الفرع" value={String(pendingBranch.length)}     sub="سجّلها المحاسب"  icon={<Smartphone size={18} className="text-amber-600"/>}    accent="amber"/>
+        <KpiCard label="مؤكد ومسجّل"         value={String(confirmed.length)}          sub="تمت الموافقة"    icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="القيمة الدفترية"     value={`${(assets.reduce((s,a)=>s+a.book,0)/1000).toFixed(0)}K`} sub="ر.س — كل الأصول" icon={<Building2 size={18} className="text-purple-600"/>}   accent="purple"/>
       </div>
 
-      {/* Workflow explanation */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4" dir="rtl">
-          <div className="flex items-center gap-2 mb-2">
-            <Smartphone size={16} className="text-blue-600 flex-shrink-0"/>
-            <span className="text-sm font-bold text-blue-800">الحالة 1 — مدير الفرع يرفع عبر الموبايل</span>
-          </div>
-          <p className="text-xs text-blue-600">يرفع مدير الفرع صورة الأصل والفاتورة → يستلمها المحاسب هنا → يراجعها ويسجّلها في النظام</p>
-        </div>
-        <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4" dir="rtl">
-          <div className="flex items-center gap-2 mb-2">
-            <Clipboard size={16} className="text-amber-600 flex-shrink-0"/>
-            <span className="text-sm font-bold text-amber-800">الحالة 2 — المحاسب يسجّل الفاتورة</span>
-          </div>
-          <p className="text-xs text-amber-600">المحاسب يسجّل الفاتورة → يُرسل إشعاراً لمدير الفرع على الموبايل → مدير الفرع يؤكد الاستلام</p>
-        </div>
-      </div>
-
-      {/* Status filter */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
-        <div>
-          <label className="text-[11px] font-semibold text-gray-500 block mb-1">تصفية حسب الحالة</label>
-          <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value as "الكل"|AssetStatus)} className="text-sm border border-gray-200 rounded-lg px-3 py-2 min-w-[220px]">
-            <option value="الكل">الكل — {assets.length} أصل</option>
-            <option value="pending_accountant">ينتظر مراجعة المحاسب ({pendingAccountant.length})</option>
-            <option value="pending_branch">ينتظر تأكيد الفرع ({pendingBranch.length})</option>
-            <option value="confirmed">مؤكد — مكتمل ({confirmed.length})</option>
-          </select>
-        </div>
-        {filterStatus!=="الكل" && (
-          <button onClick={()=>setFilterStatus("الكل")} className="text-xs text-purple-600 hover:underline flex items-center gap-1 mt-4"><RotateCcw size={11}/> مسح</button>
-        )}
-      </div>
-
-      {/* Assets list */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 text-sm">سجل الأصول — اضغط لعرض التفاصيل</h3>
-          <span className="text-xs text-gray-400">{displayedAssets.length} أصل</span>
-        </div>
-        {displayedAssets.map(a=>{
-          const isExpanded = expandedId===a.id;
-          const cfg = STATUS_ASSET[a.status];
-          return (
-            <div key={a.id} className="border-b border-gray-100 last:border-0">
-              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 cursor-pointer ${isExpanded?"bg-purple-50/20":""}`}
-                onClick={()=>setExpandedId(isExpanded?null:a.id)}>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg flex-shrink-0 ${a.cat==="معدات"?"bg-blue-500":"bg-purple-500"}`}>
-                  {a.cat==="معدات"?"🔧":"💻"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-800 text-sm">{a.name}</span>
-                    <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{a.cat}</Badge>
-                    <Badge className={`${cfg.cls} text-[10px]`}>{cfg.label}</Badge>
-                    {a.case_==="branch_upload"
-                      ? <Badge className="bg-blue-50 text-blue-600 text-[10px]"><Smartphone size={9} className="ml-0.5"/> مُرفوع من الفرع</Badge>
-                      : <Badge className="bg-amber-50 text-amber-600 text-[10px]"><Clipboard size={9} className="ml-0.5"/> سجّله المحاسب</Badge>
-                    }
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{a.branch} · {a.date} · {a.submittedBy}</p>
-                </div>
-                <div className="text-left text-sm">
-                  <p className="font-mono font-bold text-gray-800">{fmtAmt(a.cost)} ر.س</p>
-                  <p className="text-xs text-gray-400 mt-0.5">دفترية: {fmtAmt(a.book)} ر.س</p>
-                </div>
-                {isExpanded?<ChevronUp size={14} className="text-gray-400"/>:<ChevronDown size={14} className="text-gray-400"/>}
-              </div>
-              {isExpanded && (
-                <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
-                  <div className="grid grid-cols-3 gap-3 mt-2">
-                    <div className="bg-white rounded-xl border border-gray-100 p-3">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">رقم الفاتورة</p>
-                      <p className="text-sm font-bold font-mono text-purple-700">{a.invNum}</p>
-                    </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-3">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">التكلفة الإجمالية</p>
-                      <p className="text-sm font-bold font-mono text-gray-800">{fmtAmt(a.cost)} ر.س</p>
-                    </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-3">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">القيمة الدفترية</p>
-                      <p className="text-sm font-bold font-mono text-gray-800">{fmtAmt(a.book)} ر.س</p>
-                    </div>
-                  </div>
-                  {/* Workflow state-specific actions */}
-                  {/* Attachment viewer button */}
-                  <button onClick={()=>setAssetAttach({assetId:a.id, name:a.name})}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold border border-blue-200 transition-all">
-                    <Paperclip size={11}/> عرض المرفقات (صورة الأصل + الفاتورة)
-                  </button>
-
-                  {a.status==="pending_accountant" && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                      <Smartphone size={16} className="text-blue-600 mt-0.5 flex-shrink-0"/>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-blue-900">الخطوة: مراجعة وتأكيد الاستلام</p>
-                        <p className="text-xs text-blue-600 mt-0.5">رُفع الأصل والفاتورة من الفرع عبر تطبيق الموبايل. راجع البيانات ثم أكّد التسجيل.</p>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <Btn size="sm" variant="success" onClick={()=>confirmAsset(a.id)}><CheckCircle2 size={12}/> تأكيد التسجيل</Btn>
-                      </div>
-                    </div>
-                  )}
-                  {a.status==="pending_branch" && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                      <Smartphone size={16} className="text-amber-600 mt-0.5 flex-shrink-0"/>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-900">بانتظار تأكيد الفرع على الموبايل</p>
-                        <p className="text-xs text-amber-600 mt-0.5">سُجّلت الفاتورة من طرف المحاسب. أُرسل إشعار لمدير الفرع لتأكيد الاستلام الفعلي للأصل.</p>
-                      </div>
-                      <Badge className="bg-amber-100 text-amber-700 text-xs flex-shrink-0">⏳ ينتظر الفرع</Badge>
-                    </div>
-                  )}
-                  {a.status==="confirmed" && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
-                      <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0"/>
-                      <p className="text-sm text-emerald-800 font-medium">مكتمل — تم التأكيد من كلا الطرفين. الأصل مسجّل في النظام.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+      {/* ── BRANCH REPORT VIEW ─────────────────────────────────────── */}
+      {viewMode==="branch_report" && (
+        <div className="space-y-4">
+          {/* Branch filter chips */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <p className="text-[11px] font-semibold text-gray-500 mb-2">اختر الفرع</p>
+            <div className="flex flex-wrap gap-2">
+              {["الكل",...ASSET_BRANCHES].map(b=>(
+                <button key={b} onClick={()=>setFilterBranch(b)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${filterBranch===b?"bg-indigo-600 text-white border-indigo-600":"bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}>
+                  {b}
+                  <span className={`text-[9px] px-1.5 rounded-full font-bold ${filterBranch===b?"bg-white text-indigo-700":"bg-gray-100 text-gray-600"}`}>
+                    {b==="الكل"?assets.length:assets.filter(a=>a.branch===b).length}
+                  </span>
+                </button>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Branch groups */}
+          {(filterBranch==="الكل"?ASSET_BRANCHES:[filterBranch]).map(br=>{
+            const brAssets = assets.filter(a=>a.branch===br);
+            if(!brAssets.length) return null;
+            const totalCost = brAssets.reduce((s,a)=>s+a.cost,0);
+            const totalBook = brAssets.reduce((s,a)=>s+a.book,0);
+            return (
+              <div key={br} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 bg-gradient-to-l from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-indigo-900 text-sm">{br}</h3>
+                    <p className="text-[11px] text-indigo-600 mt-0.5">{brAssets.length} أصل · تكلفة إجمالية: <span className="font-mono font-bold">{fmtAmt(totalCost)} ر.س</span> · دفترية: <span className="font-mono font-bold">{fmtAmt(totalBook)} ر.س</span></p>
+                  </div>
+                </div>
+                <table className="w-full text-xs" dir="rtl">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-600">الأصل</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">الفئة</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">التكلفة</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">الدفترية</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-orange-700 bg-orange-50/60">تحت عهدة</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">الحالة</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">سجل النقل</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {brAssets.map(a=>{
+                      const cfg = STATUS_ASSET[a.status];
+                      return (
+                        <tr key={a.id} className="hover:bg-gray-50/60">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{CAT_ICON[a.cat]}</span>
+                              <div>
+                                <p className="font-semibold text-gray-800">{a.name}</p>
+                                <p className="text-[10px] text-gray-400 font-mono">{a.id} · {a.invNum}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge className="bg-gray-100 text-gray-600 text-[10px]">{a.cat}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center font-mono font-bold text-gray-800">{fmtAmt(a.cost)}</td>
+                          <td className="px-4 py-3 text-center font-mono text-gray-600">{fmtAmt(a.book)}</td>
+                          <td className="px-4 py-3 text-center bg-orange-50/30">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-orange-800 font-semibold text-[11px]">{a.custodian}</span>
+                              {a.history.length>1 && <span className="text-[9px] text-orange-500">{a.history.length} عملية نقل</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge className={`${cfg.cls} text-[10px]`}>{cfg.label}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={()=>setExpandedId(expandedId===a.id?null:a.id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 text-[10px] hover:bg-indigo-100 transition-all">
+                              <Clock size={9}/> التاريخ ({a.history.length})
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {/* History panels */}
+                {brAssets.filter(a=>expandedId===a.id).map(a=>(
+                  <div key={a.id} className="px-5 pb-4 pt-2 bg-indigo-50/30 border-t border-indigo-100">
+                    <p className="text-[11px] font-bold text-indigo-800 mb-2">📋 سجل العهدة والنقل — {a.name}</p>
+                    <div className="space-y-2">
+                      {a.history.map((h,hi)=>(
+                        <div key={hi} className="flex items-start gap-3 text-xs">
+                          <div className="w-5 h-5 rounded-full bg-indigo-200 text-indigo-800 text-[9px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{hi+1}</div>
+                          <div className="flex-1 bg-white rounded-lg border border-indigo-100 px-3 py-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-gray-700">{h.date} — {h.by}</span>
+                              {h.from!=="—" && <span className="text-[10px] text-gray-400">{h.from} → <span className="text-indigo-700 font-semibold">{h.to}</span></span>}
+                            </div>
+                            <p className="text-gray-500 mt-0.5">{h.note}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Btn size="sm" onClick={()=>setShowTransfer(a.id)}><ArrowLeftRight size={11}/> نقل عهدة</Btn>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── LIST VIEW ─────────────────────────────────────────────── */}
+      {viewMode==="list" && (
+        <div className="space-y-4">
+          {/* Workflow explanation */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3" dir="rtl">
+              <div className="flex items-center gap-2 mb-1"><Smartphone size={14} className="text-blue-600 flex-shrink-0"/>
+                <span className="text-xs font-bold text-blue-800">الحالة 1 — مدير الفرع يرفع عبر الموبايل</span>
+              </div>
+              <p className="text-[11px] text-blue-600">يرفع مدير الفرع صورة الأصل والفاتورة → يستلمها المحاسب هنا → يراجعها ويسجّلها</p>
+            </div>
+            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3" dir="rtl">
+              <div className="flex items-center gap-2 mb-1"><Clipboard size={14} className="text-amber-600 flex-shrink-0"/>
+                <span className="text-xs font-bold text-amber-800">الحالة 2 — المحاسب يسجّل الفاتورة</span>
+              </div>
+              <p className="text-[11px] text-amber-600">المحاسب يسجّل الأصل → يُرسل إشعاراً لمدير الفرع → مدير الفرع يؤكد الاستلام</p>
+            </div>
+          </div>
+
+          {/* Status filter */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+            <div>
+              <label className="text-[11px] font-semibold text-gray-500 block mb-1">تصفية حسب الحالة</label>
+              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value as "الكل"|AssetStatus)} className="text-sm border border-gray-200 rounded-lg px-3 py-2 min-w-[220px]">
+                <option value="الكل">الكل — {assets.length} أصل</option>
+                <option value="pending_accountant">ينتظر مراجعة المحاسب ({pendingAccountant.length})</option>
+                <option value="pending_branch">ينتظر تأكيد الفرع ({pendingBranch.length})</option>
+                <option value="confirmed">مؤكد — مكتمل ({confirmed.length})</option>
+              </select>
+            </div>
+            {filterStatus!=="الكل" && <button onClick={()=>setFilterStatus("الكل")} className="text-xs text-purple-600 hover:underline flex items-center gap-1 mt-4"><RotateCcw size={11}/> مسح</button>}
+          </div>
+
+          {/* Assets list */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-sm">سجل الأصول — اضغط لعرض التفاصيل والتاريخ</h3>
+              <span className="text-xs text-gray-400">{displayedAssets.length} أصل</span>
+            </div>
+            {displayedAssets.map(a=>{
+              const isExpanded = expandedId===a.id;
+              const cfg        = STATUS_ASSET[a.status];
+              return (
+                <div key={a.id} className="border-b border-gray-100 last:border-0">
+                  <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 cursor-pointer ${isExpanded?"bg-purple-50/20":""}`}
+                    onClick={()=>setExpandedId(isExpanded?null:a.id)}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${CAT_CLR[a.cat]}`}>
+                      {CAT_ICON[a.cat]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-800 text-sm">{a.name}</span>
+                        <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{a.cat}</Badge>
+                        <Badge className={`${cfg.cls} text-[10px]`}>{cfg.label}</Badge>
+                        {a.case_==="branch_upload"
+                          ? <Badge className="bg-blue-50 text-blue-600 text-[10px]"><Smartphone size={9} className="ml-0.5"/> مُرفوع من الفرع</Badge>
+                          : <Badge className="bg-amber-50 text-amber-600 text-[10px]"><Clipboard size={9} className="ml-0.5"/> سجّله المحاسب</Badge>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <p className="text-xs text-gray-400">{a.branch} · {a.date}</p>
+                        <span className="text-[10px] text-orange-700 font-semibold">عهدة: {a.custodian}</span>
+                        {a.history.length>1 && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">{a.history.length} نقل</span>}
+                      </div>
+                    </div>
+                    <div className="text-left text-sm">
+                      <p className="font-mono font-bold text-gray-800">{fmtAmt(a.cost)} ر.س</p>
+                      <p className="text-xs text-gray-400 mt-0.5">دفترية: {fmtAmt(a.book)} ر.س</p>
+                    </div>
+                    {isExpanded?<ChevronUp size={14} className="text-gray-400"/>:<ChevronDown size={14} className="text-gray-400"/>}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
+                      <div className="grid grid-cols-4 gap-3 mt-2">
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                          <p className="text-[10px] font-semibold text-gray-400 mb-1">رقم الفاتورة</p>
+                          <p className="text-sm font-bold font-mono text-purple-700">{a.invNum}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                          <p className="text-[10px] font-semibold text-gray-400 mb-1">التكلفة</p>
+                          <p className="text-sm font-bold font-mono">{fmtAmt(a.cost)} ر.س</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-3">
+                          <p className="text-[10px] font-semibold text-gray-400 mb-1">القيمة الدفترية</p>
+                          <p className="text-sm font-bold font-mono">{fmtAmt(a.book)} ر.س</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-orange-100 p-3 bg-orange-50/30">
+                          <p className="text-[10px] font-semibold text-orange-500 mb-1">تحت عهدة</p>
+                          <p className="text-sm font-bold text-orange-800">{a.custodian}</p>
+                        </div>
+                      </div>
+
+                      <button onClick={()=>setAssetAttach({assetId:a.id,name:a.name})}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold border border-blue-200 transition-all">
+                        <Paperclip size={11}/> عرض المرفقات (صورة الأصل + الفاتورة)
+                      </button>
+
+                      {/* Transfer history */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-gray-700">📋 سجل العهدة والنقل</p>
+                          <button onClick={()=>setShowTransfer(a.id)} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                            <ArrowLeftRight size={11}/> نقل عهدة
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {a.history.map((h,hi)=>(
+                            <div key={hi} className="flex items-start gap-3 text-xs">
+                              <div className={`w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${hi===a.history.length-1?"bg-indigo-600 text-white":"bg-gray-200 text-gray-600"}`}>{hi+1}</div>
+                              <div className="flex-1 bg-white rounded-lg border border-gray-100 px-3 py-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-gray-700">{h.date} · {h.by}</span>
+                                  {h.from!=="—" && <span className="text-[10px] text-gray-400 font-mono">{h.from} → <span className="text-indigo-700 font-semibold">{h.to}</span></span>}
+                                </div>
+                                <p className="text-gray-500 mt-0.5">{h.note}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Workflow state actions */}
+                      {a.status==="pending_accountant" && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                          <Smartphone size={16} className="text-blue-600 mt-0.5 flex-shrink-0"/>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-blue-900">الخطوة: مراجعة وتأكيد التسجيل</p>
+                            <p className="text-xs text-blue-600 mt-0.5">رُفع الأصل من الفرع. راجع البيانات والمرفقات ثم أكّد التسجيل الرسمي.</p>
+                          </div>
+                          <Btn size="sm" variant="success" onClick={()=>confirmAsset(a.id)}><CheckCircle2 size={12}/> تأكيد التسجيل</Btn>
+                        </div>
+                      )}
+                      {a.status==="pending_branch" && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                          <Smartphone size={16} className="text-amber-600 mt-0.5 flex-shrink-0"/>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-amber-900">بانتظار تأكيد الفرع على الموبايل</p>
+                            <p className="text-xs text-amber-600 mt-0.5">أُرسل إشعار لمدير الفرع لتأكيد الاستلام الفعلي.</p>
+                          </div>
+                          <Badge className="bg-amber-100 text-amber-700 text-xs flex-shrink-0">⏳ ينتظر الفرع</Badge>
+                        </div>
+                      )}
+                      {a.status==="confirmed" && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                          <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0"/>
+                          <p className="text-sm text-emerald-800 font-medium">مكتمل — تم التأكيد من كلا الطرفين. الأصل مسجّل رسمياً.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD ASSET MODAL ──────────────────────────────────────── */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={()=>setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="px-6 py-4 bg-gradient-to-l from-purple-700 to-purple-600 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base">إضافة أصل ثابت جديد</h3>
+                <p className="text-purple-200 text-xs mt-0.5">يُرسَل للفرع تلقائياً لتأكيد الاستلام بعد الحفظ</p>
+              </div>
+              <button onClick={()=>setShowAddModal(false)} className="text-purple-200 hover:text-white"><X size={18}/></button>
+            </div>
+            {addSent ? (
+              <div className="p-10 flex flex-col items-center justify-center text-center">
+                <CheckCircle2 size={48} className="text-emerald-500 mb-3"/>
+                <p className="font-bold text-gray-900 text-lg">تم إرسال الإشعار للفرع!</p>
+                <p className="text-gray-500 text-sm mt-1">سيتلقى مدير الفرع إشعاراً على تطبيق الموبايل لتأكيد الاستلام</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">اسم الأصل *</label>
+                    <input value={newAsset.name} onChange={e=>setNewAsset(p=>({...p,name:e.target.value}))}
+                      placeholder="مثال: ثلاجة عرض — باناسونيك 600L"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">الفئة *</label>
+                    <select value={newAsset.cat} onChange={e=>setNewAsset(p=>({...p,cat:e.target.value as AssetCat}))}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none">
+                      {(["معدات","تقنية","أثاث","مركبات","أخرى"] as AssetCat[]).map(c=><option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">الفرع *</label>
+                    <select value={newAsset.branch} onChange={e=>setNewAsset(p=>({...p,branch:e.target.value}))}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none">
+                      <option value="">-- اختر الفرع --</option>
+                      {ASSET_BRANCHES.map(b=><option key={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">رقم الفاتورة</label>
+                    <input value={newAsset.invNum} onChange={e=>setNewAsset(p=>({...p,invNum:e.target.value}))}
+                      placeholder="INV-XXXX" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none" dir="ltr"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">التكلفة الإجمالية (ر.س) *</label>
+                    <input value={newAsset.cost} onChange={e=>setNewAsset(p=>({...p,cost:e.target.value}))}
+                      placeholder="0.00" type="number"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none text-center font-mono"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">العمر الافتراضي (شهر)</label>
+                    <input value={newAsset.usefulLife} onChange={e=>setNewAsset(p=>({...p,usefulLife:e.target.value}))}
+                      type="number" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none text-center font-mono"/>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">المسؤول / الموظف (اسم أمين العهدة)</label>
+                    <input value={newAsset.custodian} onChange={e=>setNewAsset(p=>({...p,custodian:e.target.value}))}
+                      placeholder="اسم مدير الفرع أو الموظف المسؤول"
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none"/>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">ملاحظات</label>
+                    <textarea value={newAsset.notes} onChange={e=>setNewAsset(p=>({...p,notes:e.target.value}))}
+                      rows={2} placeholder="أي ملاحظات إضافية..."
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none resize-none"/>
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+                  <Smartphone size={14} className="text-amber-600 flex-shrink-0 mt-0.5"/>
+                  <p className="text-xs text-amber-700">بعد الحفظ، سيتلقى مدير الفرع إشعاراً فورياً على تطبيق الموبايل لتأكيد استلام الأصل وإضافته رسمياً لأصول الفرع.</p>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Btn onClick={()=>setShowAddModal(false)}>إلغاء</Btn>
+                  <Btn variant="primary" onClick={submitNewAsset} disabled={!newAsset.name||!newAsset.branch||!newAsset.cost}>
+                    <Send size={13}/> حفظ وإرسال للفرع
+                  </Btn>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TRANSFER CUSTODY MODAL ──────────────────────────────── */}
+      {showTransfer && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={()=>setShowTransfer(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="px-5 py-4 bg-gradient-to-l from-indigo-700 to-indigo-600 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base">نقل عهدة الأصل</h3>
+                <p className="text-indigo-200 text-xs mt-0.5">{assets.find(a=>a.id===showTransfer)?.name}</p>
+              </div>
+              <button onClick={()=>setShowTransfer(null)} className="text-indigo-200 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="text-center flex-1">
+                  <p className="text-[10px] text-gray-500 mb-0.5">الحالي</p>
+                  <p className="font-bold text-gray-800 text-sm">{assets.find(a=>a.id===showTransfer)?.custodian}</p>
+                </div>
+                <ArrowLeftRight size={16} className="text-indigo-500"/>
+                <div className="text-center flex-1">
+                  <p className="text-[10px] text-gray-500 mb-0.5">الجديد</p>
+                  <p className="font-bold text-indigo-700 text-sm">{transferForm.to||"—"}</p>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">اسم المسؤول الجديد *</label>
+                <input value={transferForm.to} onChange={e=>setTransferForm(p=>({...p,to:e.target.value}))}
+                  placeholder="اسم الموظف أو مدير الفرع الجديد"
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-indigo-400 outline-none"/>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">سبب النقل</label>
+                <input value={transferForm.note} onChange={e=>setTransferForm(p=>({...p,note:e.target.value}))}
+                  placeholder="مثال: نقل الفرع، تغيير المناوبة..."
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-indigo-400 outline-none"/>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Btn onClick={()=>setShowTransfer(null)}>إلغاء</Btn>
+                <Btn variant="primary" onClick={()=>submitTransfer(showTransfer)} disabled={!transferForm.to}>
+                  <ArrowLeftRight size={13}/> تأكيد النقل وتوثيقه
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Asset attachment viewer modal */}
       {assetAttach && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={()=>setAssetAttach(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e=>e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6" onClick={()=>setAssetAttach(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="px-5 py-4 bg-gradient-to-l from-blue-600 to-blue-700 text-white flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-gray-900">مرفقات الأصل</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{assetAttach.name}</p>
+                <h3 className="font-bold text-base">مرفقات الأصل — {assetAttach.name}</h3>
+                <p className="text-blue-200 text-xs mt-0.5">مرفق 1 من 2</p>
               </div>
-              <button onClick={()=>setAssetAttach(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={18}/></button>
+              <button onClick={()=>setAssetAttach(null)} className="text-blue-200 hover:text-white"><X size={18}/></button>
             </div>
             <div className="p-5 space-y-3">
               {[
-                {name:`صورة_الأصل_${assetAttach.assetId}.jpg`, type:"صورة", size:"340KB"},
-                {name:`فاتورة_شراء_${assetAttach.assetId}.pdf`, type:"PDF", size:"180KB"},
+                {name:`صورة_الأصل_${assetAttach.assetId}.jpg`,    type:"صورة", size:"340KB", icon:"🖼"},
+                {name:`فاتورة_شراء_${assetAttach.assetId}.pdf`,   type:"PDF",   size:"180KB", icon:"📄"},
               ].map((att,i)=>(
                 <div key={i} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer group">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${att.type==="صورة"?"bg-purple-100":"bg-blue-100"}`}>
-                    {att.type==="صورة"
-                      ? <span className="text-lg">🖼</span>
-                      : <FileText size={16} className="text-blue-600"/>}
-                  </div>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-xl ${att.type==="صورة"?"bg-purple-100":"bg-blue-100"}`}>{att.icon}</div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate" dir="ltr">{att.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{att.type} · {att.size}</p>
@@ -4902,7 +5246,7 @@ function AccAssets({}: PageProps) {
                 </div>
               ))}
             </div>
-            <div className="px-5 pb-4 flex gap-2">
+            <div className="px-5 pb-4 flex gap-2 justify-end border-t border-gray-100 pt-3">
               <Btn size="sm"><Plus size={11}/> إضافة مرفق</Btn>
               <Btn size="sm" onClick={()=>setAssetAttach(null)}>إغلاق</Btn>
             </div>
@@ -4919,55 +5263,82 @@ function AccAssets({}: PageProps) {
 function AccWaste({}: PageProps) {
   type WasteClass = "هدر"|"تالف";
   type Resp = "موظف"|"مطعم";
-  interface WasteProduct { name:string; qty:number; unit:string; class_:WasteClass; resp:Resp; hasImg:boolean; empId:string; empName:string }
+  type EmpAlloc = { empId:string; empName:string; amount:string };
+  interface WasteProduct {
+    name:string; qty:number; unit:string; unitPrice:number;
+    class_:WasteClass; resp:Resp; hasImg:boolean;
+    empAllocs: EmpAlloc[];
+  }
   interface WasteEntry { id:string; branch:string; date:string; status:"pending"|"approved"|"rejected"; products:WasteProduct[] }
-  const [filterBranch, setFilterBranch] = useState("الكل");
-  const MOCK_EMP_MAP: Record<string,string> = {
-    "1001":"أحمد العمري","1002":"سارة الزهراني","1003":"فهد القحطاني","1004":"نورة المطيري","1005":"خالد السالم"
+
+  const WASTE_EMP: Record<string,string> = {
+    "1001":"أحمد العمري","1002":"سارة الزهراني","1003":"فهد القحطاني",
+    "1004":"نورة المطيري","1005":"خالد السالم","1006":"طارق الرشيدي"
   };
+
+  const [filterBranch, setFilterBranch] = useState("الكل");
+  const [expandedId,   setExpandedId]   = useState<string|null>(null);
+  const [expandedProd, setExpandedProd] = useState<Record<string,number|null>>({});
+
   const [entries, setEntries] = useState<WasteEntry[]>([
-    { id:"WD-001", branch:"فرع الرياض - العليا",    date:"14 أكت", status:"pending",
+    { id:"WD-001", branch:"فرع الرياض - العليا", date:"14 أكت", status:"pending",
       products:[
-        {name:"دجاج طازج",     qty:3,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true,  empId:"1001", empName:"أحمد العمري"},
-        {name:"زيت قلي",       qty:10, unit:"لتر",   class_:"هدر",  resp:"مطعم",  hasImg:false, empId:"",     empName:""},
+        { name:"دجاج طازج",   qty:3,  unit:"كجم",   unitPrice:35, class_:"تالف", resp:"موظف", hasImg:true,
+          empAllocs:[{empId:"1001",empName:"أحمد العمري",amount:"75"},{empId:"",empName:"",amount:""}] },
+        { name:"زيت قلي",     qty:10, unit:"لتر",   unitPrice:18, class_:"هدر",  resp:"مطعم", hasImg:false,
+          empAllocs:[{empId:"",empName:"",amount:""}] },
       ]},
-    { id:"WD-002", branch:"فرع جدة - الحمراء",      date:"13 أكت", status:"pending",
+    { id:"WD-002", branch:"فرع جدة - الحمراء", date:"13 أكت", status:"pending",
       products:[
-        {name:"خبز برجر",       qty:20, unit:"قطعة",  class_:"هدر",  resp:"مطعم",  hasImg:false, empId:"",     empName:""},
-        {name:"صوص مايونيز",   qty:2,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true,  empId:"1003", empName:"فهد القحطاني"},
-        {name:"مشروبات غازية", qty:6,  unit:"علبة",  class_:"هدر",  resp:"مطعم",  hasImg:false, empId:"",     empName:""},
+        { name:"خبز برجر",     qty:20, unit:"قطعة", unitPrice:2,  class_:"هدر",  resp:"مطعم", hasImg:false,
+          empAllocs:[{empId:"",empName:"",amount:""}] },
+        { name:"صوص مايونيز", qty:2,  unit:"كجم",   unitPrice:25, class_:"تالف", resp:"موظف", hasImg:true,
+          empAllocs:[{empId:"1003",empName:"فهد القحطاني",amount:"30"},{empId:"1005",empName:"خالد السالم",amount:"20"}] },
+        { name:"مشروبات غازية",qty:6,  unit:"علبة", unitPrice:4,  class_:"هدر",  resp:"مطعم", hasImg:false,
+          empAllocs:[{empId:"",empName:"",amount:""}] },
       ]},
-    { id:"WD-003", branch:"فرع مكة - المعابدة",     date:"12 أكت", status:"approved",
+    { id:"WD-003", branch:"فرع مكة - المعابدة", date:"12 أكت", status:"approved",
       products:[
-        {name:"دجاج طازج",     qty:1,  unit:"كجم",   class_:"تالف", resp:"موظف",  hasImg:true,  empId:"1002", empName:"سارة الزهراني"},
+        { name:"دجاج طازج",   qty:1,  unit:"كجم",   unitPrice:35, class_:"تالف", resp:"موظف", hasImg:true,
+          empAllocs:[{empId:"1002",empName:"سارة الزهراني",amount:"35"}] },
       ]},
   ]);
-  const [expandedId, setExpandedId] = useState<string|null>(null);
-  const toggleClass = (entryId:string, pIdx:number) => {
-    setEntries(prev=>prev.map(e=>e.id===entryId?{
-      ...e, products:e.products.map((p,i)=>i===pIdx?{...p, class_:p.class_==="هدر"?"تالف":"هدر" as WasteClass}:p)
-    }:e));
-  };
-  const toggleResp = (entryId:string, pIdx:number) => {
-    setEntries(prev=>prev.map(e=>e.id===entryId?{
-      ...e, products:e.products.map((p,i)=>i===pIdx?{...p, resp:p.resp==="موظف"?"مطعم":"موظف" as Resp}:p)
-    }:e));
-  };
+
+  const updProd = (eid:string, pi:number, fn:(p:WasteProduct)=>WasteProduct) =>
+    setEntries(prev=>prev.map(e=>e.id===eid?{...e,products:e.products.map((p,i)=>i===pi?fn(p):p)}:e));
+
+  const toggleClass = (eid:string, pi:number) =>
+    updProd(eid,pi,p=>({...p,class_:p.class_==="هدر"?"تالف":"هدر" as WasteClass}));
+  const toggleResp = (eid:string, pi:number) =>
+    updProd(eid,pi,p=>({...p,resp:p.resp==="موظف"?"مطعم":"موظف" as Resp}));
+
+  const setAllocField = (eid:string, pi:number, ai:number, field:keyof EmpAlloc, val:string) =>
+    updProd(eid,pi,p=>({
+      ...p,
+      empAllocs:p.empAllocs.map((a,k)=>k===ai
+        ? {...a,[field]:val,...(field==="empId"?{empName:WASTE_EMP[val]||""}:{})}
+        : a
+      )
+    }));
+  const addAlloc = (eid:string, pi:number) =>
+    updProd(eid,pi,p=>({...p,empAllocs:[...p.empAllocs,{empId:"",empName:"",amount:""}]}));
+  const removeAlloc = (eid:string, pi:number, ai:number) =>
+    updProd(eid,pi,p=>({...p,empAllocs:p.empAllocs.filter((_,k)=>k!==ai)}));
+
   const approve = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"approved" as const}:e));
   const reject  = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"rejected" as const}:e));
-  const changeEmp = (entryId:string, pIdx:number, newId:string) => {
-    const name = MOCK_EMP_MAP[newId]||"";
-    setEntries(prev=>prev.map(e=>e.id===entryId?{
-      ...e, products:e.products.map((p,i)=>i===pIdx?{...p,empId:newId,empName:name}:p)
-    }:e));
-  };
 
   const pending  = entries.filter(e=>e.status==="pending");
   const approved = entries.filter(e=>e.status==="approved");
-  const displayed = filterBranch==="الكل" ? entries : entries.filter(e=>e.branch===filterBranch);
+  const displayed= filterBranch==="الكل" ? entries : entries.filter(e=>e.branch===filterBranch);
   const displayedPending = displayed.filter(e=>e.status==="pending");
+  const WASTE_BRANCHES   = [...new Set(entries.map(e=>e.branch))];
 
-  const WASTE_BRANCHES = [...new Set(entries.map(e=>e.branch))];
+  const totalWasteAmt = entries.flatMap(e=>e.products).reduce((s,p)=>s+p.qty*p.unitPrice,0);
+  const empChargedAmt = entries.flatMap(e=>e.products)
+    .filter(p=>p.resp==="موظف")
+    .flatMap(p=>p.empAllocs)
+    .reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
 
   const approveAllDisplayed = () =>
     setEntries(p=>p.map(e=>(filterBranch==="الكل"||e.branch===filterBranch)?{...e,status:"approved" as const}:e));
@@ -4977,7 +5348,7 @@ function AccWaste({}: PageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-800">موديول الهدر والتالف</h2>
-          <p className="text-gray-400 text-sm mt-0.5">مراجعة بيانات الهدر — تعديل التصنيف وتحديد المسؤولية والموظف المسؤول</p>
+          <p className="text-gray-400 text-sm mt-0.5">مراجعة بيانات الهدر — تعديل التصنيف والقيمة المالية وتوزيع التحميل على الموظفين</p>
         </div>
         {displayedPending.length>0 && (
           <Btn variant="success" size="sm" onClick={approveAllDisplayed}>
@@ -4989,48 +5360,40 @@ function AccWaste({}: PageProps) {
         )}
       </div>
 
-      {/* Branch filter — chips style */}
+      {/* Branch filter — chips */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <p className="text-[11px] font-semibold text-gray-500 mb-2">تصفية حسب الفرع</p>
         <div className="flex flex-wrap gap-2">
-          {["الكل", ...WASTE_BRANCHES].map(b=>{
-            const bPending = b==="الكل" ? pending.length : entries.filter(e=>e.branch===b&&e.status==="pending").length;
+          {["الكل",...WASTE_BRANCHES].map(b=>{
+            const bPend = b==="الكل" ? pending.length : entries.filter(e=>e.branch===b&&e.status==="pending").length;
             return (
               <button key={b} onClick={()=>setFilterBranch(b)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                  filterBranch===b
-                    ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"
-                }`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${filterBranch===b?"bg-purple-600 text-white border-purple-600 shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"}`}>
                 {b}
-                {bPending>0 && (
-                  <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${filterBranch===b?"bg-white text-purple-700":"bg-amber-500 text-white"}`}>
-                    {bPending}
-                  </span>
-                )}
+                {bPend>0 && <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${filterBranch===b?"bg-white text-purple-700":"bg-amber-500 text-white"}`}>{bPend}</span>}
               </button>
             );
           })}
         </div>
-        <div className="mt-2">
-          <p className="text-xs text-gray-400">{displayed.length} بيان{filterBranch!=="الكل"?` — ${filterBranch}`:""}</p>
-        </div>
+        <p className="text-xs text-gray-400 mt-2">{displayed.length} بيان{filterBranch!=="الكل"?` — ${filterBranch}`:""}</p>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="بانتظار المراجعة" value={String(pending.length)} sub="من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="معتمد" value={String(approved.length)} sub="هذا الشهر" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="بنود هدر اليوم" value={String(entries.reduce((s,e)=>s+e.products.filter(p=>p.class_==="هدر").length,0))} sub="تصنيف هدر" icon={<Trash2 size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="بنود تالف" value={String(entries.reduce((s,e)=>s+e.products.filter(p=>p.class_==="تالف").length,0))} sub="تصنيف تالف" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="بانتظار المراجعة"  value={String(pending.length)}  sub="من الفروع"        icon={<Clock size={18} className="text-amber-600"/>}    accent="amber"/>
+        <KpiCard label="معتمد"             value={String(approved.length)} sub="هذا الشهر"        icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="إجمالي الخسائر"    value={`${fmtAmt(totalWasteAmt)} ر.س`} sub="هدر + تالف"   icon={<Trash2 size={18} className="text-rose-600"/>}   accent="red"/>
+        <KpiCard label="محمَّل على الموظفين" value={`${fmtAmt(empChargedAmt)} ر.س`} sub="مُعيَّن فعلياً" icon={<Users size={18} className="text-orange-600"/>}  accent="orange"/>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
           <h3 className="font-bold text-gray-900 text-sm">بيانات الهدر والتالف</h3>
-          <span className="text-xs text-gray-400">{displayed.length} بيان — اضغط لعرض المنتجات</span>
+          <span className="text-xs text-gray-400">{displayed.length} بيان — اضغط لعرض المنتجات والتحميل</span>
         </div>
         {displayed.map(entry=>{
           const isExpanded = expandedId===entry.id;
+          const entryTotal = entry.products.reduce((s,p)=>s+p.qty*p.unitPrice,0);
+          const empTotal   = entry.products.filter(p=>p.resp==="موظف").flatMap(p=>p.empAllocs).reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
           const statusCls  = entry.status==="pending"?"bg-amber-50 text-amber-700 border border-amber-200":entry.status==="approved"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200";
           const statusLbl  = entry.status==="pending"?"معلق":entry.status==="approved"?"معتمد":"مرفوض";
           return (
@@ -5040,12 +5403,15 @@ function AccWaste({}: PageProps) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-800 text-sm">{entry.branch}</span>
-                    <span className="text-gray-300">·</span>
                     <span className="font-mono text-xs text-rose-600">{entry.id}</span>
                     <Badge className={`${statusCls} text-[10px]`}>{statusLbl}</Badge>
                     <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{entry.products.length} منتج</Badge>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{entry.date}</p>
+                  <div className="flex items-center gap-4 mt-0.5">
+                    <p className="text-xs text-gray-400">{entry.date}</p>
+                    <span className="text-xs font-mono font-bold text-rose-700">إجمالي: {fmtAmt(entryTotal)} ر.س</span>
+                    {empTotal>0 && <span className="text-[10px] text-orange-600 font-semibold">منه على موظفين: {fmtAmt(empTotal)} ر.س</span>}
+                  </div>
                 </div>
                 <div className="flex gap-1.5">
                   {entry.status==="pending" && <>
@@ -5055,80 +5421,128 @@ function AccWaste({}: PageProps) {
                 </div>
                 {isExpanded?<ChevronUp size={14} className="text-gray-400 flex-shrink-0"/>:<ChevronDown size={14} className="text-gray-400 flex-shrink-0"/>}
               </div>
+
               {isExpanded && (
-                <div className="px-5 pb-5 bg-gray-50/40">
-                  <p className="text-xs font-bold text-gray-600 mt-3 mb-2">
-                    المنتجات المشمولة — يمكن تعديل التصنيف والمسؤولية:
-                  </p>
-                  <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs" dir="rtl">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-3 py-2 text-right">الصنف</th>
-                        <th className="px-3 py-2 text-center">الكمية</th>
-                        <th className="px-3 py-2 text-center">الوحدة</th>
-                        <th className="px-3 py-2 text-center">الصورة</th>
-                        <th className="px-3 py-2 text-center">التصنيف</th>
-                        <th className="px-3 py-2 text-center">المسؤولية</th>
-                        <th className="px-3 py-2 text-center text-orange-700 bg-orange-50/60">تغيير الموظف</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {entry.products.map((prod,pi)=>(
-                        <tr key={pi} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 font-semibold text-gray-800">{prod.name}</td>
-                          <td className="px-3 py-2 text-center font-mono font-bold text-gray-800">{prod.qty}</td>
-                          <td className="px-3 py-2 text-center text-gray-500">{prod.unit}</td>
-                          <td className="px-3 py-2 text-center">
-                            {prod.hasImg
-                              ? <button className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 text-[10px] hover:bg-blue-100 transition-all">
-                                  <Eye size={10}/> عرض
-                                </button>
-                              : <span className="text-gray-300 text-[10px]">لا يوجد</span>}
-                          </td>
-                          <td className="px-3 py-2 text-center">
+                <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
+                  <p className="text-xs font-bold text-gray-600 mt-3">المنتجات المشمولة — يمكن تعديل التصنيف والمسؤولية وتوزيع التحميل المالي:</p>
+
+                  {entry.products.map((prod,pi)=>{
+                    const prodValue   = prod.qty * prod.unitPrice;
+                    const allocTotal  = prod.empAllocs.reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
+                    const remaining   = prodValue - allocTotal;
+                    const prodKey     = `${entry.id}-${pi}`;
+                    const isAllocOpen = expandedProd[entry.id]===pi;
+
+                    return (
+                      <div key={pi} className={`bg-white rounded-xl border overflow-hidden ${prod.resp==="موظف"?"border-orange-100":"border-gray-100"}`}>
+                        {/* Product summary row */}
+                        <div className="px-4 py-3 flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-800 text-sm">{prod.name}</span>
+                              <span className="text-[10px] text-gray-500 font-mono">{prod.qty} {prod.unit} × {fmtAmt(prod.unitPrice)} ر.س</span>
+                              <span className="font-mono font-black text-rose-700 text-sm">{fmtAmt(prodValue)} ر.س</span>
+                              {prod.hasImg && <button className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px]"><Eye size={9}/> صورة</button>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Class toggle */}
                             {entry.status==="pending"
                               ? <button onClick={()=>toggleClass(entry.id,pi)}
-                                  className={`px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.class_==="تالف"?"bg-red-50 text-red-700 border-red-200 hover:bg-red-100":"bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}>
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.class_==="تالف"?"bg-red-50 text-red-700 border-red-200":"bg-amber-50 text-amber-700 border-amber-200"}`}>
                                   {prod.class_==="تالف"?"🔴 تالف":"🟡 هدر"}
                                 </button>
-                              : <Badge className={prod.class_==="تالف"?"bg-red-50 text-red-700":"bg-amber-50 text-amber-700"}>{prod.class_}</Badge>
+                              : <Badge className={prod.class_==="تالف"?"bg-red-50 text-red-700 text-[10px]":"bg-amber-50 text-amber-700 text-[10px]"}>{prod.class_}</Badge>
                             }
-                          </td>
-                          <td className="px-3 py-2 text-center">
+                            {/* Resp toggle */}
                             {entry.status==="pending"
                               ? <button onClick={()=>toggleResp(entry.id,pi)}
-                                  className={`px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.resp==="موظف"?"bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100":"bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}>
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${prod.resp==="موظف"?"bg-orange-50 text-orange-700 border-orange-200":"bg-gray-50 text-gray-600 border-gray-200"}`}>
                                   {prod.resp==="موظف"?"👤 موظف":"🏪 مطعم"}
                                 </button>
-                              : <Badge className={prod.resp==="موظف"?"bg-orange-50 text-orange-700":"bg-gray-50 text-gray-600"}>{prod.resp}</Badge>
+                              : <Badge className={prod.resp==="موظف"?"bg-orange-50 text-orange-700 text-[10px]":"bg-gray-50 text-gray-600 text-[10px]"}>{prod.resp}</Badge>
                             }
-                          </td>
-                          {/* Employee assignment — change employee */}
-                          <td className="px-3 py-2 bg-orange-50/20">
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                value={prod.empId}
-                                onChange={e=>changeEmp(entry.id,pi,e.target.value)}
-                                placeholder="#موظف"
-                                className="w-16 text-center text-[10px] font-mono border border-orange-200 rounded-lg px-1.5 py-1 bg-white focus:border-orange-400 outline-none"
-                                dir="ltr"
-                              />
-                              <span className={`text-[10px] truncate max-w-[80px] ${prod.empName?"text-orange-800 font-semibold":"text-gray-400"}`}>
-                                {prod.empName||"—"}
+                            {/* Expand allocation */}
+                            {prod.resp==="موظف" && (
+                              <button
+                                onClick={()=>setExpandedProd(p=>({...p,[entry.id]:isAllocOpen?null:pi}))}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all ${isAllocOpen?"bg-orange-100 text-orange-700 border-orange-300":"bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100"}`}>
+                                <Users size={10}/> تحميل مالي
+                                {prod.empAllocs.some(a=>a.empId) && <span className="bg-orange-500 text-white rounded-full w-3.5 h-3.5 text-[8px] flex items-center justify-center">{prod.empAllocs.filter(a=>a.empId).length}</span>}
+                                {isAllocOpen?<ChevronUp size={9}/>:<ChevronDown size={9}/>}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Employee allocation panel */}
+                        {prod.resp==="موظف" && isAllocOpen && (
+                          <div className="px-4 pb-4 pt-1 bg-orange-50/40 border-t border-orange-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-[11px] font-bold text-orange-800">توزيع التحميل المالي — قيمة المنتج: <span className="font-mono">{fmtAmt(prodValue)} ر.س</span></p>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${remaining===0?"bg-emerald-100 text-emerald-700":remaining<0?"bg-red-100 text-red-700":"bg-amber-100 text-amber-700"}`}>
+                                {remaining===0?"✅ مكتمل":remaining>0?`متبقٍّ: ${fmtAmt(remaining)} ر.س`:`زيادة: ${fmtAmt(Math.abs(remaining))} ر.س`}
                               </span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <div className="space-y-2">
+                              {prod.empAllocs.map((alloc,ai)=>(
+                                <div key={ai} className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full bg-orange-200 text-orange-800 text-[9px] font-bold flex items-center justify-center flex-shrink-0">{ai+1}</div>
+                                  <input value={alloc.empId}
+                                    onChange={e=>setAllocField(entry.id,pi,ai,"empId",e.target.value)}
+                                    placeholder="رقم الموظف"
+                                    className="w-24 text-[11px] border border-orange-200 rounded-lg px-2 py-1.5 text-center font-mono bg-white"/>
+                                  <input value={alloc.empName} readOnly
+                                    placeholder="الاسم تلقائياً"
+                                    className="flex-1 text-[11px] border border-gray-100 rounded-lg px-2 py-1.5 bg-white/70 text-gray-600"/>
+                                  <input value={alloc.amount}
+                                    onChange={e=>setAllocField(entry.id,pi,ai,"amount",e.target.value)}
+                                    placeholder="المبلغ" type="number"
+                                    className="w-24 text-[11px] border border-orange-200 rounded-lg px-2 py-1.5 text-center font-mono bg-white"/>
+                                  <span className="text-[10px] text-gray-400 flex-shrink-0">ر.س</span>
+                                  {prod.empAllocs.length>1 && (
+                                    <button onClick={()=>removeAlloc(entry.id,pi,ai)} className="text-gray-300 hover:text-red-400"><X size={12}/></button>
+                                  )}
+                                  {ai===prod.empAllocs.length-1 && remaining>0 && (
+                                    <button onClick={()=>setAllocField(entry.id,pi,ai,"amount",String(remaining))}
+                                      title="تعبئة المتبقي" className="px-1.5 py-1 text-[9px] bg-orange-100 text-orange-700 rounded font-bold hover:bg-orange-200 flex-shrink-0">⚡</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <button onClick={()=>addAlloc(entry.id,pi)}
+                              className="mt-2 inline-flex items-center gap-1 text-[11px] text-orange-600 hover:underline">
+                              <Plus size={10}/> إضافة موظف آخر
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
                   {entry.status==="pending" && (
-                    <div className="mt-3 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+                    <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
                       <p className="text-[11px] text-blue-700 font-medium">
-                        💡 التصنيف يحدد الجهة المحاسبة: <strong>تالف</strong> = يُحمَّل للموظف أو المطعم · <strong>هدر</strong> = خسارة تشغيلية مباشرة
+                        💡 <strong>تالف</strong> = يُحمَّل بالقيمة المالية على الموظف (يمكن توزيعه على أكثر من موظف) · <strong>هدر</strong> = خسارة تشغيلية تُحمَّل على المطعم
                       </p>
                     </div>
                   )}
+
+                  {/* Entry financial summary */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-0.5">إجمالي الخسائر</p>
+                      <p className="font-mono font-black text-rose-700 text-sm">{fmtAmt(entryTotal)} ر.س</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-0.5">محمَّل على موظفين</p>
+                      <p className="font-mono font-black text-orange-700 text-sm">{fmtAmt(empTotal)} ر.س</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-0.5">على المطعم</p>
+                      <p className="font-mono font-black text-gray-700 text-sm">{fmtAmt(entryTotal-empTotal)} ر.س</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
