@@ -2511,63 +2511,6 @@ function AccSalesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectO
     { label:"الشهر الماضي",     val:"lastMonth",ops:48,done:40},
   ];
 
-  // ── Per-branch reconciliation state ──
-  const MOCK_EMPLOYEES: Record<string,string> = {
-    "1001":"أحمد العمري","1002":"سارة الزهراني","1003":"فهد القحطاني","1004":"نورة المطيري","1005":"خالد السالم","1006":"منى الجهني","1007":"عمر البلوي"
-  };
-  type BranchVarEmp = { empId:string; empName:string; amount:string };
-  type DelivApp = { app:string; val:number; orig:number };
-  type BranchReconData = { totalSales:number; pos:number; bank:number; delivApps:DelivApp[]; varEmps:BranchVarEmp[]; open:boolean; varOpen:boolean; editMode:boolean };
-
-  const INIT_BRANCH_RECON: Record<string,BranchReconData> = {
-    "فرع الرياض - العليا": {
-      totalSales:18340, pos:18340, bank:17200,
-      delivApps:[{app:"طلبات",val:3200,orig:3200},{app:"هنقرستيشن",val:1800,orig:1800},{app:"كريم فود",val:1200,orig:1200},{app:"توو",val:980,orig:980}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:true, varOpen:false, editMode:false
-    },
-    "فرع الدمام - الكورنيش": {
-      totalSales:45230, pos:44800, bank:44800,
-      delivApps:[{app:"طلبات",val:4200,orig:4200},{app:"هنقرستيشن",val:2100,orig:2100},{app:"كريم فود",val:1050,orig:1050}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-    "فرع الرياض - النزهة": {
-      totalSales:22100, pos:22100, bank:21800,
-      delivApps:[{app:"طلبات",val:2800,orig:2800},{app:"كريم فود",val:1100,orig:1100}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-    "فرع جدة - الحمراء": {
-      totalSales:31800, pos:31800, bank:31800,
-      delivApps:[{app:"طلبات",val:5200,orig:5200},{app:"هنقرستيشن",val:2800,orig:2800}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-    "فرع مكة - المعابدة": {
-      totalSales:8200, pos:8200, bank:8000,
-      delivApps:[{app:"طلبات",val:900,orig:900}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-    "فرع الطائف - المحطة": {
-      totalSales:6100, pos:6100, bank:6100,
-      delivApps:[{app:"طلبات",val:700,orig:700}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-    "فرع جدة - العزيزية": {
-      totalSales:5600, pos:5600, bank:5600,
-      delivApps:[{app:"هنقرستيشن",val:1200,orig:1200}],
-      varEmps:[{empId:"",empName:"",amount:""}], open:false, varOpen:false, editMode:false
-    },
-  };
-  const [branchRecon, setBranchRecon] = useState<Record<string,BranchReconData>>(INIT_BRANCH_RECON);
-  const updBranch = (b:string, patch:Partial<BranchReconData>) =>
-    setBranchRecon(p=>({...p,[b]:{...p[b],...patch}}));
-  const updDelivApp = (b:string, i:number, newVal:number) =>
-    setBranchRecon(p=>({ ...p, [b]: { ...p[b], delivApps: p[b].delivApps.map((d,di)=>di===i?{...d,val:newVal}:d) } }));
-  const addVarEmpB = (b:string) =>
-    setBranchRecon(p=>({...p,[b]:{...p[b],varEmps:[...p[b].varEmps,{empId:"",empName:"",amount:""}]}}));
-  const removeVarEmpB = (b:string, i:number) =>
-    setBranchRecon(p=>({...p,[b]:{...p[b],varEmps:p[b].varEmps.filter((_,idx)=>idx!==i)}}));
-  const setVarEmpField = (b:string, i:number, field:keyof BranchVarEmp, v:string) =>
-    setBranchRecon(p=>({...p,[b]:{...p[b],varEmps:p[b].varEmps.map((e,ei)=>ei===i?{...e,[field]:v}:e)}}));
-
   const mOps    = ops.filter(o=>o.moduleKey==="sales");
   const pending  = mOps.filter(o=>o.status==="pending");
   const filtered = applyFilters(ops, filters, "sales");
@@ -2670,247 +2613,6 @@ function AccSalesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectO
             ))
         }
       </Card>
-
-      {/* ── Per-branch Settlement: POS / Bank / Delivery ── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-bold text-gray-800 text-sm">تسوية الفروقات — لكل فرع على حدة</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">الفرق بين المبيعات الإجمالية وإجمالي التحصيل (POS + بنك + تطبيقات التوصيل)</p>
-          </div>
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className="px-2 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200 font-semibold">
-              {Object.entries(branchRecon).filter(([,r])=>(r.pos-r.bank+r.delivApps.reduce((s,d)=>s+(d.orig-d.val),0))>0).length} فرع بفروقات
-            </span>
-          </div>
-        </div>
-
-        {Object.entries(branchRecon).map(([branchName, r])=>{
-          const delivTotal   = r.delivApps.reduce((s,d)=>s+d.val, 0);
-          const editDiff     = r.delivApps.reduce((s,d)=>s+(d.orig-d.val), 0);
-          const bankDiffB    = r.pos - r.bank;
-          const totalVariance= bankDiffB + editDiff;
-          const hasVariance  = totalVariance > 0;
-          const totalSalesB  = r.pos + delivTotal;
-          const assignedAmt  = r.varEmps.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
-          const remaining    = totalVariance - assignedAmt;
-
-          return (
-            <div key={branchName} className={`bg-white rounded-xl shadow-sm overflow-hidden border-2 transition-all ${hasVariance?"border-red-200":"border-gray-100"}`}>
-              {/* Branch header */}
-              <div className={`px-5 py-3.5 flex items-center gap-4 cursor-pointer ${hasVariance?"bg-red-50/60":"bg-gray-50/60"}`}
-                onClick={()=>updBranch(branchName,{open:!r.open})}>
-                <div className={`w-2 h-8 rounded-full flex-shrink-0 ${hasVariance?"bg-red-500":"bg-emerald-400"}`}/>
-                <div className="flex-1">
-                  <p className="font-bold text-gray-800 text-sm">{branchName}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
-                    <span>إجمالي المبيعات: <span className="font-mono font-bold text-gray-700">{fmtAmt(r.totalSales)} ر.س</span></span>
-                    <span>|</span>
-                    <span>إجمالي التحصيل: <span className="font-mono font-bold text-gray-700">{fmtAmt(totalSalesB)} ر.س</span></span>
-                    {hasVariance && <><span>|</span><span className="text-red-600 font-bold">⚠ فرق: {fmtAmt(totalVariance)} ر.س</span></>}
-                    {!hasVariance && <><span>|</span><span className="text-emerald-600 font-bold">✓ لا فروقات</span></>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {hasVariance && (
-                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${remaining<=0?"bg-emerald-50 text-emerald-700 border-emerald-200":"bg-red-50 text-red-700 border-red-200"}`}>
-                      {remaining<=0?"محمَّل بالكامل":fmtAmt(remaining)+" ر.س متبقي"}
-                    </span>
-                  )}
-                  <button className="text-gray-400 hover:text-gray-600">{r.open?<ChevronUp size={15}/>:<ChevronDown size={15}/>}</button>
-                </div>
-              </div>
-
-              {/* Expanded content */}
-              {r.open && (
-                <div className="p-5 space-y-4 border-t border-gray-100">
-                  {/* Header controls */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">جدول التسوية — POS / بنك / تطبيقات التوصيل</p>
-                    <button onClick={()=>updBranch(branchName,{editMode:!r.editMode})}
-                      className="text-xs text-purple-600 hover:underline flex items-center gap-1">
-                      <Edit3 size={10}/> {r.editMode?"💾 حفظ التعديلات":"تعديل الأرقام"}
-                    </button>
-                  </div>
-
-                  {/* Settlement table */}
-                  <table className="w-full text-sm border border-gray-100 rounded-xl overflow-hidden" dir="rtl">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2.5 text-right font-semibold text-gray-600">البند</th>
-                        <th className="px-4 py-2.5 text-center font-semibold text-gray-600">المبلغ (ر.س)</th>
-                        {r.editMode && <th className="px-4 py-2.5 text-center text-gray-400 text-xs">فرق التعديل</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {/* POS row */}
-                      <tr className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-800">إيرادات POS (نقدي + بنكي)</td>
-                        <td className="px-4 py-3 text-center">
-                          {r.editMode
-                            ? <input defaultValue={String(r.pos)} onBlur={e=>updBranch(branchName,{pos:Number(e.target.value)||r.pos})}
-                                className="w-28 text-center border border-purple-200 rounded px-2 py-1 font-mono text-sm"/>
-                            : <span className="font-mono font-bold text-gray-800">{fmtAmt(r.pos)} ر.س</span>
-                          }
-                        </td>
-                        {r.editMode && <td/>}
-                      </tr>
-                      {/* Bank row */}
-                      <tr className={bankDiffB>0?"bg-red-50/40":"hover:bg-gray-50"}>
-                        <td className="px-4 py-3 font-medium text-gray-800">إيداعات بنكية موثّقة</td>
-                        <td className="px-4 py-3 text-center">
-                          {r.editMode
-                            ? <input defaultValue={String(r.bank)} onBlur={e=>updBranch(branchName,{bank:Number(e.target.value)||r.bank})}
-                                className="w-28 text-center border border-purple-200 rounded px-2 py-1 font-mono text-sm"/>
-                            : <span className="font-mono font-bold text-gray-800">{fmtAmt(r.bank)} ر.س</span>
-                          }
-                        </td>
-                        {r.editMode && <td/>}
-                      </tr>
-                      {/* Delivery apps — each app individually */}
-                      <tr className="bg-blue-50/30">
-                        <td colSpan={r.editMode?3:2} className="px-4 py-2 text-[11px] font-bold text-blue-700">
-                          📱 مبيعات تطبيقات التوصيل — {r.delivApps.length} تطبيق ({fmtAmt(delivTotal)} ر.س)
-                        </td>
-                      </tr>
-                      {r.delivApps.map((da, di)=>{
-                        const appDiff = da.orig - da.val;
-                        return (
-                          <tr key={di} className={`hover:bg-blue-50/20 ${appDiff>0?"bg-amber-50/30":""}`}>
-                            <td className="px-4 py-2.5 pr-8 text-gray-700 flex items-center gap-2">
-                              <span className="text-sm">🛵</span>
-                              <span>{da.app}</span>
-                              {appDiff>0 && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">تعديل −{fmtAmt(appDiff)}</span>}
-                            </td>
-                            <td className="px-4 py-2.5 text-center">
-                              {r.editMode
-                                ? <div className="flex items-center gap-1 justify-center">
-                                    <input defaultValue={String(da.val)}
-                                      onBlur={e=>updDelivApp(branchName,di,Number(e.target.value)||da.val)}
-                                      className="w-24 text-center border border-purple-200 rounded px-2 py-1 font-mono text-sm"/>
-                                    <span className="text-[10px] text-gray-400">ر.س</span>
-                                  </div>
-                                : <span className="font-mono font-semibold text-gray-700">{fmtAmt(da.val)} ر.س</span>
-                              }
-                            </td>
-                            {r.editMode && (
-                              <td className="px-4 py-2.5 text-center">
-                                {appDiff>0
-                                  ? <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">−{fmtAmt(appDiff)} ر.س</span>
-                                  : <span className="text-[11px] text-gray-300">—</span>
-                                }
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                      <tr>
-                        <td className="px-4 py-3 font-bold text-gray-900">إجمالي المبيعات (POS + توصيل)</td>
-                        <td className="px-4 py-3 text-center font-black font-mono text-purple-800">{fmtAmt(totalSalesB)} ر.س</td>
-                        {r.editMode && <td/>}
-                      </tr>
-                      <tr className={bankDiffB>0?"bg-red-50":""}>
-                        <td className="px-4 py-3 font-bold text-gray-700">الفرق (POS − إيداعات بنكية)</td>
-                        <td className={`px-4 py-3 text-center font-black font-mono ${bankDiffB>0?"text-red-600":bankDiffB<0?"text-amber-600":"text-emerald-600"}`}>
-                          {bankDiffB>0?"+":""}{fmtAmt(Math.abs(bankDiffB))} ر.س {bankDiffB===0&&"✓"}
-                        </td>
-                        {r.editMode && <td/>}
-                      </tr>
-                      {editDiff>0 && (
-                        <tr className="bg-amber-50">
-                          <td className="px-4 py-3 font-bold text-amber-800">فروق تعديل تطبيقات التوصيل</td>
-                          <td className="px-4 py-3 text-center font-black font-mono text-amber-700">+{fmtAmt(editDiff)} ر.س</td>
-                          {r.editMode && <td/>}
-                        </tr>
-                      )}
-                      {(bankDiffB>0||editDiff>0) && (
-                        <tr className="bg-red-50 border-t-2 border-red-200">
-                          <td className="px-4 py-3 font-bold text-red-900">⚠ إجمالي الفرق المطلوب تحميله</td>
-                          <td className="px-4 py-3 text-center font-black font-mono text-red-700 text-base">{fmtAmt(totalVariance)} ر.س</td>
-                          {r.editMode && <td/>}
-                        </tr>
-                      )}
-                    </tfoot>
-                  </table>
-
-                  {/* Variance employee assignment */}
-                  {hasVariance && (
-                    <div className="border border-red-200 rounded-xl overflow-hidden">
-                      <div className="px-4 py-3 bg-red-50 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-red-800">توزيع الفرق على الموظفين</p>
-                          <p className="text-xs text-red-600 mt-0.5">
-                            الفرق: <span className="font-mono font-bold">{fmtAmt(totalVariance)} ر.س</span> — وزِّعه على موظف أو أكثر
-                            {assignedAmt>0 && <span className="mr-2 text-emerald-700"> · تم تحميل {fmtAmt(assignedAmt)} ر.س</span>}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {remaining>0 && <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-1 rounded font-bold">متبقي {fmtAmt(remaining)} ر.س</span>}
-                          <button onClick={()=>updBranch(branchName,{varOpen:!r.varOpen})}
-                            className="text-xs text-red-600 hover:underline flex items-center gap-1">
-                            {r.varOpen?<ChevronUp size={11}/>:<ChevronDown size={11}/>} {r.varOpen?"إخفاء":"تعيين الموظفين"}
-                          </button>
-                        </div>
-                      </div>
-                      {r.varOpen && (
-                        <div className="p-4 bg-white space-y-2" dir="rtl">
-                          {r.varEmps.map((emp,ei)=>(
-                            <div key={ei} className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2">
-                                <span className="text-[10px] text-gray-400">رقم</span>
-                                <input value={emp.empId}
-                                  onChange={e=>{
-                                    const id=e.target.value;
-                                    const empName=MOCK_EMPLOYEES[id]||"";
-                                    setVarEmpField(branchName,ei,"empId",id);
-                                    setVarEmpField(branchName,ei,"empName",empName);
-                                  }}
-                                  placeholder="1001" className="w-20 text-sm bg-transparent outline-none py-1.5 text-center font-mono" dir="ltr"/>
-                              </div>
-                              <span className={`flex-1 text-sm py-1.5 px-3 rounded-lg border ${emp.empName?"bg-purple-50 text-purple-800 border-purple-200 font-semibold":"bg-gray-50 text-gray-400 border-gray-200"}`}>
-                                {emp.empName||"الاسم يظهر تلقائياً"}
-                              </span>
-                              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2">
-                                <input value={emp.amount}
-                                  onChange={e=>setVarEmpField(branchName,ei,"amount",e.target.value)}
-                                  placeholder="0" className="w-24 text-sm bg-transparent outline-none py-1.5 text-center font-mono"/>
-                                <span className="text-[10px] text-gray-400">ر.س</span>
-                              </div>
-                              <button onClick={()=>{ setVarEmpField(branchName,ei,"amount",String(totalVariance-r.varEmps.filter((_,i)=>i!==ei).reduce((s,v)=>s+(parseFloat(v.amount)||0),0))); }}
-                                className="text-[10px] text-purple-600 hover:underline whitespace-nowrap">⚡ المتبقي</button>
-                              {r.varEmps.length>1 && (
-                                <button onClick={()=>removeVarEmpB(branchName,ei)} className="text-gray-400 hover:text-red-500 w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-50">
-                                  <X size={12}/>
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <div className="flex items-center gap-2 pt-1 border-t border-gray-100 mt-2">
-                            <button onClick={()=>addVarEmpB(branchName)}
-                              className="text-xs text-purple-600 hover:underline flex items-center gap-1">
-                              <Plus size={11}/> إضافة موظف آخر
-                            </button>
-                            <div className="mr-auto flex gap-2">
-                              <span className={`text-xs font-mono font-bold ${remaining<=0?"text-emerald-600":"text-red-600"}`}>
-                                {remaining<=0?"✓ تم تحميل الفرق بالكامل":`متبقي ${fmtAmt(remaining)} ر.س`}
-                              </span>
-                              <Btn size="sm" variant="danger" onClick={()=>updBranch(branchName,{varOpen:false})}>
-                                <CheckCircle2 size={11}/> تأكيد التحميل
-                              </Btn>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -3224,20 +2926,33 @@ function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, reje
 
 function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approveOp, addCorrectiveOp }:PageProps) {
   const op = ops.find(o=>o.id===detailId) || ops[0];
-  const [verified, setVerified] = useState<Record<string,boolean>>({});
-  const toggleVerify = (name:string) => setVerified(p=>({...p,[name]:!p[name]}));
 
-  const channels = [
-    { name:"نقدي",                  icon:"💵", entered:4200,  expected:4200, source:"إيصالات الصندوق" },
-    { name:"بنكي (بنك الرياض)",     icon:"🏦", entered:8500,  expected:8500, source:"كشف الحساب البنكي" },
-    { name:"هنقرستيشن",             icon:"🟠", entered:2800,  expected:2800, source:"تقرير المنصة" },
-    { name:"جاهز",                  icon:"🟡", entered:1200,  expected:1350, source:"تقرير المنصة" },
-    { name:"تو يو (ToYou)",          icon:"🔵", entered:980,   expected:980,  source:"تقرير المنصة" },
-    { name:"نينجا (Ninja)",          icon:"⚫", entered:660,   expected:660,  source:"تقرير المنصة" },
-  ];
-  const totalEntered = channels.reduce((s,c)=>s+c.entered,0);
-  const totalExpected = channels.reduce((s,c)=>s+c.expected,0);
-  const totalDiff = totalEntered-totalExpected;
+  const RECON_EMP: Record<string,string> = {
+    "1001":"أحمد الشمري","1002":"محمد العبدلي","1003":"خالد النجار",
+    "1004":"سعد الغامدي","1005":"عبدالرحمن السيف","1006":"فيصل الحربي",
+  };
+
+  const totalSales = op?.amount || 18340;
+  const [reconCash,      setReconCash]      = useState(4200);
+  const [reconBank,      setReconBank]      = useState(8500);
+  const [reconEditMode,  setReconEditMode]  = useState(false);
+  const [reconDelivApps, setReconDelivApps] = useState([
+    { app:"طلبات",         icon:"🔴", val:980,  orig:980  },
+    { app:"هنقرستيشن",     icon:"🟠", val:2800, orig:2800 },
+    { app:"جاهز",          icon:"🟡", val:1200, orig:1200 },
+    { app:"نينجا (Ninja)", icon:"⚫", val:660,  orig:660  },
+  ]);
+  type VEmp = { empId:string; empName:string; amount:string };
+  const [varEmps, setVarEmps] = useState<VEmp[]>([{ empId:"", empName:"", amount:"" }]);
+  const setVarEmpField = (i:number, field:keyof VEmp, val:string) =>
+    setVarEmps(p=>p.map((e,j)=>j===i ? {...e,[field]:val, ...(field==="empId"?{empName:RECON_EMP[val]||""}:{}) } : e));
+
+  const totalDelivery   = reconDelivApps.reduce((s,d)=>s+d.val, 0);
+  const totalCollection = reconCash + reconBank + totalDelivery;
+  const variance        = totalSales - totalCollection;
+  const hasVariance     = variance !== 0;
+  const assignedTotal   = varEmps.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  const remaining       = variance - assignedTotal;
 
   const isLocked = op?.status === "final-approved";
 
@@ -3295,8 +3010,9 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
               <p className="text-blue-500 text-xs">بانتظار رئيس الحسابات</p></>
             ) : (
               <><p className="text-gray-500 text-xs">إجمالي المبيعات</p>
-              <p className="font-bold text-purple-700 text-2xl font-mono mt-0.5">{fmtAmt(totalEntered)}<span className="text-sm mr-1">ر.س</span></p>
-              {totalDiff!==0 && <p className="text-red-500 text-xs mt-0.5 font-medium">⚠ فرق: {Math.abs(totalDiff)} ر.س</p>}</>
+              <p className="font-bold text-purple-700 text-2xl font-mono mt-0.5">{fmtAmt(totalSales)}<span className="text-sm mr-1">ر.س</span></p>
+              {hasVariance && <p className="text-red-500 text-xs mt-0.5 font-medium">⚠ فرق: {fmtAmt(Math.abs(variance))} ر.س</p>}
+              {!hasVariance && <p className="text-emerald-600 text-xs mt-0.5 font-medium">✓ التسوية مطابقة</p>}</>
             )}
           </div>
         </div>
@@ -3305,78 +3021,175 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
 
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2 space-y-4">
-          <Card title="جدول المقارنة والتسوية" actions={
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">6 قنوات تحصيل</span>
-              {Object.values(verified).filter(Boolean).length > 0 && (
-                <Badge className="bg-emerald-50 text-emerald-700 text-[10px]">
-                  <CheckSquare size={10} className="ml-1"/> {Object.values(verified).filter(Boolean).length} موثّق
-                </Badge>
-              )}
-            </div>
+          <Card title="تسوية المبيعات" actions={
+            !isLocked && (
+              <button onClick={()=>setReconEditMode(m=>!m)}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${reconEditMode?"bg-purple-600 text-white border-purple-600":"bg-white text-purple-600 border-purple-200 hover:bg-purple-50"}`}>
+                <Edit3 size={11}/> {reconEditMode ? "💾 حفظ التعديلات" : "تعديل الأرقام"}
+              </button>
+            )
           }>
-            <table className="w-full" dir="rtl">
-              <thead className="bg-gray-50">
-                <tr className="text-xs text-gray-500 font-semibold">
-                  <th className="px-4 py-3 text-right">قناة التحصيل</th>
-                  <th className="px-4 py-3 text-center">المُدخل</th>
-                  <th className="px-4 py-3 text-center">المتوقع</th>
-                  <th className="px-4 py-3 text-center">الفرق</th>
-                  <th className="px-4 py-3 text-center">الحالة</th>
-                  <th className="px-4 py-3 text-center">توثيق المحاسب</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {channels.map(ch=>{
-                  const diff=ch.entered-ch.expected;
-                  const isVerified = verified[ch.name] || false;
-                  return (
-                    <tr key={ch.name} className={`hover:bg-gray-50 ${diff!==0?"bg-red-50/50":""} ${isVerified?"bg-emerald-50/30":""}`}>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="font-medium text-gray-800">{ch.icon} {ch.name}</div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">{ch.source}</div>
-                      </td>
-                      <td className="px-4 py-3 text-center font-mono font-semibold text-gray-800 text-sm">{ch.entered.toLocaleString()} ر.س</td>
-                      <td className="px-4 py-3 text-center font-mono text-gray-600 text-sm">{ch.expected.toLocaleString()} ر.س</td>
-                      <td className="px-4 py-3 text-center">{diff===0?<span className="text-emerald-600 font-mono text-sm">—</span>:<span className="text-red-600 font-bold font-mono text-sm">{diff} ر.س</span>}</td>
-                      <td className="px-4 py-3 text-center">{diff===0?<Badge className="bg-emerald-50 text-emerald-700">✓ متطابق</Badge>:<Badge className="bg-red-50 text-red-700">⚠ فرق</Badge>}</td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={()=>toggleVerify(ch.name)}
-                          title={isVerified?"تم التوثيق — اضغط للإلغاء":"اضغط لتوثيق هذه القناة"}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all ${
-                            isVerified
-                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
-                              : "border-2 border-dashed border-gray-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-400"
-                          }`}>
-                          <CheckSquare size={14}/>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                <tr className="font-bold">
-                  <td className="px-4 py-3 text-gray-700">المجموع</td>
-                  <td className="px-4 py-3 text-center font-mono text-purple-700">{fmtAmt(totalEntered)} ر.س</td>
-                  <td className="px-4 py-3 text-center font-mono text-gray-600">{fmtAmt(totalExpected)} ر.س</td>
-                  <td className="px-4 py-3 text-center font-mono text-red-600">{totalDiff!==0?`${totalDiff} ر.س`:"—"}</td>
-                  <td className="px-4 py-3 text-center">{totalDiff===0?<Badge className="bg-emerald-50 text-emerald-700">✓ مطابق</Badge>:<Badge className="bg-red-50 text-red-700">⚠ فرق {Math.abs(totalDiff)} ر.س</Badge>}</td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-400">{Object.values(verified).filter(Boolean).length}/{channels.length} موثّق</td>
-                </tr>
-              </tfoot>
-            </table>
-            {totalDiff!==0 && (
-              <div className="mx-4 mb-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={15} className="text-amber-600 mt-0.5 flex-shrink-0"/>
-                  <div>
-                    <p className="text-amber-800 font-semibold text-sm">يوجد فرق في قناة جاهز</p>
-                    <p className="text-amber-700 text-xs mt-0.5">الفرق: 150 ر.س — يُخصم من حساب المسؤول: محمد العبدلي (مدير الشفت)</p>
+            <div className="divide-y divide-gray-100" dir="rtl">
+
+              {/* ── إجمالي المبيعات (مقفل — من رفع مدير الفرع) ── */}
+              <div className="flex items-center justify-between px-4 py-3.5 bg-indigo-50/60">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"/>
+                  <span className="text-sm font-bold text-indigo-900">إجمالي المبيعات</span>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded-md">(من رفع مدير الفرع — مقفل)</span>
+                </div>
+                <span className="font-mono font-black text-indigo-800 text-base">{fmtAmt(totalSales)} ر.س</span>
+              </div>
+
+              {/* ── نقدي ── */}
+              <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/60">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💵</span>
+                  <span className="text-sm text-gray-700 font-medium">نقدي (صندوق)</span>
+                </div>
+                {reconEditMode && !isLocked ? (
+                  <input type="number" value={reconCash}
+                    onChange={e=>setReconCash(+e.target.value)}
+                    className="w-36 text-center font-mono font-semibold border-2 border-purple-300 rounded-xl px-3 py-1.5 text-sm bg-purple-50 focus:outline-none focus:border-purple-500"/>
+                ) : (
+                  <span className="font-mono font-semibold text-gray-800 text-sm">{fmtAmt(reconCash)} ر.س</span>
+                )}
+              </div>
+
+              {/* ── بنك / كارت ── */}
+              <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/60">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🏦</span>
+                  <span className="text-sm text-gray-700 font-medium">بنك / كارت (بنك الرياض)</span>
+                </div>
+                {reconEditMode && !isLocked ? (
+                  <input type="number" value={reconBank}
+                    onChange={e=>setReconBank(+e.target.value)}
+                    className="w-36 text-center font-mono font-semibold border-2 border-purple-300 rounded-xl px-3 py-1.5 text-sm bg-purple-50 focus:outline-none focus:border-purple-500"/>
+                ) : (
+                  <span className="font-mono font-semibold text-gray-800 text-sm">{fmtAmt(reconBank)} ر.س</span>
+                )}
+              </div>
+
+              {/* ── تطبيقات التوصيل — header ── */}
+              <div className="px-4 py-2 bg-gray-50/80">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">تطبيقات التوصيل</p>
+              </div>
+
+              {/* ── كل تطبيق ── */}
+              {reconDelivApps.map((d,i)=>{
+                const appDiff = d.orig - d.val;
+                return (
+                  <div key={i} className={`flex items-center justify-between px-4 py-3 hover:bg-gray-50/60 transition-colors ${appDiff>0?"bg-amber-50/40":""}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{d.icon}</span>
+                      <span className="text-sm text-gray-700 font-medium">{d.app}</span>
+                      {appDiff > 0 && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-bold">تعديل −{fmtAmt(appDiff)} ر.س</span>
+                      )}
+                    </div>
+                    {reconEditMode && !isLocked ? (
+                      <input type="number" value={d.val}
+                        onChange={e=>setReconDelivApps(apps=>apps.map((a,j)=>j===i?{...a,val:+e.target.value}:a))}
+                        className="w-36 text-center font-mono font-semibold border-2 border-purple-300 rounded-xl px-3 py-1.5 text-sm bg-purple-50 focus:outline-none focus:border-purple-500"/>
+                    ) : (
+                      <span className={`font-mono font-semibold text-sm ${appDiff>0?"text-amber-700":"text-gray-800"}`}>{fmtAmt(d.val)} ر.س</span>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* ── قسم توزيع الفرق على الموظفين (يظهر فقط عند وجود فرق) ── */}
+              {hasVariance && !isLocked && (
+                <div className="mx-4 my-3 bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-red-100/60 border-b border-red-200">
+                    <AlertTriangle size={14} className="text-red-600 flex-shrink-0"/>
+                    <p className="text-sm font-bold text-red-800">
+                      تحميل الفرق على موظفين — الفرق: <span className="font-mono">{fmtAmt(variance)} ر.س</span>
+                    </p>
+                    <span className={`mr-auto text-xs font-bold px-2 py-1 rounded-lg ${remaining<=0?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700"}`}>
+                      {remaining<=0 ? "✓ محمَّل بالكامل" : `متبقي ${fmtAmt(remaining)} ر.س`}
+                    </span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {varEmps.map((e,i)=>(
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[10px] text-gray-400">رقم الموظف</label>
+                          <input placeholder="مثال: 1001" value={e.empId}
+                            onChange={ev=>setVarEmpField(i,"empId",ev.target.value)}
+                            className="w-24 text-center font-mono border border-red-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-red-400"/>
+                        </div>
+                        <div className="flex flex-col gap-0.5 flex-1">
+                          <label className="text-[10px] text-gray-400">اسم الموظف</label>
+                          <div className="h-8 flex items-center px-2 rounded-lg bg-white border border-gray-100 text-xs text-gray-700 font-medium">
+                            {e.empName || <span className="text-gray-300">يُعبأ تلقائياً</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[10px] text-gray-400">المبلغ (ر.س)</label>
+                          <input placeholder="0.00" type="number" value={e.amount}
+                            onChange={ev=>setVarEmpField(i,"amount",ev.target.value)}
+                            className="w-28 text-center font-mono border border-red-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-red-400"/>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[10px] text-gray-400 opacity-0">⚡</label>
+                          <button title="تعبئة المتبقي تلقائياً"
+                            onClick={()=>setVarEmpField(i,"amount",String(Math.max(0, remaining+(parseFloat(e.amount)||0))))}
+                            className="px-2 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[11px] font-bold hover:bg-amber-200 border border-amber-200">
+                            ⚡ المتبقي
+                          </button>
+                        </div>
+                        {varEmps.length > 1 && (
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[10px] text-gray-400 opacity-0">×</label>
+                            <button onClick={()=>setVarEmps(p=>p.filter((_,j)=>j!==i))}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                              <X size={13}/>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1">
+                      <button onClick={()=>setVarEmps(p=>[...p,{empId:"",empName:"",amount:""}])}
+                        className="flex items-center gap-1 text-xs text-red-600 hover:underline font-semibold">
+                        <Plus size={11}/> إضافة موظف آخر
+                      </button>
+                      {remaining <= 0 && (
+                        <Btn size="sm" variant="success">
+                          <CheckCircle2 size={11}/> تأكيد التحميل
+                        </Btn>
+                      )}
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {/* ── إجمالي التحصيل ── */}
+              <div className={`flex items-center justify-between px-4 py-3.5 font-bold border-t-2 ${variance===0?"bg-emerald-50/70 border-emerald-200":"bg-red-50/70 border-red-200"}`}>
+                <span className={`text-sm ${variance===0?"text-emerald-800":"text-red-800"}`}>إجمالي التحصيل</span>
+                <span className={`font-mono text-base ${variance===0?"text-emerald-700":"text-red-700"}`}>{fmtAmt(totalCollection)} ر.س</span>
               </div>
-            )}
+
+              {/* ── صف الفرق ── */}
+              {variance !== 0 ? (
+                <div className="flex items-center justify-between px-4 py-3 bg-red-100 border-t border-red-200">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={13} className="text-red-600"/>
+                    <span className="text-sm font-bold text-red-800">الفرق المطلوب تحميله على الموظفين</span>
+                  </div>
+                  <span className="font-mono font-black text-red-800 text-base">{fmtAmt(variance)} ر.س</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center px-4 py-3 bg-emerald-50">
+                  <span className="text-sm text-emerald-700 font-bold flex items-center gap-2">
+                    <CheckCircle2 size={14}/> إجمالي التحصيل مطابق لإجمالي المبيعات تماماً
+                  </span>
+                </div>
+              )}
+
+            </div>
           </Card>
           <Card title="سجل دورة حياة السجل" actions={<span className="text-xs text-gray-400 font-mono">{op?.id}</span>}>
             <div className="p-4 space-y-0">
