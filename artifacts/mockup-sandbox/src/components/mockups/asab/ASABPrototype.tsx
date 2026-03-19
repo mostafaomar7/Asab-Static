@@ -6059,8 +6059,13 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
 
   // ── Module distribution ──
   const DIST_MODULES = ["المبيعات","المصروفات","المشتريات","المخزون","الأصول الثابتة","الشفتات","الموظفين","العهد المالية"];
-  const [distModeType, setDistModeType] = useState<"restaurant"|"module">("restaurant");
+  const [distModeType, setDistModeType] = useState<"restaurant"|"module"|"heads">("restaurant");
   const [modAccSel, setModAccSel] = useState<string>("acc1");
+  const [modAccFilter, setModAccFilter] = useState("");
+  const [modRestFilter, setModRestFilter] = useState("");
+  // Heads assignment (mode 3) state
+  const [h3AccSel, setH3AccSel] = useState<string|null>(null);
+  const [h3HeadFilter, setH3HeadFilter] = useState("");
   // accModules: accId → restName → modules[]
   const [accModules, setAccModules] = useState<Record<string,Record<string,string[]>>>({
     acc1: {
@@ -6148,11 +6153,15 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
           <div className="flex items-center gap-0 bg-gray-100 p-1 rounded-xl w-fit">
             <button onClick={()=>setDistModeType("restaurant")}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-semibold transition-all ${distModeType==="restaurant"?"bg-white text-purple-700 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
-              🏢 الطريقة الأولى — بالمطعم
+              🏢 بالمطعم
             </button>
             <button onClick={()=>setDistModeType("module")}
               className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-semibold transition-all ${distModeType==="module"?"bg-white text-purple-700 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
-              📦 الطريقة الثانية — بالموديول
+              📦 بالموديول
+            </button>
+            <button onClick={()=>setDistModeType("heads")}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-semibold transition-all ${distModeType==="heads"?"bg-white text-purple-700 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              👥 توزيع المحاسبين على الرؤساء
             </button>
           </div>
 
@@ -6318,18 +6327,23 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
               </div>
               <div className="grid grid-cols-3 gap-4">
 
-                {/* Column 1: Accountant list */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Column 1: Accountant list + filter */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
                   <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
                     <p className="font-bold text-blue-800 text-sm">👨‍💼 المحاسبون</p>
-                    <p className="text-[11px] text-blue-600 mt-0.5">اختر لتعديل صلاحياته</p>
+                    <div className="flex items-center gap-1.5 mt-2 bg-white border border-blue-200 rounded-lg px-2.5 py-1.5">
+                      <Search size={10} className="text-gray-400 flex-shrink-0"/>
+                      <input value={modAccFilter} onChange={e=>setModAccFilter(e.target.value)}
+                        className="text-[11px] bg-transparent outline-none flex-1 text-gray-600" placeholder="بحث باسم المحاسب..."/>
+                      {modAccFilter && <button onClick={()=>setModAccFilter("")}><X size={10} className="text-gray-400"/></button>}
+                    </div>
                   </div>
-                  <div className="divide-y divide-gray-100">
-                    {distAccs.map(acc=>{
+                  <div className="divide-y divide-gray-100 overflow-y-auto flex-1" style={{maxHeight:340}}>
+                    {distAccs.filter(a=>!modAccFilter||a.name.includes(modAccFilter)).map(acc=>{
                       const modCount = Object.values(accModules[acc.id]??{}).reduce((s,m)=>s+m.length,0);
                       const restCount = Object.keys(accModules[acc.id]??{}).length;
                       return (
-                        <button key={acc.id} onClick={()=>setModAccSel(acc.id)}
+                        <button key={acc.id} onClick={()=>{ setModAccSel(acc.id); setModAccFilter(""); }}
                           className={`w-full flex items-center gap-3 px-4 py-3.5 text-right transition-colors ${modAccSel===acc.id?"bg-blue-50/60 border-r-2 border-blue-500":"hover:bg-gray-50"}`}>
                           <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold flex-shrink-0">{acc.avatar}</div>
                           <div className="flex-1 min-w-0">
@@ -6340,6 +6354,9 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
                         </button>
                       );
                     })}
+                    {distAccs.filter(a=>!modAccFilter||a.name.includes(modAccFilter)).length===0 && (
+                      <div className="px-4 py-8 text-center text-gray-400 text-xs">لا نتائج</div>
+                    )}
                   </div>
                 </div>
 
@@ -6357,17 +6374,26 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
                     );
                     return (
                       <>
-                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                          <p className="font-bold text-gray-800 text-sm">مصفوفة الموديولات — {acc.name}</p>
-                          <div className="flex items-center gap-2">
-                            <button onClick={()=>accRests.forEach(r=>assignAllModules(modAccSel,r))}
-                              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
-                              ✓ تمكين الكل
-                            </button>
-                            <button onClick={()=>accRests.forEach(r=>clearRestModules(modAccSel,r))}
-                              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">
-                              ✕ إلغاء الكل
-                            </button>
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-gray-800 text-sm">مصفوفة الموديولات — {acc.name}</p>
+                            <div className="flex items-center gap-2">
+                              <button onClick={()=>accRests.forEach(r=>assignAllModules(modAccSel,r))}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
+                                ✓ تمكين الكل
+                              </button>
+                              <button onClick={()=>accRests.forEach(r=>clearRestModules(modAccSel,r))}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">
+                                ✕ إلغاء الكل
+                              </button>
+                            </div>
+                          </div>
+                          {/* Restaurant filter */}
+                          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 max-w-xs">
+                            <Search size={10} className="text-gray-400 flex-shrink-0"/>
+                            <input value={modRestFilter} onChange={e=>setModRestFilter(e.target.value)}
+                              className="text-[11px] bg-transparent outline-none flex-1 text-gray-600" placeholder="فلترة بالمطعم..."/>
+                            {modRestFilter && <button onClick={()=>setModRestFilter("")}><X size={10} className="text-gray-400"/></button>}
                           </div>
                         </div>
                         {/* Table: rows=restaurants, cols=modules */}
@@ -6383,7 +6409,7 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                              {accRests.map((rest,ri)=>{
+                              {accRests.filter(r=>!modRestFilter||r.includes(modRestFilter)).map((rest,ri)=>{
                                 const mods = accModules[modAccSel]?.[rest] ?? [];
                                 const allChecked = DIST_MODULES.every(m=>mods.includes(m));
                                 return (
@@ -6427,6 +6453,139 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
               </div>
             </div>
           )}
+
+          {/* ─ Mode 3: Accountants → Heads ─ */}
+          {distModeType==="heads" && (()=>{
+            const unassigned = distAccs.filter(a=>!a.headId);
+            return (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-[11px] text-amber-700">
+                  💡 اضغط على محاسب لتحديده، ثم اضغط على رئيس الحسابات لتعيينه إليه — أو اضغط ✕ لإلغاء التعيين
+                </div>
+                <div className="grid grid-cols-5 gap-4">
+
+                  {/* Left col (2/5): All accountants */}
+                  <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-bold text-gray-800 text-sm">👨‍💼 جميع المحاسبين</p>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">{distAccs.filter(a=>a.headId).length} مُعيَّن</span>
+                          {unassigned.length>0 && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">{unassigned.length} غير مُعيَّن</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5">
+                        <Search size={10} className="text-gray-400 flex-shrink-0"/>
+                        <input value={h3HeadFilter} onChange={e=>setH3HeadFilter(e.target.value)}
+                          className="text-[11px] bg-transparent outline-none flex-1 text-gray-600" placeholder="بحث بالاسم..."/>
+                        {h3HeadFilter && <button onClick={()=>setH3HeadFilter("")}><X size={10} className="text-gray-400"/></button>}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-gray-50 overflow-y-auto flex-1" style={{maxHeight:400}}>
+                      {distAccs.filter(a=>!h3HeadFilter||a.name.includes(h3HeadFilter)).map(acc=>{
+                        const head = distHeads.find(h=>h.id===acc.headId);
+                        const isSelected = h3AccSel===acc.id;
+                        return (
+                          <div key={acc.id} onClick={()=>setH3AccSel(isSelected?null:acc.id)}
+                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all ${isSelected?"bg-purple-50 border-r-4 border-purple-500":"hover:bg-gray-50"}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${isSelected?"bg-purple-200 text-purple-800 ring-2 ring-purple-400":"bg-blue-100 text-blue-700"}`}>
+                              {acc.avatar}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-semibold text-sm truncate ${isSelected?"text-purple-800":"text-gray-800"}`}>{acc.name}</p>
+                              {head
+                                ? <p className="text-[10px] text-emerald-600 flex items-center gap-1"><Check size={9}/> {head.name}</p>
+                                : <p className="text-[10px] text-red-400">⚠ غير مُعيَّن بعد</p>
+                              }
+                            </div>
+                            {acc.headId && (
+                              <button onClick={e=>{ e.stopPropagation(); setDistAccs(p=>p.map(a=>a.id===acc.id?{...a,headId:null}:a)); setH3AccSel(null); }}
+                                className="w-6 h-6 rounded-full bg-red-100 text-red-500 hover:bg-red-200 flex items-center justify-center flex-shrink-0">
+                                <X size={10}/>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {h3AccSel && (
+                      <div className="px-4 py-2.5 bg-purple-50 border-t border-purple-200 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>
+                        <p className="text-[11px] text-purple-700 font-semibold">
+                          {distAccs.find(a=>a.id===h3AccSel)?.name} — اختر رئيساً لتعيينه
+                        </p>
+                        <button onClick={()=>setH3AccSel(null)} className="mr-auto text-[10px] text-purple-500 hover:text-purple-700">إلغاء</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right col (3/5): Heads panels */}
+                  <div className="col-span-3 space-y-3">
+                    {distHeads.map(head=>{
+                      const headAccs = distAccs.filter(a=>a.headId===head.id);
+                      const totalRests = headAccs.flatMap(a=>a.restaurants).length;
+                      const canAssign = h3AccSel && distAccs.find(a=>a.id===h3AccSel)?.headId!==head.id;
+                      return (
+                        <div key={head.id}
+                          onClick={()=>{ if(canAssign && h3AccSel){ moveAccToHead(h3AccSel,head.id); setH3AccSel(null); } }}
+                          className={`bg-white rounded-xl border-2 shadow-sm overflow-hidden transition-all ${canAssign?"border-purple-400 cursor-pointer hover:border-purple-600 hover:shadow-md":"border-gray-100"}`}>
+                          {/* Head header */}
+                          <div className={`px-4 py-3 flex items-center gap-3 ${head.id==="h1"?"bg-amber-50":"bg-purple-50"}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${head.color}`}>{head.avatar}</div>
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-800 text-sm">{head.name}</p>
+                              <p className="text-[11px] text-gray-500">رئيس حسابات · {headAccs.length} محاسب · {totalRests} مطعم</p>
+                            </div>
+                            {canAssign && (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-semibold animate-pulse">
+                                <Plus size={11}/> تعيين هنا
+                              </div>
+                            )}
+                          </div>
+                          {/* Assigned accountants */}
+                          <div className="px-4 py-3">
+                            {headAccs.length===0
+                              ? <p className="text-xs text-gray-400 text-center py-2">لا محاسبين مُعيَّنين</p>
+                              : <div className="flex flex-wrap gap-2">
+                                  {headAccs.map(acc=>(
+                                    <div key={acc.id} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
+                                      <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">{acc.avatar}</div>
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-700">{acc.name}</p>
+                                        <p className="text-[9px] text-gray-400">{acc.restaurants.length} مطعم</p>
+                                      </div>
+                                      <button onClick={e=>{ e.stopPropagation(); setDistAccs(p=>p.map(a=>a.id===acc.id?{...a,headId:null}:a)); }}
+                                        className="w-4 h-4 rounded-full bg-red-100 text-red-400 hover:bg-red-200 flex items-center justify-center mr-1">
+                                        <X size={8}/>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                            }
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Unassigned summary */}
+                    {unassigned.length>0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                        <p className="text-xs font-bold text-red-700 mb-2">⚠ محاسبون غير مُعيَّنين ({unassigned.length})</p>
+                        <div className="flex flex-wrap gap-2">
+                          {unassigned.map(acc=>(
+                            <div key={acc.id} className="flex items-center gap-1.5 bg-white border border-red-200 rounded-lg px-2.5 py-1">
+                              <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[10px] font-bold">{acc.avatar}</div>
+                              <p className="text-[11px] text-gray-700">{acc.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
