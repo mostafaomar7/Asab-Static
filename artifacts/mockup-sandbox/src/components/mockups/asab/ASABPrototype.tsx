@@ -2600,6 +2600,10 @@ function AccSalesPage({ navigate, setModal, setDetailId, ops, approveOp, rejectO
       <Card title="بيانات المبيعات" actions={
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">{filtered.length} بيان</span>
+          <button onClick={()=>alert("جارٍ تصدير بيانات المبيعات إلى Excel...")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> Excel
+          </button>
           {pending.length>0 && <Btn size="sm" variant="success" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة جماعية</Btn>}
         </div>
       }>
@@ -2722,7 +2726,13 @@ function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, reje
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
           <h3 className="font-bold text-gray-900 text-sm">بيانات المصروفات</h3>
-          <span className="text-xs text-gray-400">{filtered.length} بيان — اضغط أي صف لعرض الفواتير التفصيلية</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">{filtered.length} بيان</span>
+            <button onClick={()=>alert("جارٍ تصدير بيانات المصروفات إلى Excel...")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+              <FileText size={11}/> Excel
+            </button>
+          </div>
         </div>
         {filtered.length===0
           ? <EmptyState icon="✅" title="لا توجد بيانات" desc="لا توجد بيانات تطابق الفلاتر المحددة"/>
@@ -3655,7 +3665,13 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
       {/* Filter bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <div className="grid grid-cols-5 gap-3 mb-3">
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية / البراند</label>
+            <select className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">المورد</label>
             <select value={filterSupplier} onChange={e=>setFilterSupplier(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
@@ -3670,6 +3686,8 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
               {BRANCH_LIST.map(b=><option key={b}>{b}</option>)}
             </select>
           </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 mb-3">
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
             <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2">
@@ -3687,17 +3705,23 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
             </select>
           </div>
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث (فرع / مورد / منتج)</label>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث (فرع / مورد / منتج / مطعم)</label>
             <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-2">
               <Search size={11} className="text-gray-400 flex-shrink-0"/>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث..." className="flex-1 text-xs outline-none min-w-0"/>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالاسم أو المورد..." className="flex-1 text-xs outline-none min-w-0"/>
             </div>
           </div>
         </div>
-        {hasFilters && (
-          <button onClick={()=>{ setFilterSupplier("الكل"); setFilterBranch("الكل"); setFilterStatus("الكل"); setFilterMatch("الكل"); setSearch(""); }}
-            className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={10}/> مسح الفلاتر</button>
-        )}
+        <div className="flex items-center justify-between">
+          {hasFilters && (
+            <button onClick={()=>{ setFilterSupplier("الكل"); setFilterBranch("الكل"); setFilterStatus("الكل"); setFilterMatch("الكل"); setSearch(""); }}
+              className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={10}/> مسح الفلاتر</button>
+          )}
+          <button onClick={()=>alert("جارٍ تصدير بيانات المشتريات إلى Excel...")}
+            className="mr-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> تصدير Excel
+          </button>
+        </div>
       </div>
 
       {effectiveFiltered.length===0
@@ -3977,14 +4001,34 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
         </div>
       </div>
 
-      {/* Daily / Monthly toggle filter */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit" dir="rtl">
-        {([["monthly","الجرد الشهري"],["daily","الجرد اليومي"]] as const).map(([val,label])=>(
-          <button key={val} onClick={()=>setInvType(val)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${invType===val?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
-            {label}
-          </button>
-        ))}
+      {/* Brand/Restaurant search + Daily/Monthly toggle */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالمطعم أو البراند</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input placeholder="اسم المطعم أو العلامة التجارية..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">نوع الجرد</label>
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {([["monthly","الجرد الشهري"],["daily","الجرد اليومي"]] as const).map(([val,label])=>(
+                <button key={val} onClick={()=>setInvType(val)}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${invType===val?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -4506,6 +4550,10 @@ function AccEmployees({ navigate, setModal }:PageProps) {
         <div className="space-y-4">
           <Card title={`كشف حساب: ${emp.name}`} actions={
             <div className="flex gap-2">
+              <button onClick={()=>alert("جارٍ تصدير كشف الحساب إلى Excel...")}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+                <FileText size={11}/> Excel
+              </button>
               <Btn size="sm"><Download size={12}/> PDF</Btn>
               <button onClick={()=>setModal("contact")} className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1"><Phone size={11}/> تواصل</button>
             </div>
@@ -4593,13 +4641,19 @@ function AccCash({}: PageProps) {
 
       {/* Filter bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3 mb-3">
           <div>
-            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث — الفرع أو المسؤول</label>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث — الفرع أو المسؤول أو المطعم</label>
             <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
               <Search size={13} className="text-gray-400"/>
-              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="اسم الفرع أو اسم أمين الصندوق..." className="flex-1 text-sm outline-none"/>
+              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="اسم الفرع أو المطعم أو أمين الصندوق..." className="flex-1 text-sm outline-none"/>
             </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
           </div>
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">حالة العهدة</label>
@@ -4608,9 +4662,15 @@ function AccCash({}: PageProps) {
             </select>
           </div>
         </div>
-        {(searchTerm||statusFilter) && (
-          <button onClick={()=>{ setSearchTerm(""); setStatusFilter(""); }} className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
-        )}
+        <div className="flex items-center justify-between">
+          {(searchTerm||statusFilter) && (
+            <button onClick={()=>{ setSearchTerm(""); setStatusFilter(""); }} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+          )}
+          <button onClick={()=>alert("جارٍ تصدير سجل العهد النقدية إلى Excel...")}
+            className="mr-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> تصدير Excel
+          </button>
+        </div>
       </div>
 
       {/* Custodian rows with click-to-expand transaction list */}
@@ -4798,7 +4858,11 @@ function AccAssets({}: PageProps) {
           <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
           <p className="text-gray-400 text-sm mt-0.5">تسجيل وتتبع الأصول — سجل العهدة والنقل التاريخي بين الموظفين</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button onClick={()=>alert("جارٍ تصدير سجل الأصول الثابتة إلى Excel...")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> Excel
+          </button>
           <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
             {([["list","قائمة الأصول"],["branch_report","تقرير الفروع"]] as const).map(([v,l])=>(
               <button key={v} onClick={()=>setViewMode(v)}
@@ -4808,6 +4872,31 @@ function AccAssets({}: PageProps) {
             ))}
           </div>
           <Btn variant="primary" size="sm" onClick={()=>setShowAddModal(true)}><Plus size={13}/> إضافة أصل جديد</Btn>
+        </div>
+      </div>
+
+      {/* Brand filter bar for assets */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالاسم أو المطعم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input placeholder="اسم الأصل أو المطعم أو المسؤول..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفئة</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","معدات","أجهزة","مركبات","أثاث","تجهيزات"].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -5360,22 +5449,45 @@ function AccWaste({}: PageProps) {
         )}
       </div>
 
-      {/* Branch filter — chips */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <p className="text-[11px] font-semibold text-gray-500 mb-2">تصفية حسب الفرع</p>
-        <div className="flex flex-wrap gap-2">
-          {["الكل",...WASTE_BRANCHES].map(b=>{
-            const bPend = b==="الكل" ? pending.length : entries.filter(e=>e.branch===b&&e.status==="pending").length;
-            return (
-              <button key={b} onClick={()=>setFilterBranch(b)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${filterBranch===b?"bg-purple-600 text-white border-purple-600 shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"}`}>
-                {b}
-                {bPend>0 && <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${filterBranch===b?"bg-white text-purple-700":"bg-amber-500 text-white"}`}>{bPend}</span>}
-              </button>
-            );
-          })}
+      {/* Filters: brand dropdown + Excel + chips */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالفرع أو المطعم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input placeholder="اسم الفرع أو المطعم..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button onClick={()=>alert("جارٍ تصدير بيانات الهدر والتالف إلى Excel...")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100 transition-all">
+              <FileText size={13}/> تصدير Excel
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mt-2">{displayed.length} بيان{filterBranch!=="الكل"?` — ${filterBranch}`:""}</p>
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 mb-2">تصفية حسب الفرع</p>
+          <div className="flex flex-wrap gap-2">
+            {["الكل",...WASTE_BRANCHES].map(b=>{
+              const bPend = b==="الكل" ? pending.length : entries.filter(e=>e.branch===b&&e.status==="pending").length;
+              return (
+                <button key={b} onClick={()=>setFilterBranch(b)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${filterBranch===b?"bg-purple-600 text-white border-purple-600 shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"}`}>
+                  {b}
+                  {bPend>0 && <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${filterBranch===b?"bg-white text-purple-700":"bg-amber-500 text-white"}`}>{bPend}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">{displayed.length} بيان{filterBranch!=="الكل"?` — ${filterBranch}`:""}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -5637,27 +5749,41 @@ function AccReminders({}: PageProps) {
         <KpiCard label="إجمالي المفقود" value={String(reminders.length)} sub="تقارير وبيانات" icon={<AlertTriangle size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
 
-      {/* Module + Branch filters */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 grid grid-cols-3 gap-3">
-        <div>
-          <label className="text-[11px] font-semibold text-gray-500 block mb-1">الموديول</label>
-          <select value={filterModule} onChange={e=>setFilterModule(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-            <option value="الكل">الكل</option>
-            {Object.entries(MODULE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-          </select>
+      {/* Filters: Module + Branch search + Brand + Excel */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الموديول</label>
+            <select value={filterModule} onChange={e=>setFilterModule(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option value="الكل">الكل</option>
+              {Object.entries(MODULE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالفرع أو المطعم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input value={filterBranch==="الكل"?"":filterBranch}
+                onChange={e=>setFilterBranch(e.target.value||"الكل")}
+                placeholder="اكتب اسم الفرع أو المطعم..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button onClick={()=>alert("جارٍ تصدير التذكيرات المفقودة إلى Excel...")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100 transition-all w-full justify-center">
+              <FileText size={13}/> تصدير Excel
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
-          <select value={filterBranch} onChange={e=>setFilterBranch(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-            <option value="الكل">الكل</option>
-            {REM_BRANCHES.map(b=><option key={b}>{b}</option>)}
-          </select>
-        </div>
-        <div className="flex items-end">
-          {(filterModule!=="الكل"||filterBranch!=="الكل") && (
-            <button onClick={()=>{setFilterModule("الكل");setFilterBranch("الكل");}} className="text-xs text-purple-600 hover:underline flex items-center gap-1 pb-2"><RotateCcw size={11}/> مسح الفلاتر</button>
-          )}
-        </div>
+        {(filterModule!=="الكل"||filterBranch!=="الكل") && (
+          <button onClick={()=>{setFilterModule("الكل");setFilterBranch("الكل");}} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
       </div>
 
       {/* Broadcast custom reminder modal */}
