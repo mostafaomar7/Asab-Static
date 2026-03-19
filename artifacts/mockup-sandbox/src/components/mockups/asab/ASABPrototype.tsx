@@ -7,7 +7,7 @@ import {
   AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
   Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, Edit3, X, FileText,
   Truck, Home, Shield, RotateCcw, Lock, Send, Tag, Smartphone, CheckSquare,
-  ZapOff, ChevronLeft, Clipboard
+  ZapOff, ChevronLeft, Clipboard, Check
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -6057,6 +6057,41 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
   const addRestToAcc = (accId:string, rest:string) => setDistAccs(p=>p.map(a=>a.id===accId?{...a,restaurants:[...a.restaurants,rest]}:a));
   const moveAccToHead = (accId:string, headId:string) => setDistAccs(p=>p.map(a=>a.id===accId?{...a,headId}:a));
 
+  // ── Module distribution ──
+  const DIST_MODULES = ["المبيعات","المصروفات","المشتريات","المخزون","الأصول الثابتة","الشفتات","الموظفين","العهد المالية"];
+  const [distModeType, setDistModeType] = useState<"restaurant"|"module">("restaurant");
+  const [modAccSel, setModAccSel] = useState<string>("acc1");
+  // accModules: accId → restName → modules[]
+  const [accModules, setAccModules] = useState<Record<string,Record<string,string[]>>>({
+    acc1: {
+      "مطعم الريم — العليا": [...DIST_MODULES],
+      "مطعم الريم — جدة":   ["المبيعات","المصروفات","المشتريات"],
+      "هرفي — الرياض":       ["المبيعات","المصروفات"],
+    },
+    acc2: {
+      "هرفي — جدة":          ["المبيعات","المصروفات","المخزون"],
+      "ماكدونالدز — الرياض": ["المبيعات","المصروفات"],
+    },
+    acc3: {
+      "هرفي — مكة":          ["المبيعات","المصروفات","المشتريات","المخزون"],
+      "ماكدونالدز — الدمام": ["المبيعات"],
+    },
+    acc4: {
+      "بروستد الوطني — الطائف": ["المبيعات","المصروفات"],
+    },
+    acc5: {},
+  });
+  const toggleModuleForRest = (accId:string, rest:string, mod:string) =>
+    setAccModules(p => {
+      const cur = p[accId]?.[rest] ?? [];
+      const next = cur.includes(mod) ? cur.filter(m=>m!==mod) : [...cur, mod];
+      return { ...p, [accId]: { ...(p[accId]??{}), [rest]: next } };
+    });
+  const assignAllModules = (accId:string, rest:string) =>
+    setAccModules(p => ({ ...p, [accId]: { ...(p[accId]??{}), [rest]: [...DIST_MODULES] } }));
+  const clearRestModules = (accId:string, rest:string) =>
+    setAccModules(p => { const n={...(p[accId]??{})}; delete n[rest]; return {...p,[accId]:n}; });
+
   const roleCls: Record<string,string> = {
     "محاسب":"bg-blue-50 text-blue-700 border-blue-200",
     "رئيس حسابات":"bg-amber-50 text-amber-700 border-amber-200",
@@ -6109,7 +6144,20 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center"><p className="text-2xl font-extrabold font-mono text-red-600">{freeRests.length}</p><p className="text-[11px] text-gray-400">مطاعم غير مُوزَّعة</p></div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {/* ── Distribution Mode Toggle ── */}
+          <div className="flex items-center gap-0 bg-gray-100 p-1 rounded-xl w-fit">
+            <button onClick={()=>setDistModeType("restaurant")}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-semibold transition-all ${distModeType==="restaurant"?"bg-white text-purple-700 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              🏢 الطريقة الأولى — بالمطعم
+            </button>
+            <button onClick={()=>setDistModeType("module")}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-semibold transition-all ${distModeType==="module"?"bg-white text-purple-700 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              📦 الطريقة الثانية — بالموديول
+            </button>
+          </div>
+
+          {/* ─ Mode 1: by Restaurant ─ */}
+          {distModeType==="restaurant" && <><div className="grid grid-cols-3 gap-4">
             {/* Column 1: رؤساء الحسابات */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
@@ -6229,7 +6277,7 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
             </div>
           </div>
 
-          {/* Distribution summary */}
+          {/* Distribution summary — Mode 1 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <p className="font-bold text-sm text-gray-700 mb-3">ملخص التوزيع الكامل</p>
             <div className="space-y-2">
@@ -6260,6 +6308,125 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
               ))}
             </div>
           </div>
+          </>}
+
+          {/* ─ Mode 2: by Module ─ */}
+          {distModeType==="module" && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-[11px] text-blue-700">
+                💡 اختر محاسباً ثم حدّد الموديولات المسموح بها لكل مطعم من مطاعمه المخصصة
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+
+                {/* Column 1: Accountant list */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                    <p className="font-bold text-blue-800 text-sm">👨‍💼 المحاسبون</p>
+                    <p className="text-[11px] text-blue-600 mt-0.5">اختر لتعديل صلاحياته</p>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {distAccs.map(acc=>{
+                      const modCount = Object.values(accModules[acc.id]??{}).reduce((s,m)=>s+m.length,0);
+                      const restCount = Object.keys(accModules[acc.id]??{}).length;
+                      return (
+                        <button key={acc.id} onClick={()=>setModAccSel(acc.id)}
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-right transition-colors ${modAccSel===acc.id?"bg-blue-50/60 border-r-2 border-blue-500":"hover:bg-gray-50"}`}>
+                          <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold flex-shrink-0">{acc.avatar}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-800 truncate">{acc.name}</p>
+                            <p className="text-[11px] text-gray-400">{restCount} مطعم · {modCount} صلاحية</p>
+                          </div>
+                          {modAccSel===acc.id && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"/>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Column 2+3 merged: module matrix for selected accountant */}
+                <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  {(()=>{
+                    const acc = distAccs.find(a=>a.id===modAccSel);
+                    if(!acc) return <div className="flex items-center justify-center h-40 text-gray-400 text-sm">اختر محاسباً</div>;
+                    const accRests = acc.restaurants;
+                    if(accRests.length===0) return (
+                      <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-400">
+                        <p className="text-sm">لا توجد مطاعم مخصصة لهذا المحاسب</p>
+                        <p className="text-xs">قم بتخصيص مطاعم أولاً من الطريقة الأولى</p>
+                      </div>
+                    );
+                    return (
+                      <>
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                          <p className="font-bold text-gray-800 text-sm">مصفوفة الموديولات — {acc.name}</p>
+                          <div className="flex items-center gap-2">
+                            <button onClick={()=>accRests.forEach(r=>assignAllModules(modAccSel,r))}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
+                              ✓ تمكين الكل
+                            </button>
+                            <button onClick={()=>accRests.forEach(r=>clearRestModules(modAccSel,r))}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">
+                              ✕ إلغاء الكل
+                            </button>
+                          </div>
+                        </div>
+                        {/* Table: rows=restaurants, cols=modules */}
+                        <div className="overflow-auto">
+                          <table className="w-full text-right">
+                            <thead>
+                              <tr className="bg-gray-50 border-b border-gray-100">
+                                <th className="px-4 py-2.5 text-xs font-bold text-gray-500 text-right min-w-[140px]">المطعم</th>
+                                {DIST_MODULES.map(m=>(
+                                  <th key={m} className="px-2 py-2.5 text-[10px] font-bold text-gray-400 text-center min-w-[60px]">{m.slice(0,5)}</th>
+                                ))}
+                                <th className="px-3 py-2.5 text-[10px] font-bold text-gray-400 text-center">الكل</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {accRests.map((rest,ri)=>{
+                                const mods = accModules[modAccSel]?.[rest] ?? [];
+                                const allChecked = DIST_MODULES.every(m=>mods.includes(m));
+                                return (
+                                  <tr key={rest} className={`hover:bg-gray-50/50 ${ri%2===1?"bg-gray-50/30":""}`}>
+                                    <td className="px-4 py-2.5">
+                                      <p className="text-xs font-semibold text-gray-700">{rest.split("—")[0].trim()}</p>
+                                      <p className="text-[10px] text-gray-400">{mods.length}/{DIST_MODULES.length} موديول</p>
+                                    </td>
+                                    {DIST_MODULES.map(m=>{
+                                      const checked = mods.includes(m);
+                                      return (
+                                        <td key={m} className="px-2 py-2.5 text-center">
+                                          <button onClick={()=>toggleModuleForRest(modAccSel,rest,m)}
+                                            className={`w-6 h-6 rounded-md flex items-center justify-center mx-auto transition-all ${checked?"bg-purple-600 text-white shadow-sm":"bg-gray-100 text-gray-400 hover:bg-purple-100 hover:text-purple-600"}`}>
+                                            {checked ? <Check size={11}/> : <span className="text-[10px]">—</span>}
+                                          </button>
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="px-3 py-2.5 text-center">
+                                      <button onClick={()=>allChecked?clearRestModules(modAccSel,rest):assignAllModules(modAccSel,rest)}
+                                        className={`w-6 h-6 rounded-md flex items-center justify-center mx-auto transition-all ${allChecked?"bg-emerald-500 text-white":"bg-gray-200 text-gray-500 hover:bg-emerald-100"}`}>
+                                        {allChecked ? <Check size={11}/> : <Plus size={9}/>}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-[10px] text-gray-400">
+                          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-purple-600 inline-block"/> ممكَّن</span>
+                          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-gray-100 inline-block"/> غير ممكَّن</span>
+                          <span className="mr-auto">اضغط أي خانة لتفعيل/إلغاء الموديول</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -6447,7 +6614,8 @@ function AdminRestaurants({}: PageProps) {
     "herfy_r5_0":true,"herfy_r5_1":true,
   });
   const setBranchAsset = (key:string) => setBranchAssets(p=>({...p,[key]:true}));
-  const [uploadRestFilter, setUploadRestFilter] = useState("");
+  const [uploadRestFilter,  setUploadRestFilter]  = useState("");
+  const [uploadBrandFilter, setUploadBrandFilter] = useState("");
 
   // Per-restaurant subscription state
   type RestSub = { plan:"فضي"|"ذهبي"|"بلاتيني"; status:"active"|"warning"|"danger"|"expired"; expires:string; daysLeft:number; price:number };
@@ -6542,14 +6710,30 @@ function AdminRestaurants({}: PageProps) {
         return (
           <div className="space-y-6">
 
-            {/* Brand selector */}
-            <div className="flex gap-2 flex-wrap">
-              {BRANDS_DATA.map(b=>{
+            {/* Brand selector + filter */}
+            <div className="space-y-2.5">
+              {/* Brand search */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 shadow-sm flex-1 max-w-xs">
+                  <Search size={11} className="text-gray-400 flex-shrink-0"/>
+                  <input value={uploadBrandFilter} onChange={e=>setUploadBrandFilter(e.target.value)}
+                    className="text-[11px] text-gray-600 bg-transparent outline-none flex-1" placeholder="بحث باسم العلامة التجارية..."/>
+                  {uploadBrandFilter && <button onClick={()=>setUploadBrandFilter("")} className="text-gray-400 hover:text-gray-600"><X size={10}/></button>}
+                </div>
+                {uploadBrandFilter && (
+                  <span className="text-[10px] text-gray-400">
+                    {BRANDS_DATA.filter(b=>!uploadBrandFilter||b.name.includes(uploadBrandFilter)).length} علامة
+                  </span>
+                )}
+              </div>
+              {/* Brand cards */}
+              <div className="flex gap-2 flex-wrap">
+              {BRANDS_DATA.filter(b=>!uploadBrandFilter||b.name.includes(uploadBrandFilter)).map(b=>{
                 const bUps = brandUploads[b.id] ?? { sales:false, materials:false, employees:false, suppliers:false };
                 const done = Object.values(bUps).filter(Boolean).length;
                 const total = 2 + b.restaurants.length;
                 return (
-                  <button key={b.id} onClick={()=>setUploadBrand(b.id)}
+                  <button key={b.id} onClick={()=>{ setUploadBrand(b.id); setUploadBrandFilter(""); }}
                     className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 transition-all ${uploadBrand===b.id?"border-purple-500 bg-purple-50":"border-gray-200 bg-white hover:border-purple-300"}`}>
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{background:b.color}}>{b.abbr}</div>
                     <div className="text-right">
@@ -6559,6 +6743,7 @@ function AdminRestaurants({}: PageProps) {
                   </button>
                 );
               })}
+              </div>
             </div>
 
             {/* ── Section 1: Brand-level shared data ── */}
