@@ -5,6 +5,7 @@ export const modules: ModuleMap = {
   "./components/mockups/asab/AdminDashboard.tsx": () => import("../components/mockups/asab/AdminDashboard.tsx"),
   "./components/mockups/asab/BranchManagerDashboard.tsx": () => import("../components/mockups/asab/BranchManagerDashboard.tsx"),
   "./components/mockups/asab/CashCustodyModule.tsx": () => import("../components/mockups/asab/CashCustodyModule.tsx"),
+  "./components/mockups/asab/CompanyDashboard.tsx": () => import("../components/mockups/asab/CompanyDashboard.tsx"),
   "./components/mockups/asab/ERPExportScreen.tsx": () => import("../components/mockups/asab/ERPExportScreen.tsx"),
   "./components/mockups/asab/EmployeeAccountModule.tsx": () => import("../components/mockups/asab/EmployeeAccountModule.tsx"),
   "./components/mockups/asab/ExpensesModule.tsx": () => import("../components/mockups/asab/ExpensesModule.tsx"),

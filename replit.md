@@ -94,3 +94,17 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+### `artifacts/mockup-sandbox` (`@workspace/mockup-sandbox`)
+
+Vite + React interactive prototype sandbox for the **ASAB (عصب)** multi-tenant restaurant financial management SaaS.
+
+**Key files:**
+- `src/components/mockups/asab/ASABPrototype.tsx` — Full interactive prototype (~10,700 lines). Roles: admin, head, accountant, branch, procurement, supplier. 9 modules, 6-stage approval pipeline, full Arabic RTL.
+- `src/components/mockups/asab/CompanyDashboard.tsx` — Standalone B2B portal for restaurant groups. Roles: company-admin, head, accountant, branch, procurement. Company Admin has full subscription management (plan, billing, users, modules, branches). Other roles reference the same ASAB system.
+- `src/components/mockups/asab/AdminDashboard.tsx` — ASAB Admin dashboard for managing brands/restaurants.
+- `src/.generated/mockup-components.ts` — Auto-registered component list for the preview server.
+
+**Design tokens:** Dark sidebar `#0F1C35→#1B3A6B`, content `#F0F4FA`, accent `#7C3AED` (purple), `#00D9FF` (cyan), IBM Plex Sans Arabic, RTL.
+
+**Company prototype data:** مجموعة التاج للمطاعم, plan=Professional, 12/20 branches, 31/50 users, expires Jan 2026.
