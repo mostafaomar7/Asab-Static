@@ -5111,6 +5111,273 @@ function AccCash({}: PageProps) {
 // ════════════════════════════════════════════════════════════
 // FIXED ASSETS — Mobile ↔ Accountant Coordination + Branch Report
 // ════════════════════════════════════════════════════════════
+function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAssets:(fn:(p:any[])=>any[])=>void; onClose:()=>void }) {
+  type ImportRow = {
+    rowId:number; name:string; cat:string; branch:string; invNum:string;
+    cost:number; usefulLife:number; custodian:string; selected:boolean; branchEditing:boolean;
+  };
+  const [step, setStep] = useState<1|2|3>(1);
+  const [dragging, setDragging] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [rows, setRows] = useState<ImportRow[]>([
+    { rowId:1, name:"ثلاجة صناعية سامسونج 800L",   cat:"معدات", branch:"فرع الرياض - العليا",     invNum:"INV-B001", cost:32000, usefulLife:72,  custodian:"مدير الفرع",        selected:true,  branchEditing:false },
+    { rowId:2, name:"شاشة كاشير LG 27 بوصة",        cat:"تقنية", branch:"فرع جدة - الحمراء",       invNum:"INV-B002", cost:4500,  usefulLife:48,  custodian:"مدير الفرع",        selected:true,  branchEditing:false },
+    { rowId:3, name:"طاولات ستانلس × 6",            cat:"أثاث",  branch:"فرع مكة - المعابدة",      invNum:"INV-B003", cost:9800,  usefulLife:60,  custodian:"مدير الفرع",        selected:true,  branchEditing:false },
+    { rowId:4, name:"مولّد كهربائي 50KW",            cat:"معدات", branch:"فرع الدمام - الخبر",      invNum:"INV-B004", cost:68000, usefulLife:120, custodian:"مدير الفرع",        selected:false, branchEditing:false },
+    { rowId:5, name:"كاميرات مراقبة × 8",           cat:"تقنية", branch:"فرع الرياض - السليمانية", invNum:"INV-B005", cost:12000, usefulLife:60,  custodian:"مدير الفرع",        selected:true,  branchEditing:false },
+    { rowId:6, name:"سيارة توصيل",                   cat:"مركبات",branch:"فرع جدة - العزيزية",      invNum:"INV-B006", cost:95000, usefulLife:60,  custodian:"سائق الفرع",        selected:true,  branchEditing:false },
+    { rowId:7, name:"طابعة فواتير إيبسون",           cat:"تقنية", branch:"فرع الرياض - العليا",     invNum:"INV-B007", cost:2200,  usefulLife:36,  custodian:"مدير الفرع",        selected:true,  branchEditing:false },
+    { rowId:8, name:"مضخة ماء صناعية",               cat:"معدات", branch:"فرع مكة - المعابدة",      invNum:"INV-B008", cost:7500,  usefulLife:84,  custodian:"مدير الفرع",        selected:false, branchEditing:false },
+  ]);
+  const [importSent, setImportSent] = useState(false);
+
+  const selectedRows = rows.filter(r=>r.selected);
+  const allSelected  = rows.every(r=>r.selected);
+
+  const branchGroups = selectedRows.reduce<Record<string,ImportRow[]>>((acc,r)=>{
+    if(!acc[r.branch]) acc[r.branch]=[];
+    acc[r.branch].push(r);
+    return acc;
+  }, {});
+
+  const simulateUpload = (name:string) => {
+    setFileName(name);
+    setTimeout(()=>setStep(2), 800);
+  };
+
+  const confirmImport = () => {
+    setAssets(prev=>{
+      const newEntries = selectedRows.map((r,i)=>({
+        id: `FA-${String(prev.length+i+1).padStart(3,"0")}`,
+        name:r.name, cat:r.cat as any, branch:r.branch,
+        cost:r.cost, book:r.cost, usefulLife:r.usefulLife,
+        case_:"acc_register" as const, status:"pending_branch" as const,
+        invNum:r.invNum, submittedBy:"المحاسب — استيراد Excel", date:"اليوم",
+        custodian:r.custodian,
+        history:[{date:"اليوم", from:"—", to:r.custodian, note:`مستورد من Excel (${fileName}) — أُرسل إشعار للفرع`, by:"المحاسب"}]
+      }));
+      return [...prev, ...newEntries];
+    });
+    setImportSent(true);
+    setStep(3);
+  };
+
+  const ALL_BRANCHES = ["فرع الرياض - العليا","فرع الرياض - السليمانية","فرع جدة - الحمراء","فرع جدة - العزيزية","فرع مكة - المعابدة","فرع الدمام - الخبر"];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose} dir="rtl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="px-6 py-4 bg-gradient-to-l from-emerald-700 to-emerald-600 text-white flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="font-bold text-base flex items-center gap-2"><Upload size={16}/> استيراد أصول من Excel</h3>
+            <p className="text-emerald-200 text-xs mt-0.5">استيراد دفعي لأصول متعددة — يُرسَل لكل فرع إشعار مستقل على الموبايل</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Step indicator */}
+            <div className="flex items-center gap-1">
+              {([1,2,3] as const).map((s,i)=>(
+                <div key={s} className="flex items-center gap-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border-2 transition-all ${step>=s?"bg-white text-emerald-700 border-white":"bg-transparent text-emerald-300 border-emerald-400"}`}>{s}</div>
+                  {i<2 && <div className={`w-6 h-0.5 ${step>s?"bg-white":"bg-emerald-400/50"}`}/>}
+                </div>
+              ))}
+            </div>
+            <button onClick={onClose} className="text-emerald-200 hover:text-white ml-2"><X size={18}/></button>
+          </div>
+        </div>
+
+        {/* Step labels */}
+        <div className="flex border-b border-gray-100 bg-gray-50/60 flex-shrink-0">
+          {[{n:1,l:"رفع الملف"},{n:2,l:"مراجعة البيانات"},{n:3,l:"تم الإرسال"}].map(s=>(
+            <div key={s.n} className={`flex-1 py-2.5 text-center text-xs font-semibold transition-colors ${step===s.n?"text-emerald-700 border-b-2 border-emerald-600":"text-gray-400"}`}>{s.l}</div>
+          ))}
+        </div>
+
+        {/* ── STEP 1: Upload ─────────────────── */}
+        {step===1 && (
+          <div className="p-8 flex flex-col items-center gap-6">
+            {/* Drag-drop zone */}
+            <div
+              onDragOver={e=>{e.preventDefault();setDragging(true);}}
+              onDragLeave={()=>setDragging(false)}
+              onDrop={e=>{ e.preventDefault(); setDragging(false); const f=e.dataTransfer.files[0]; if(f) simulateUpload(f.name); }}
+              className={`w-full border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-4 cursor-pointer transition-all ${dragging?"border-emerald-400 bg-emerald-50":"border-gray-200 bg-gray-50 hover:border-emerald-300 hover:bg-emerald-50/40"}`}
+              onClick={()=>simulateUpload("أصول_الفروع_أكتوبر_2025.xlsx")}>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                <Upload size={28} className="text-emerald-600"/>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-gray-800 text-base">اسحب ملف Excel هنا أو اضغط للتصفح</p>
+                <p className="text-gray-400 text-sm mt-1">يدعم: .xlsx · .xls · .csv — الحجم الأقصى 10MB</p>
+              </div>
+              <Btn variant="primary">📂 تصفح الملفات</Btn>
+            </div>
+
+            {/* Template download */}
+            <div className="w-full bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-lg">📊</div>
+                <div>
+                  <p className="font-semibold text-blue-900 text-sm">قالب Excel الجاهز</p>
+                  <p className="text-blue-600 text-xs mt-0.5">حمّل القالب المطلوب بالأعمدة الصحيحة لضمان الاستيراد السليم</p>
+                </div>
+              </div>
+              <button onClick={()=>alert("جارٍ تحميل قالب Excel...")}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition-all">
+                <Download size={13}/> تحميل القالب
+              </button>
+            </div>
+
+            {/* Required columns info */}
+            <div className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-gray-700 mb-2">📋 الأعمدة المطلوبة في الملف:</p>
+              <div className="grid grid-cols-4 gap-2">
+                {["اسم الأصل","الفئة","اسم الفرع","رقم الفاتورة","التكلفة (ر.س)","العمر الافتراضي (شهر)","أمين العهدة","ملاحظات"].map(col=>(
+                  <div key={col} className="flex items-center gap-1 text-[11px] text-gray-600"><Check size={10} className="text-emerald-500 flex-shrink-0"/>{col}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: Preview table ──────────── */}
+        {step===2 && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 bg-emerald-50/40">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-base">📊</div>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm" dir="ltr">{fileName||"assets_import.xlsx"}</p>
+                  <p className="text-xs text-gray-500">{rows.length} صف مُكتشف · {selectedRows.length} محدد للاستيراد</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                  <input type="checkbox" checked={allSelected} onChange={e=>setRows(p=>p.map(r=>({...r,selected:e.target.checked})))} className="rounded"/>
+                  تحديد الكل
+                </label>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-auto flex-1">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 font-semibold">
+                    <th className="px-3 py-2.5 text-center w-8">✔</th>
+                    <th className="px-3 py-2.5 text-right">اسم الأصل</th>
+                    <th className="px-3 py-2.5 text-center">الفئة</th>
+                    <th className="px-3 py-2.5 text-right">الفرع</th>
+                    <th className="px-3 py-2.5 text-center">رقم الفاتورة</th>
+                    <th className="px-3 py-2.5 text-center">التكلفة</th>
+                    <th className="px-3 py-2.5 text-center">العمر (شهر)</th>
+                    <th className="px-3 py-2.5 text-center">أمين العهدة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r=>(
+                    <tr key={r.rowId} className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors ${!r.selected?"opacity-40":""}`}>
+                      <td className="px-3 py-2.5 text-center">
+                        <input type="checkbox" checked={r.selected}
+                          onChange={e=>setRows(p=>p.map(x=>x.rowId===r.rowId?{...x,selected:e.target.checked}:x))}
+                          className="rounded"/>
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold text-gray-800">{r.name}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <Badge className="bg-purple-50 text-purple-700 border border-purple-100 text-[10px]">{r.cat}</Badge>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {r.branchEditing ? (
+                          <select value={r.branch}
+                            onChange={e=>setRows(p=>p.map(x=>x.rowId===r.rowId?{...x,branch:e.target.value,branchEditing:false}:x))}
+                            autoFocus className="text-xs border border-emerald-300 rounded-lg px-2 py-1 w-full">
+                            {ALL_BRANCHES.map(b=><option key={b}>{b}</option>)}
+                          </select>
+                        ) : (
+                          <button onClick={()=>setRows(p=>p.map(x=>x.rowId===r.rowId?{...x,branchEditing:true}:x))}
+                            className="text-xs text-emerald-700 font-semibold hover:underline flex items-center gap-1 group">
+                            {r.branch}<Edit2 size={10} className="opacity-0 group-hover:opacity-100"/>
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-mono text-xs text-gray-500">{r.invNum}</td>
+                      <td className="px-3 py-2.5 text-center font-mono font-bold text-gray-800">{fmtAmt(r.cost)}</td>
+                      <td className="px-3 py-2.5 text-center text-gray-600">{r.usefulLife}</td>
+                      <td className="px-3 py-2.5 text-center text-xs text-orange-700 font-semibold">{r.custodian}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 border-t-2 border-gray-200">
+                    <td colSpan={5} className="px-3 py-3 text-xs font-bold text-gray-600 text-right">إجمالي الأصول المحددة ({selectedRows.length})</td>
+                    <td className="px-3 py-3 text-center font-mono font-bold text-emerald-700">{fmtAmt(selectedRows.reduce((s,r)=>s+r.cost,0))}</td>
+                    <td colSpan={2}/>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Branch summary + action */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/40 flex-shrink-0">
+              <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5"><Smartphone size={12} className="text-emerald-600"/> سيُرسَل إشعار مستقل على الموبايل لكل فرع:</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {Object.entries(branchGroups).map(([branch,brRows])=>(
+                  <div key={branch} className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs">
+                    <span className="font-semibold text-emerald-800">{branch}</span>
+                    <Badge className="bg-emerald-200 text-emerald-800 text-[9px]">{brRows.length} أصل</Badge>
+                    <span className="text-emerald-600 font-mono">{fmtAmt(brRows.reduce((s,r)=>s+r.cost,0))}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Btn onClick={()=>setStep(1)}>← رجوع</Btn>
+                <Btn variant="primary" onClick={confirmImport} disabled={selectedRows.length===0}>
+                  <Send size={13}/> تأكيد الاستيراد وإرسال الإشعارات ({selectedRows.length} أصل · {Object.keys(branchGroups).length} فروع)
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: Success ─────────────────── */}
+        {step===3 && (
+          <div className="p-8 flex flex-col items-center gap-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 size={40} className="text-emerald-500"/>
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-xl">تم الاستيراد والإرسال بنجاح!</h3>
+              <p className="text-gray-500 text-sm mt-1">تم إضافة {selectedRows.length} أصل وإرسال إشعار لكل فرع على الموبايل</p>
+            </div>
+            <div className="w-full max-w-lg space-y-2">
+              {Object.entries(branchGroups).map(([branch,brRows])=>(
+                <div key={branch} className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Smartphone size={14} className="text-emerald-600"/>
+                    <span className="font-semibold text-emerald-900 text-sm">{branch}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-200 text-emerald-800 text-[10px]">{brRows.length} أصل</Badge>
+                    <span className="font-mono text-emerald-700 font-bold text-sm">{fmtAmt(brRows.reduce((s,r)=>s+r.cost,0))} ر.س</span>
+                    <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">📱 إشعار أُرسل</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 w-full max-w-lg">
+              <p className="text-xs text-amber-800 font-semibold flex items-center gap-1.5"><Bell size={12}/> انتظر تأكيد مديري الفروع</p>
+              <p className="text-xs text-amber-600 mt-1">سيظهر كل أصل في سجلك بحالة "ينتظر تأكيد الفرع" حتى يقوم مدير الفرع بالتأكيد عبر تطبيق الموبايل.</p>
+            </div>
+            <Btn variant="primary" onClick={onClose}><CheckCircle2 size={13}/> العودة إلى سجل الأصول</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AccAssets({}: PageProps) {
   type AssetStatus = "pending_branch"|"pending_accountant"|"confirmed"|"registered";
   type AssetCat    = "معدات"|"تقنية"|"أثاث"|"مركبات"|"أخرى";
@@ -5157,6 +5424,7 @@ function AccAssets({}: PageProps) {
   const [assetAttach,    setAssetAttach]   = useState<{assetId:string; name:string}|null>(null);
   const [showAddModal,   setShowAddModal]  = useState(false);
   const [showTransfer,   setShowTransfer]  = useState<string|null>(null);
+  const [showImportModal,setShowImportModal] = useState(false);
 
   // New asset form
   const [newAsset, setNewAsset] = useState({ name:"", cat:"معدات" as AssetCat, branch:"", invNum:"", cost:"", usefulLife:"60", custodian:"", notes:"" });
@@ -5222,6 +5490,10 @@ function AccAssets({}: PageProps) {
               </button>
             ))}
           </div>
+          <Btn size="sm" onClick={()=>setShowImportModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white border border-emerald-700 text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
+            <Upload size={13}/> استيراد من Excel
+          </Btn>
           <Btn variant="primary" size="sm" onClick={()=>setShowAddModal(true)}><Plus size={13}/> إضافة أصل جديد</Btn>
         </div>
       </div>
@@ -5659,6 +5931,9 @@ function AccAssets({}: PageProps) {
           </div>
         </div>
       )}
+
+      {/* ── EXCEL IMPORT MODAL ──────────────────────────────────── */}
+      {showImportModal && <ExcelImportModal assets={assets} setAssets={setAssets} onClose={()=>setShowImportModal(false)}/>}
 
       {/* Asset attachment viewer modal */}
       {assetAttach && (
