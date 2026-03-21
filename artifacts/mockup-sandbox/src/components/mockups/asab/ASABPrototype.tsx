@@ -4317,73 +4317,212 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
 }
 
 function AccInventoryItems({ navigate }:PageProps) {
-  const allItems = [
-    {name:"دجاج طازج",cat:"بروتين",unit:"كجم"},{name:"خبز برجر",cat:"مخبوزات",unit:"قطعة"},
-    {name:"جبنة شيدر",cat:"ألبان",unit:"كجم"},{name:"حليب طازج",cat:"ألبان",unit:"لتر"},
-    {name:"طماطم",cat:"خضروات",unit:"كجم"},{name:"خس",cat:"خضروات",unit:"كجم"},
-    {name:"بطاطس",cat:"خضروات",unit:"كجم"},{name:"بصل",cat:"خضروات",unit:"كجم"},
-    {name:"صوص خاص",cat:"صوصات",unit:"كجم"},{name:"زيت قلي",cat:"زيوت",unit:"لتر"},
-    {name:"مايونيز",cat:"صوصات",unit:"كجم"},{name:"كاتشب",cat:"صوصات",unit:"كجم"},
-    {name:"ماء معدني",cat:"مشروبات",unit:"لتر"},{name:"مشروبات غازية",cat:"مشروبات",unit:"علبة"},
-    {name:"عصير برتقال",cat:"مشروبات",unit:"لتر"},
-  ];
-  const [selected,setSelected] = useState<string[]>(["دجاج طازج","حليب طازج","خس","طماطم","بطاطس","زيت قلي","كاتشب","ماء معدني","عصير برتقال","خبز برجر"]);
-  const [catFilter,setCatFilter] = useState("الكل");
-  const [saved,setSaved] = useState(false);
-  const [saving,setSaving] = useState(false);
-  const cats = ["الكل",...new Set(allItems.map(i=>i.cat))];
-  const shown = catFilter==="الكل"?allItems:allItems.filter(i=>i.cat===catFilter);
-  const toggle = (n:string) => { setSaved(false); setSelected(p=>p.includes(n)?p.filter(x=>x!==n):[...p,n]); };
-  const save = () => { setSaving(true); setTimeout(()=>{ setSaving(false); setSaved(true); },800); };
+  const BRAND_CATALOG: Record<string,{name:string;cat:string;unit:string}[]> = {
+    "برغر خليفة": [
+      {name:"دجاج طازج",cat:"بروتين",unit:"كجم"},{name:"لحم برجر",cat:"بروتين",unit:"كجم"},
+      {name:"خبز برجر",cat:"مخبوزات",unit:"قطعة"},{name:"جبنة شيدر",cat:"ألبان",unit:"شريحة"},
+      {name:"طماطم",cat:"خضروات",unit:"كجم"},{name:"خس",cat:"خضروات",unit:"كجم"},
+      {name:"بطاطس",cat:"خضروات",unit:"كجم"},{name:"بصل",cat:"خضروات",unit:"كجم"},
+      {name:"صوص برجر خاص",cat:"صوصات",unit:"كجم"},{name:"مايونيز",cat:"صوصات",unit:"كجم"},
+      {name:"كاتشب",cat:"صوصات",unit:"كجم"},{name:"زيت قلي",cat:"زيوت",unit:"لتر"},
+      {name:"مشروبات غازية",cat:"مشروبات",unit:"علبة"},{name:"ماء معدني",cat:"مشروبات",unit:"لتر"},
+    ],
+    "بيتزا باكو": [
+      {name:"عجينة البيتزا",cat:"مخبوزات",unit:"كجم"},{name:"صوص الطماطم",cat:"صوصات",unit:"كجم"},
+      {name:"جبنة موزاريلا",cat:"ألبان",unit:"كجم"},{name:"فلفل رومي",cat:"خضروات",unit:"كجم"},
+      {name:"مشروم",cat:"خضروات",unit:"كجم"},{name:"دجاج مشوي",cat:"بروتين",unit:"كجم"},
+      {name:"لحم مدخن",cat:"بروتين",unit:"كجم"},{name:"زيت زيتون",cat:"زيوت",unit:"لتر"},
+      {name:"أوريجانو",cat:"توابل",unit:"كجم"},{name:"ثوم",cat:"خضروات",unit:"كجم"},
+      {name:"مشروبات غازية",cat:"مشروبات",unit:"علبة"},{name:"ماء معدني",cat:"مشروبات",unit:"لتر"},
+    ],
+    "وسطاوي": [
+      {name:"أرز بسمتي",cat:"حبوب",unit:"كجم"},{name:"دجاج طازج",cat:"بروتين",unit:"كجم"},
+      {name:"لحم ضأن",cat:"بروتين",unit:"كجم"},{name:"بهارات مشوي",cat:"توابل",unit:"كجم"},
+      {name:"طماطم",cat:"خضروات",unit:"كجم"},{name:"بصل",cat:"خضروات",unit:"كجم"},
+      {name:"ثوم",cat:"خضروات",unit:"كجم"},{name:"زيت نباتي",cat:"زيوت",unit:"لتر"},
+      {name:"حليب طازج",cat:"ألبان",unit:"لتر"},{name:"خبز تنور",cat:"مخبوزات",unit:"قطعة"},
+      {name:"ليمون",cat:"فواكه",unit:"كجم"},{name:"مشروبات غازية",cat:"مشروبات",unit:"علبة"},
+    ],
+  };
+  const BRAND_BRANCHES: Record<string,string[]> = {
+    "برغر خليفة": ["فرع الرياض - العليا","فرع الرياض - النزهة","فرع جدة - الحمراء","فرع الدمام - الكورنيش"],
+    "بيتزا باكو": ["فرع الرياض - الصحافة","فرع جدة - العزيزية","فرع مكة - العزيزية"],
+    "وسطاوي": ["فرع الرياض - المغرزات","فرع مكة - المعابدة","فرع جدة - الرحاب"],
+  };
+  const MONTHLY_DIFF: Record<string,Record<string,{prev:number;curr:number;pct:number}>> = {
+    "فرع الرياض - العليا":    {"دجاج طازج":{prev:120,curr:89,pct:26},"بطاطس":{prev:80,curr:51,pct:36},"زيت قلي":{prev:40,curr:27,pct:33},"مايونيز":{prev:15,curr:19,pct:27}},
+    "فرع الرياض - النزهة":    {"خبز برجر":{prev:500,curr:340,pct:32},"جبنة شيدر":{prev:30,curr:21,pct:30}},
+    "فرع جدة - الحمراء":      {"كاتشب":{prev:20,curr:13,pct:35},"صوص برجر خاص":{prev:18,curr:11,pct:39}},
+    "فرع الدمام - الكورنيش":  {"لحم برجر":{prev:25,curr:16,pct:36}},
+    "فرع الرياض - الصحافة":   {"عجينة البيتزا":{prev:60,curr:39,pct:35},"جبنة موزاريلا":{prev:25,curr:16,pct:36}},
+    "فرع جدة - العزيزية":     {"دجاج مشوي":{prev:18,curr:11,pct:39}},
+    "فرع مكة - العزيزية":     {"صوص الطماطم":{prev:12,curr:7,pct:42},"مشروم":{prev:10,curr:6,pct:40}},
+    "فرع الرياض - المغرزات":  {"أرز بسمتي":{prev:80,curr:52,pct:35},"دجاج طازج":{prev:40,curr:26,pct:35}},
+    "فرع مكة - المعابدة":     {"لحم ضأن":{prev:22,curr:13,pct:41}},
+    "فرع جدة - الرحاب":       {"خبز تنور":{prev:300,curr:190,pct:37},"بهارات مشوي":{prev:8,curr:5,pct:38}},
+  };
+  const brands = Object.keys(BRAND_CATALOG);
+  const [selBrand, setSelBrand] = useState(brands[0]);
+  const [selBranch, setSelBranch] = useState(BRAND_BRANCHES[brands[0]][0]);
+  const [catFilter, setCatFilter] = useState("الكل");
+  const [saving, setSaving] = useState(false);
+  const [savedBranch, setSavedBranch] = useState<string|null>(null);
+  const FLAG_PCT = 25;
+
+  const initDailyLists = (): Record<string,string[]> => {
+    const r: Record<string,string[]> = {};
+    Object.values(BRAND_BRANCHES).flat().forEach(br=>{ r[br]=[]; });
+    r["فرع الرياض - العليا"] = ["دجاج طازج","بطاطس","زيت قلي","كاتشب","مشروبات غازية"];
+    r["فرع الرياض - النزهة"] = ["خبز برجر","جبنة شيدر","طماطم"];
+    r["فرع الرياض - الصحافة"] = ["عجينة البيتزا","جبنة موزاريلا","مشروبات غازية"];
+    r["فرع الرياض - المغرزات"] = ["أرز بسمتي","دجاج طازج","خبز تنور"];
+    return r;
+  };
+  const [dailyLists, setDailyLists] = useState<Record<string,string[]>>(initDailyLists);
+
+  const catalog = BRAND_CATALOG[selBrand]||[];
+  const cats = ["الكل",...new Set(catalog.map(i=>i.cat))];
+  const shown = catFilter==="الكل" ? catalog : catalog.filter(i=>i.cat===catFilter);
+  const dailyList = dailyLists[selBranch]||[];
+  const branchDiffs = MONTHLY_DIFF[selBranch]||{};
+  const isFlagged = (name:string) => !!(branchDiffs[name] && branchDiffs[name].pct >= FLAG_PCT);
+  const flaggedNotInDaily = catalog.filter(i=>isFlagged(i.name) && !dailyList.includes(i.name));
+
+  const toggleItem = (name:string) => {
+    setSavedBranch(null);
+    setDailyLists(p=>({ ...p, [selBranch]: p[selBranch]?.includes(name) ? p[selBranch].filter(x=>x!==name) : [...(p[selBranch]||[]),name] }));
+  };
+  const addAllFlagged = () => {
+    setSavedBranch(null);
+    setDailyLists(p=>({ ...p, [selBranch]: [...new Set([...(p[selBranch]||[]),...flaggedNotInDaily.map(i=>i.name)])] }));
+  };
+  const save = () => {
+    setSaving(true);
+    setTimeout(()=>{ setSaving(false); setSavedBranch(selBranch); }, 800);
+  };
 
   return (
     <div className="space-y-5">
       <Breadcrumb items={[{label:"لوحة التحكم",onClick:()=>navigate("acc-dashboard")},{label:"المخزون",onClick:()=>navigate("acc-inventory")},{label:"تحديد الأصناف"}]}/>
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">تحديد أصناف الجرد اليومي</h2>
-          <p className="text-gray-400 text-sm mt-0.5">حدد الأصناف التي يجب على مدير الفرع جردها يومياً — يتزامن فوراً مع تطبيق الموبايل</p></div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">تحديد أصناف الجرد اليومي — حسب الفرع</h2>
+          <p className="text-gray-400 text-sm mt-0.5">كل فرع له قائمة أصناف مستقلة · الأصناف بفروقات شهرية كبيرة (&gt;25%) تُعلَّم بـ ⚡ للإضافة السريعة</p>
+        </div>
         <Btn variant="primary" onClick={save} className={saving?"opacity-70 cursor-not-allowed":""}>
           {saving?<RefreshCw size={13} className="animate-spin"/>:<RefreshCw size={13}/>}
-          {saving?"جاري الحفظ...":"حفظ وتحديث التطبيق فوراً"}
+          {saving?"جاري الحفظ...":"حفظ وتحديث الفرع فوراً"}
         </Btn>
       </div>
-      {saved && (
+
+      {savedBranch && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
           <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0"/>
-          <div><p className="text-emerald-800 font-semibold text-sm">تم الحفظ والإرسال بنجاح!</p>
-            <p className="text-emerald-600 text-xs">تم إرسال {selected.length} أصناف إلى تطبيق مدير الفرع مع إشعار فوري.</p></div>
-          <button onClick={()=>setSaved(false)} className="mr-auto text-emerald-400 hover:text-emerald-600"><X size={14}/></button>
+          <div>
+            <p className="text-emerald-800 font-semibold text-sm">تم الحفظ والإرسال بنجاح!</p>
+            <p className="text-emerald-600 text-xs">تم إرسال {dailyList.length} صنف إلى تطبيق مدير {savedBranch} مع إشعار فوري.</p>
+          </div>
+          <button onClick={()=>setSavedBranch(null)} className="mr-auto text-emerald-400 hover:text-emerald-600"><X size={14}/></button>
         </div>
       )}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-        <Bell size={14} className="text-amber-600 flex-shrink-0"/>
-        <p className="text-amber-700 text-sm">أي تغيير يُحدَّث فوراً في تطبيق مدير الفرع مع إشعار تلقائي.</p>
-      </div>
-      <div className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 space-y-4">
+
+      {/* Brand + Branch selector */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">العلامة التجارية</p>
           <div className="flex gap-2 flex-wrap">
-            {cats.map(c=>(
-              <button key={c} onClick={()=>setCatFilter(c)} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${catFilter===c?"bg-purple-600 text-white":"bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}>{c}</button>
+            {brands.map(b=>(
+              <button key={b} onClick={()=>{ setSelBrand(b); setSelBranch(BRAND_BRANCHES[b][0]); setCatFilter("الكل"); setSavedBranch(null); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${selBrand===b?"border-purple-500 bg-purple-50 text-purple-700":"border-gray-200 bg-white text-gray-600 hover:border-purple-200"}`}>
+                {b}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selBrand===b?"bg-purple-100 text-purple-600":"bg-gray-100 text-gray-400"}`}>{BRAND_BRANCHES[b].length} فروع</span>
+              </button>
             ))}
           </div>
-          <Card title={`الأصناف — ${shown.length}`} actions={
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">الفرع</p>
+          <div className="flex flex-wrap gap-2">
+            {BRAND_BRANCHES[selBrand].map(br=>{
+              const brDaily = dailyLists[br]||[];
+              const brDiffs = MONTHLY_DIFF[br]||{};
+              const brFlaggedCount = BRAND_CATALOG[selBrand].filter(i=>brDiffs[i.name]&&brDiffs[i.name].pct>=FLAG_PCT&&!brDaily.includes(i.name)).length;
+              return (
+                <button key={br} onClick={()=>{ setSelBranch(br); setCatFilter("الكل"); setSavedBranch(null); }}
+                  className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${selBranch===br?"border-purple-500 bg-purple-50 text-purple-700":"border-gray-200 bg-white text-gray-600 hover:border-purple-200"}`}>
+                  <span>{br.replace("فرع ","ف. ")}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${selBranch===br?"bg-purple-100 text-purple-700":"bg-gray-100 text-gray-500"}`}>{brDaily.length} صنف</span>
+                  {brFlaggedCount>0 && (
+                    <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">{brFlaggedCount}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Flagged alert */}
+      {flaggedNotInDaily.length>0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5"/>
+            <div className="flex-1">
+              <p className="text-amber-800 font-semibold text-sm">⚡ {flaggedNotInDaily.length} أصناف بفروقات شهرية عالية في {selBranch.replace("فرع ","")}</p>
+              <p className="text-amber-600 text-xs mt-0.5">تجاوزت فروقاتها في الجرد الشهري 25% — يُنصح بإضافتها للجرد اليومي لمتابعة أدق</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {flaggedNotInDaily.map(i=>(
+                  <button key={i.name} onClick={()=>toggleItem(i.name)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 text-xs font-medium hover:bg-amber-200 transition-all">
+                    ⚡ {i.name}
+                    <span className="text-amber-600 text-[9px] font-bold">(-{branchDiffs[i.name].pct}%)</span>
+                    <Plus size={10} className="text-amber-700"/>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={addAllFlagged}
+              className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-all whitespace-nowrap">
+              إضافة الكل ⚡
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-5">
+        {/* Left: catalog */}
+        <div className="col-span-2 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {cats.map(c=>(
+              <button key={c} onClick={()=>setCatFilter(c)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${catFilter===c?"bg-purple-600 text-white":"bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <Card title={`كتالوج ${selBrand} — ${shown.length} صنف`} actions={
             <div className="flex gap-3">
-              <button onClick={()=>{ setSaved(false); setSelected(allItems.map(i=>i.name)); }} className="text-xs text-purple-600 hover:underline">تحديد الكل</button>
-              <button onClick={()=>{ setSaved(false); setSelected([]); }} className="text-xs text-red-500 hover:underline">إلغاء الكل</button>
+              <button onClick={()=>{ setSavedBranch(null); setDailyLists(p=>({...p,[selBranch]:catalog.map(i=>i.name)})); }} className="text-xs text-purple-600 hover:underline">تحديد الكل</button>
+              <button onClick={()=>{ setSavedBranch(null); setDailyLists(p=>({...p,[selBranch]:[]})); }} className="text-xs text-red-500 hover:underline">إلغاء الكل</button>
             </div>
           }>
             <div className="p-4 grid grid-cols-2 gap-2.5">
               {shown.map(item=>{
-                const isSelected=selected.includes(item.name);
+                const isSelected = dailyList.includes(item.name);
+                const flagged = isFlagged(item.name);
+                const diffData = branchDiffs[item.name];
                 return (
-                  <button key={item.name} onClick={()=>toggle(item.name)}
-                    className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-right ${isSelected?"border-purple-300 bg-purple-50/60":"border-gray-100 bg-white hover:border-gray-200"}`}>
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${isSelected?"bg-purple-600":"bg-gray-200"}`}>
-                      {isSelected && <span className="text-white text-[10px]">✓</span>}
+                  <button key={item.name} onClick={()=>toggleItem(item.name)}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-right ${isSelected?"border-purple-300 bg-purple-50/70":flagged?"border-amber-300 bg-amber-50/50 hover:border-amber-400":"border-gray-100 bg-white hover:border-gray-200"}`}>
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${isSelected?"bg-purple-600":flagged?"bg-amber-400":"bg-gray-100"}`}>
+                      {isSelected ? <Check size={12} className="text-white"/> : flagged ? <span className="text-white text-[10px] font-bold">⚡</span> : null}
                     </div>
                     <div className="text-right flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                      <p className="text-[10px] text-gray-400">{item.cat} · {item.unit}</p>
+                      <p className="text-sm font-semibold text-gray-800">{item.name}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {item.cat} · {item.unit}
+                        {flagged && <span className="text-amber-600 font-bold"> · ⚡ فرق {diffData.pct}%</span>}
+                      </p>
                     </div>
                   </button>
                 );
@@ -4391,26 +4530,55 @@ function AccInventoryItems({ navigate }:PageProps) {
             </div>
           </Card>
         </div>
-        <div>
-          <Card title="الأصناف المحددة" actions={<Badge className="bg-purple-100 text-purple-700">{selected.length} صنف</Badge>}>
+
+        {/* Right: daily list + monthly diff */}
+        <div className="space-y-3">
+          <Card title={`جرد ${selBranch.replace("فرع ","")}`} actions={<Badge className="bg-purple-100 text-purple-700 font-bold">{dailyList.length} صنف يومياً</Badge>}>
             <div className="p-4">
-              {selected.length===0
-                ? <EmptyState icon="📦" title="لم يتم اختيار أصناف" desc=""/>
-                : <div className="space-y-1.5 mb-4">
-                    {selected.map((n,i)=>(
-                      <div key={n} className="flex items-center gap-2 py-1">
-                        <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
-                        <span className="text-sm text-gray-700 flex-1">{n}</span>
-                        <button onClick={()=>toggle(n)} className="text-gray-300 hover:text-red-400"><X size={12}/></button>
-                      </div>
-                    ))}
+              {dailyList.length===0
+                ? <EmptyState icon="📦" title="لم يتم اختيار أصناف" desc="اختر من الكتالوج على اليسار"/>
+                : <div className="space-y-1 mb-3 max-h-52 overflow-y-auto">
+                    {dailyList.map((n,i)=>{
+                      const flagged = isFlagged(n);
+                      return (
+                        <div key={n} className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors group ${flagged?"bg-amber-50/70 hover:bg-amber-50":"hover:bg-gray-50"}`}>
+                          <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i+1}</span>
+                          <span className="text-sm text-gray-700 flex-1">{n}</span>
+                          {flagged && <span className="text-[10px] text-amber-600 font-semibold">⚡</span>}
+                          <button onClick={()=>toggleItem(n)} className="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"><X size={13}/></button>
+                        </div>
+                      );
+                    })}
                   </div>
               }
-              <Btn variant="primary" className="w-full justify-center mt-2" onClick={save}>
-                <RefreshCw size={13}/> تحديث التطبيق
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 mb-3">
+                <p className="text-[10px] text-blue-600">⚡ مُعلَّم = فروقات شهرية كبيرة · يُرسَل فورياً للموبايل</p>
+              </div>
+              <Btn variant="primary" className="w-full justify-center" onClick={save}>
+                <RefreshCw size={13}/> {saving?"جاري الإرسال...":"تحديث الفرع فوراً"}
               </Btn>
             </div>
           </Card>
+
+          {Object.keys(branchDiffs).length>0 && (
+            <Card title="فروقات الجرد الشهري">
+              <div className="p-3 space-y-2">
+                {Object.entries(branchDiffs).map(([name,d])=>(
+                  <div key={name} className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-700 truncate">{name}</p>
+                      <p className="text-[10px] text-gray-400">{d.prev} → {d.curr} {catalog.find(i=>i.name===name)?.unit||""}</p>
+                    </div>
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${d.pct>=35?"bg-red-100 text-red-700":"bg-amber-100 text-amber-700"}`}>-{d.pct}%</div>
+                    {dailyList.includes(name)
+                      ? <CheckCircle2 size={14} className="text-emerald-500 flex-shrink-0"/>
+                      : <button onClick={()=>toggleItem(name)} className="text-amber-500 hover:text-amber-700 flex-shrink-0 transition-colors"><Plus size={14}/></button>
+                    }
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -6032,37 +6200,111 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
 
 function HeadPending({ navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove }:PageProps) {
   const [filters, setFilters] = useState<Filters>({branch:"",status:"approved",match:"",search:""});
-  const filtered = applyFilters(ops, filters).filter(o=>o.status==="approved");
+  const [accFilter, setAccFilter] = useState("الكل");
+  const [brandFilter, setBrandFilter] = useState("الكل");
+  const HEAD_ACCS = ["أحمد الشهري","سارة العمري","محمد الحربي","فاطمة السالم"];
+  const getAcc = (id:string) => HEAD_ACCS[parseInt(id.replace(/\D/g,"").slice(-2)||"0") % HEAD_ACCS.length];
+  let filtered = applyFilters(ops, filters).filter(o=>o.status==="approved");
+  if(accFilter!=="الكل") filtered = filtered.filter(o=>getAcc(o.id)===accFilter);
+  const totalAmt = filtered.reduce((s,o)=>s+o.amount,0);
+  const hasFilters = accFilter!=="الكل"||brandFilter!=="الكل"||!!filters.branch||!!filters.match||!!filters.search;
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">بانتظار الاعتماد النهائي</h2>
-          <p className="text-gray-400 text-sm mt-0.5">{filtered.length} عملية وافق عليها المحاسبون</p></div>
-        {filtered.length>0 && <Btn variant="success" onClick={()=>bulkApprove(filtered.map(o=>o.id))}>✅ اعتماد الكل</Btn>}
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">بانتظار الاعتماد النهائي</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{filtered.length} عملية وافق عليها المحاسبون · {fmtAmt(totalAmt)} ر.س إجمالياً</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>alert("جارٍ تصدير العمليات المعلقة إلى Excel...")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> Excel
+          </button>
+          {filtered.length>0 && <Btn variant="success" onClick={()=>bulkApprove(filtered.map(o=>o.id))}>✅ اعتماد الكل ({filtered.length})</Btn>}
+        </div>
       </div>
-      <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
-      <Card title="العمليات المعلقة">
+
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="بانتظار الاعتماد" value={String(filtered.length)} sub="جميع الموديولات" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="الإجمالي" value={`${(totalAmt/1000).toFixed(0)}K`} sub="ر.س" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="يوجد فروقات" value={String(filtered.filter(o=>o.match==="diff").length)} sub="تحتاج مراجعة إضافية" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المحاسب المراجع</label>
+            <select value={accFilter} onChange={e=>setAccFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option>الكل</option>
+              {HEAD_ACCS.map(a=><option key={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filters.branch} onChange={e=>setFilters({...filters,branch:e.target.value})} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">الكل</option>
+              {BRANCHES.map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المطابقة</label>
+            <select value={filters.match} onChange={e=>setFilters({...filters,match:e.target.value})} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">كل المطابقات</option>
+              <option value="exact">متطابق تاماً</option>
+              <option value="review">يحتاج مراجعة</option>
+              <option value="diff">يوجد فرق</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2">
+            <Search size={13} className="text-gray-400 flex-shrink-0"/>
+            <input value={filters.search} onChange={e=>setFilters({...filters,search:e.target.value})} placeholder="بحث بالفرع أو المطعم أو رقم العملية..." className="flex-1 text-sm outline-none"/>
+          </div>
+          {hasFilters && (
+            <button onClick={()=>{ setAccFilter("الكل"); setBrandFilter("الكل"); setFilters({branch:"",status:"approved",match:"",search:""}); }}
+              className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">العمليات المعلقة</h3>
+          <span className="text-xs text-gray-400">{filtered.length} عملية · {fmtAmt(totalAmt)} ر.س</span>
+        </div>
         {filtered.length===0
           ? <EmptyState icon="✅" title="لا توجد عمليات" desc="تم اعتماد الكل أو لا تطابق الفلاتر"/>
-          : filtered.map(op=>(
-            <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
-              <Badge className="bg-purple-50 text-purple-700 flex-shrink-0">{op.moduleLabel}</Badge>
-              <div className="flex-1">
-                <div className="flex items-center gap-2"><span className="font-semibold text-sm text-gray-800">{op.branch}</span><span className="text-xs font-mono text-gray-400">{op.id}</span></div>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className={`${MATCH_CFG[op.match].cls} border`}>{MATCH_CFG[op.match].label}</Badge>
-                  <span className="text-xs text-gray-400">⏰ {op.timeAgo}</span>
+          : filtered.map(op=>{
+              const accountant = getAcc(op.id);
+              return (
+                <div key={op.id} className={`px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/60 ${op.match==="diff"?"border-r-4 border-r-red-400":""}`}>
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{accountant[0]}</div>
+                  <Badge className="bg-purple-50 text-purple-700 border border-purple-100 text-xs flex-shrink-0">{op.moduleLabel}</Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-gray-800">{op.branch}</span>
+                      <span className="text-xs font-mono text-gray-400">{op.id}</span>
+                      <Badge className={`${MATCH_CFG[op.match].cls} border text-[10px]`}>{MATCH_CFG[op.match].label}</Badge>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">راجعه: <span className="text-purple-600 font-medium">{accountant}</span> · <span>⏰ {op.timeAgo}</span></p>
+                  </div>
+                  <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtAmt(op.amount)} ر.س</span>
+                  <div className="flex gap-1.5">
+                    <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
+                    <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><XCircle size={12}/> رفض</Btn>
+                  </div>
                 </div>
-              </div>
-              <span className="font-mono font-bold text-gray-800">{fmtAmt(op.amount)} ر.س</span>
-              <div className="flex gap-1.5">
-                <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
-                <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><XCircle size={12}/> رفض</Btn>
-              </div>
-            </div>
-          ))
+              );
+            })
         }
-      </Card>
+      </div>
     </div>
   );
 }
@@ -6150,37 +6392,121 @@ function HeadRejected({ ops }:PageProps) {
 
 function HeadModulePage({ moduleKey, navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove }:PageProps&{moduleKey:string}) {
   const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
+  const [accFilter, setAccFilter] = useState("الكل");
+  const [brandFilter, setBrandFilter] = useState("الكل");
   const mk = moduleKey as ModuleKey;
-  const filtered = applyFilters(ops, filters, mk).filter(o=>o.status==="approved");
   const labels: Record<string,string> = {sales:"المبيعات",expenses:"المصروفات",purchases:"المشتريات",inventory:"المخزون",shifts:"الشفتات",employees:"كشف الحساب",cash:"العهد النقدية"};
+  const moduleEmoji: Record<string,string> = {sales:"💰",expenses:"🧾",purchases:"🛒",inventory:"📦",shifts:"🕐",employees:"👥",cash:"💵"};
   const label = labels[moduleKey]||moduleKey;
+  const HEAD_ACCS = ["أحمد الشهري","سارة العمري","محمد الحربي","فاطمة السالم"];
+  const getAcc = (id:string) => HEAD_ACCS[parseInt(id.replace(/\D/g,"").slice(-2)||"0") % HEAD_ACCS.length];
+  let filtered = applyFilters(ops, filters, mk).filter(o=>o.status==="approved");
+  if(accFilter!=="الكل") filtered = filtered.filter(o=>getAcc(o.id)===accFilter);
+  const totalAmt = filtered.reduce((s,o)=>s+o.amount,0);
+  const diffCount = filtered.filter(o=>o.match==="diff").length;
+  const exactCount = filtered.filter(o=>o.match==="exact").length;
+  const hasFilters = accFilter!=="الكل"||brandFilter!=="الكل"||!!filters.branch||!!filters.match||!!filters.search;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">{label}</h2>
-          <p className="text-gray-400 text-sm mt-0.5">العمليات الموافق عليها من المحاسبين — تنتظر اعتمادك النهائي</p></div>
-        {filtered.length>0 && <Btn variant="success" onClick={()=>bulkApprove(filtered.map(o=>o.id))}>✅ اعتماد الكل</Btn>}
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{moduleEmoji[moduleKey]||"📋"}</span>
+            <h2 className="text-xl font-bold text-gray-800">{label} — الاعتماد النهائي</h2>
+          </div>
+          <p className="text-gray-400 text-sm mt-0.5">العمليات الموافق عليها من المحاسبين — تنتظر اعتمادك النهائي</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>alert(`جارٍ تصدير عمليات ${label} إلى Excel...`)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
+            <FileText size={11}/> Excel
+          </button>
+          {filtered.length>0 && <Btn variant="success" onClick={()=>bulkApprove(filtered.map(o=>o.id))}>✅ اعتماد الكل ({filtered.length})</Btn>}
+        </div>
       </div>
-      <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
-      <Card title={`عمليات ${label}`}>
+
+      <div className="grid grid-cols-4 gap-3">
+        <KpiCard label="بانتظار الاعتماد" value={String(filtered.length)} sub="عملية موافق عليها" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="الإجمالي" value={`${(totalAmt/1000).toFixed(0)}K`} sub="ر.س" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="يوجد فروقات" value={String(diffCount)} sub="تحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="متطابقة" value={String(exactCount)} sub="مطابقة تامة" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المحاسب المراجع</label>
+            <select value={accFilter} onChange={e=>setAccFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option>الكل</option>
+              {HEAD_ACCS.map(a=><option key={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الفرع</label>
+            <select value={filters.branch} onChange={e=>setFilters({...filters,branch:e.target.value})} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">الكل</option>
+              {BRANCHES.map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المطابقة</label>
+            <select value={filters.match} onChange={e=>setFilters({...filters,match:e.target.value})} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              <option value="">كل المطابقات</option>
+              <option value="exact">متطابق تاماً</option>
+              <option value="review">يحتاج مراجعة</option>
+              <option value="diff">يوجد فرق</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2">
+            <Search size={13} className="text-gray-400 flex-shrink-0"/>
+            <input value={filters.search} onChange={e=>setFilters({...filters,search:e.target.value})} placeholder="بحث بالفرع أو المطعم أو رقم العملية..." className="flex-1 text-sm outline-none"/>
+          </div>
+          {hasFilters && (
+            <button onClick={()=>{ setAccFilter("الكل"); setBrandFilter("الكل"); setFilters({branch:"",status:"",match:"",search:""}); }}
+              className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح</button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">عمليات {label}</h3>
+          <span className="text-xs text-gray-400">{filtered.length} عملية · {fmtAmt(totalAmt)} ر.س</span>
+        </div>
         {filtered.length===0
           ? <EmptyState icon="✅" title="لا توجد عمليات" desc="لا توجد عمليات بانتظار الاعتماد في هذا الموديول"/>
-          : filtered.map(op=>(
-            <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
-              <div className="flex-1">
-                <div className="flex items-center gap-2"><span className="font-semibold text-sm text-gray-800">{op.branch}</span><span className="text-xs font-mono text-gray-400">{op.id}</span></div>
-                <div className="flex items-center gap-2 mt-1"><Badge className={`${MATCH_CFG[op.match].cls} border`}>{MATCH_CFG[op.match].label}</Badge><span className="text-xs text-gray-400">⏰ {op.timeAgo}</span></div>
-              </div>
-              <span className="font-mono font-bold">{fmtAmt(op.amount)} ر.س</span>
-              <div className="flex gap-1.5">
-                <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
-                <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><XCircle size={12}/></Btn>
-              </div>
-            </div>
-          ))
+          : filtered.map(op=>{
+              const accountant = getAcc(op.id);
+              return (
+                <div key={op.id} className={`px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/60 ${op.match==="diff"?"border-r-4 border-r-red-400":""}`}>
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{accountant[0]}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-gray-800">{op.branch}</span>
+                      <span className="text-xs font-mono text-gray-400">{op.id}</span>
+                      <Badge className={`${MATCH_CFG[op.match].cls} border text-[10px]`}>{MATCH_CFG[op.match].label}</Badge>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">راجعه: <span className="text-purple-600 font-medium">{accountant}</span> · <span>⏰ {op.timeAgo}</span></p>
+                  </div>
+                  <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtAmt(op.amount)} ر.س</span>
+                  <div className="flex gap-1.5">
+                    <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
+                    <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><XCircle size={12}/> رفض</Btn>
+                  </div>
+                </div>
+              );
+            })
         }
-      </Card>
+      </div>
     </div>
   );
 }
