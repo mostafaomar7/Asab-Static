@@ -5472,29 +5472,38 @@ function AccAssets({}: PageProps) {
   return (
     <div className="space-y-5" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2>
           <p className="text-gray-400 text-sm mt-0.5">تسجيل وتتبع الأصول — سجل العهدة والنقل التاريخي بين الموظفين</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <button onClick={()=>alert("جارٍ تصدير سجل الأصول الثابتة إلى Excel...")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
-            <FileText size={11}/> Excel
-          </button>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-            {([["list","قائمة الأصول"],["branch_report","تقرير الفروع"]] as const).map(([v,l])=>(
-              <button key={v} onClick={()=>setViewMode(v)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode===v?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
-                {l}
-              </button>
-            ))}
+        <div className="flex flex-col gap-2 items-end flex-shrink-0">
+          {/* Row 1: view toggle + export */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+              {([["list","قائمة الأصول"],["branch_report","تقرير الفروع"]] as const).map(([v,l])=>(
+                <button key={v} onClick={()=>setViewMode(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode===v?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>alert("جارٍ تصدير سجل الأصول الثابتة إلى Excel...")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold hover:bg-gray-100 transition-all">
+              <FileText size={11}/> تصدير Excel
+            </button>
           </div>
-          <Btn size="sm" onClick={()=>setShowImportModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white border border-emerald-700 text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
-            <Upload size={13}/> استيراد من Excel
-          </Btn>
-          <Btn variant="primary" size="sm" onClick={()=>setShowAddModal(true)}><Plus size={13}/> إضافة أصل جديد</Btn>
+          {/* Row 2: import + add */}
+          <div className="flex items-center gap-2">
+            <button onClick={()=>setShowImportModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-sm">
+              <Upload size={14}/> استيراد من Excel
+            </button>
+            <button onClick={()=>setShowAddModal(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 transition-all shadow-sm">
+              <Plus size={14}/> إضافة أصل جديد
+            </button>
+          </div>
         </div>
       </div>
 
