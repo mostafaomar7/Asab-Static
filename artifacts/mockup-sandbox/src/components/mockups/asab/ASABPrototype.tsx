@@ -7,7 +7,7 @@ import {
   AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
   Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, Edit3, X, FileText,
   Truck, Home, Shield, RotateCcw, Lock, Send, Tag, Smartphone, CheckSquare,
-  ZapOff, ChevronLeft, Clipboard, Check
+  ZapOff, ChevronLeft, Clipboard, Check, CreditCard
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -159,6 +159,7 @@ const NAV_CONFIG: Record<RoleId, NavEntry[]> = {
     { id:"admin-users",          label:"المستخدمون",        icon:<Users size={16}/>,           badge:3 },
     { id:"admin-restaurants",    label:"المطاعم والفروع",   icon:<Home size={16}/> },
     { id:"admin-subscriptions",  label:"الاشتراكات",        icon:<Shield size={16}/>,          badge:2, badgeColor:"yellow" as const },
+    { id:"admin-companies",      label:"اشتراكات الشركات",  icon:<Building2 size={16}/>,       badge:5, badgeColor:"yellow" as const },
     { id:"admin-permissions",    label:"الصلاحيات",         icon:<Settings size={16}/> },
     { section:"التقارير" },
     { id:"admin-reports",        label:"مدير التقارير",     icon:<BarChart3 size={16}/> },
@@ -1364,6 +1365,7 @@ function PageRouter({ state, pageProps, adminUsers, setAdminUsers }:{
     if(page==="admin-users")         return <AdminUsers {...p} users={adminUsers} setUsers={setAdminUsers}/>;
     if(page==="admin-restaurants")   return <AdminRestaurants {...p}/>;
     if(page==="admin-subscriptions") return <AdminSubscriptions {...p}/>;
+    if(page==="admin-companies")     return <AdminCompanies {...p}/>;
     if(page==="admin-reports")       return <AdminReports {...p}/>;
     if(page==="admin-audit")         return <AdminAudit {...p}/>;
     if(page==="admin-permissions")   return <AdminPermissions {...p}/>;
@@ -9079,6 +9081,364 @@ function AdminSubscriptions({}: PageProps) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ADMIN — COMPANY SUBSCRIPTIONS (B2B Portal)
+// ─────────────────────────────────────────────
+type CompanyPlan = "Basic"|"Professional"|"Enterprise";
+type CompanySub = {
+  id:string; name:string; logo:string; contactName:string; contactEmail:string; contactPhone:string;
+  plan:CompanyPlan; status:"active"|"warning"|"danger"|"suspended"|"trial";
+  brands:number; restaurants:number; branches:number; usedBranches:number;
+  users:number; maxUsers:number;
+  monthlyRevenue:number; startDate:string; nextBilling:string; daysLeft:number;
+  modules:string[]; adminEmail:string; city:string;
+};
+
+const COMPANY_PLANS_META = {
+  Basic:        { maxBranches:5,  maxUsers:15, price:1990,  color:"bg-gray-100 text-gray-700 border border-gray-200" },
+  Professional: { maxBranches:20, maxUsers:50, price:4800,  color:"bg-blue-50 text-blue-700 border border-blue-200"  },
+  Enterprise:   { maxBranches:999,maxUsers:999,price:12000, color:"bg-purple-50 text-purple-700 border border-purple-200"},
+};
+
+const INITIAL_COMPANIES:CompanySub[] = [
+  { id:"C001", name:"مجموعة التاج للمطاعم",   logo:"👑", contactName:"محمد الراشد",   contactEmail:"m.rashed@altaj.com",   contactPhone:"+966 50 111 2222", plan:"Professional", status:"active",    brands:3, restaurants:8,  branches:12, usedBranches:12, users:31, maxUsers:50, monthlyRevenue:4800,  startDate:"يناير 2024", nextBilling:"15 يناير 2026", daysLeft:87, modules:["مبيعات","مصروفات","مشتريات","مخزون","أصول","شفتات"],          adminEmail:"admin@altaj.com",    city:"الرياض"    },
+  { id:"C002", name:"شركة النخيل للأغذية",    logo:"🌴", contactName:"فهد العتيبي",    contactEmail:"f.otaibi@nakheel.sa",  contactPhone:"+966 55 222 3333", plan:"Enterprise",   status:"active",    brands:5, restaurants:15, branches:22, usedBranches:20, users:68, maxUsers:999, monthlyRevenue:12000, startDate:"مارس 2023",  nextBilling:"01 مارس 2026",  daysLeft:145,modules:["مبيعات","مصروفات","مشتريات","مخزون","أصول","شفتات","هدر","كشف حساب","عهدة نقدية"],adminEmail:"admin@nakheel.sa",   city:"جدة"       },
+  { id:"C003", name:"مجموعة البلد للمطاعم",   logo:"🏛", contactName:"سارة الزهراني",  contactEmail:"s.zahr@balad.com.sa",  contactPhone:"+966 53 333 4444", plan:"Professional", status:"warning",   brands:2, restaurants:5,  branches:7,  usedBranches:7,  users:19, maxUsers:50, monthlyRevenue:4800,  startDate:"فبراير 2024",nextBilling:"10 فبراير 2026",daysLeft:24, modules:["مبيعات","مصروفات","مشتريات","مخزون"],                          adminEmail:"admin@balad.com.sa", city:"الدمام"    },
+  { id:"C004", name:"شركة المروج للضيافة",    logo:"🌿", contactName:"عبدالله الحربي", contactEmail:"a.harbi@moroj.sa",     contactPhone:"+966 56 444 5555", plan:"Basic",         status:"danger",    brands:1, restaurants:3,  branches:4,  usedBranches:3,  users:10, maxUsers:15, monthlyRevenue:1990,  startDate:"أكتوبر 2024",nextBilling:"05 أكتوبر 2025",daysLeft:7,  modules:["مبيعات","مصروفات"],                                            adminEmail:"admin@moroj.sa",     city:"المدينة"   },
+  { id:"C005", name:"مجموعة الوطني للأكل",    logo:"🇸🇦", contactName:"نورة السلمي",   contactEmail:"noura@watani.sa",      contactPhone:"+966 58 555 6666", plan:"Professional", status:"trial",     brands:2, restaurants:4,  branches:5,  usedBranches:2,  users:8,  maxUsers:50, monthlyRevenue:0,     startDate:"مارس 2026",  nextBilling:"15 أبريل 2026", daysLeft:25, modules:["مبيعات","مصروفات","مشتريات"],                                  adminEmail:"admin@watani.sa",    city:"الرياض"    },
+  { id:"C006", name:"شركة العربية للإطعام",   logo:"🍽", contactName:"خالد الدوسري",  contactEmail:"k.dos@arabia-food.sa", contactPhone:"+966 51 666 7777", plan:"Enterprise",   status:"suspended", brands:4, restaurants:10, branches:16, usedBranches:16, users:42, maxUsers:999, monthlyRevenue:0,     startDate:"يونيو 2023",  nextBilling:"—",              daysLeft:0,  modules:["مبيعات","مصروفات","مشتريات","مخزون","أصول"],                   adminEmail:"admin@arabia-food.sa",city:"مكة"      },
+];
+
+function AdminCompanies({ navigate }:PageProps) {
+  const [companies, setCompanies] = useState<CompanySub[]>(INITIAL_COMPANIES);
+  const [filter, setFilter]   = useState<"all"|CompanyPlan|"trial"|"suspended">("all");
+  const [search, setSearch]   = useState("");
+  const [selected, setSelected] = useState<CompanySub|null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState<{company:CompanySub;targetPlan:CompanyPlan}|null>(null);
+
+  const statusMeta = {
+    active:    { label:"نشط",            cls:"bg-emerald-50 text-emerald-700 border border-emerald-200" },
+    warning:   { label:"ينتهي قريباً",   cls:"bg-amber-50 text-amber-700 border border-amber-200"      },
+    danger:    { label:"إنذار أخير",     cls:"bg-red-50 text-red-700 border border-red-200"             },
+    suspended: { label:"موقوف",          cls:"bg-gray-100 text-gray-500 border border-gray-200"         },
+    trial:     { label:"تجريبي",         cls:"bg-blue-50 text-blue-700 border border-blue-200"          },
+  };
+
+  const shown = companies.filter(c=>{
+    const matchFilter = filter==="all"||(filter==="trial"?c.status==="trial":filter==="suspended"?c.status==="suspended":c.plan===filter);
+    const matchSearch = !search||c.name.includes(search)||c.contactName.includes(search)||c.city.includes(search);
+    return matchFilter&&matchSearch;
+  });
+
+  const totalRevenue  = companies.filter(c=>c.status==="active"||c.status==="warning"||c.status==="danger").reduce((s,c)=>s+c.monthlyRevenue,0);
+  const totalBranches = companies.reduce((s,c)=>s+c.usedBranches,0);
+  const totalUsers    = companies.reduce((s,c)=>s+c.users,0);
+
+  const suspend = (id:string) => setCompanies(p=>p.map(c=>c.id===id?{...c,status:"suspended" as const}:c));
+  const activate = (id:string) => setCompanies(p=>p.map(c=>c.id===id?{...c,status:"active" as const,daysLeft:365}:c));
+  const doUpgrade = (id:string, plan:CompanyPlan) => {
+    setCompanies(p=>p.map(c=>c.id===id?{...c,plan,maxUsers:COMPANY_PLANS_META[plan].maxUsers,monthlyRevenue:COMPANY_PLANS_META[plan].price}:c));
+    setShowUpgrade(null);
+    if(selected) setSelected(s=>s?{...s,plan,maxUsers:COMPANY_PLANS_META[plan].maxUsers}:s);
+  };
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">اشتراكات الشركات — بوابة المجموعات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{companies.length} شركة مسجلة · {companies.filter(c=>c.status==="active"||c.status==="warning").length} نشطة · إيراد شهري {(totalRevenue/1000).toFixed(0)}K ر.س</p>
+        </div>
+        <button onClick={()=>setShowAdd(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 shadow-sm">
+          <Plus size={14}/> إضافة شركة جديدة
+        </button>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-5 gap-3">
+        <KpiCard label="شركات نشطة"      value={String(companies.filter(c=>["active","warning","danger"].includes(c.status)).length)} sub="من إجمالي الشركات"  icon={<CheckCircle2 size={16} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="تجريبي"           value={String(companies.filter(c=>c.status==="trial").length)}                                sub="يحتاج تحويل"       icon={<Star size={16} className="text-blue-500"/>}             accent="blue"/>
+        <KpiCard label="ينتهي خلال 30 يوم"value={String(companies.filter(c=>c.daysLeft>0&&c.daysLeft<=30).length)}                     sub="شركات تحتاج تجديد" icon={<AlertTriangle size={16} className="text-amber-600"/>}    accent="amber"/>
+        <KpiCard label="الإيراد الشهري"   value={`${(totalRevenue/1000).toFixed(0)}K`}                                                 sub="ر.س من الشركات"   icon={<Wallet size={16} className="text-purple-600"/>}         accent="purple"/>
+        <KpiCard label="فروع مدارة"       value={String(totalBranches)}                                                                 sub={`${totalUsers} مستخدم`} icon={<Building2 size={16} className="text-cyan-600"/>}    accent="cyan"/>
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 flex-1 min-w-48">
+            <Search size={13} className="text-gray-400 flex-shrink-0"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث بالشركة أو المسؤول أو المدينة..." className="flex-1 text-sm outline-none"/>
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+            {(["all","Basic","Professional","Enterprise","trial","suspended"] as const).map(f=>(
+              <button key={f} onClick={()=>setFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter===f?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+                {f==="all"?"الكل":f==="trial"?"تجريبي":f==="suspended"?"موقوف":f}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-400">{shown.length} نتيجة</span>
+        </div>
+      </div>
+
+      {/* Companies table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">قائمة الشركات المشتركة في بوابة المجموعات</h3>
+          <span className="text-xs text-gray-400">{shown.length} شركة</span>
+        </div>
+        {shown.map(c=>{
+          const pm = COMPANY_PLANS_META[c.plan];
+          const branchPct = Math.round((c.usedBranches/pm.maxBranches)*100);
+          return (
+            <div key={c.id} className="px-5 py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer" onClick={()=>setSelected(c)}>
+              <div className="flex items-center gap-4">
+                {/* Logo + name */}
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-xl flex-shrink-0">{c.logo}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-gray-800 text-sm">{c.name}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${COMPANY_PLANS_META[c.plan].color}`}>{c.plan}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusMeta[c.status].cls}`}>{statusMeta[c.status].label}</span>
+                    {c.status==="danger"&&<span className="text-[10px] text-red-600 font-bold">⚠ {c.daysLeft} يوم فقط</span>}
+                  </div>
+                  <div className="flex items-center gap-4 mt-0.5">
+                    <span className="text-[11px] text-gray-400">{c.contactName} · {c.city}</span>
+                    <span className="text-[11px] text-gray-400">{c.brands} علامة · {c.restaurants} مطعم · {c.usedBranches} فرع</span>
+                    <span className="text-[11px] text-gray-400">{c.users} مستخدم</span>
+                  </div>
+                </div>
+
+                {/* Usage + expiry */}
+                <div className="w-40 flex-shrink-0 hidden lg:block">
+                  <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                    <span>الفروع</span><span>{c.usedBranches}/{c.plan==="Enterprise"?"∞":pm.maxBranches}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full">
+                    <div className={`h-1.5 rounded-full ${branchPct>=90?"bg-red-500":branchPct>=70?"bg-amber-500":"bg-emerald-500"}`}
+                      style={{width:`${Math.min(100,branchPct)}%`}}/>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">تنتهي: {c.nextBilling}</p>
+                </div>
+
+                {/* Revenue + actions */}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {c.monthlyRevenue>0&&(
+                    <div className="text-left hidden xl:block">
+                      <p className="font-mono font-bold text-gray-800 text-sm">{c.monthlyRevenue.toLocaleString()} ر.س</p>
+                      <p className="text-[10px] text-gray-400">سنوياً</p>
+                    </div>
+                  )}
+                  <div className="flex gap-1.5" onClick={e=>e.stopPropagation()}>
+                    {(c.status==="suspended"||c.status==="danger") && (
+                      <button onClick={()=>activate(c.id)} className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold hover:bg-emerald-100">تفعيل</button>
+                    )}
+                    {c.status!=="suspended" && (
+                      <button onClick={()=>suspend(c.id)} className="px-2.5 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 text-[11px] font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-200">إيقاف</button>
+                    )}
+                    <button onClick={()=>setSelected(c)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><Eye size={14}/></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Company Detail Panel (slide-in style modal) */}
+      {selected && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-start" onClick={()=>setSelected(null)}>
+          <div className="w-full max-w-2xl bg-white h-full overflow-y-auto shadow-2xl" onClick={e=>e.stopPropagation()} dir="rtl">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-lg">{selected.logo}</div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">{selected.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${COMPANY_PLANS_META[selected.plan].color}`}>{selected.plan}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusMeta[selected.status].cls}`}>{statusMeta[selected.status].label}</span>
+                  </div>
+                </div>
+              </div>
+              <button onClick={()=>setSelected(null)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100"><X size={18}/></button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Contact info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs font-bold text-gray-500 mb-2">معلومات التواصل</p>
+                  <p className="font-semibold text-gray-800 text-sm">{selected.contactName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5" dir="ltr">{selected.contactEmail}</p>
+                  <p className="text-xs text-gray-500" dir="ltr">{selected.contactPhone}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">المدينة: {selected.city}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs font-bold text-gray-500 mb-2">حساب الأدمن</p>
+                  <p className="font-semibold text-gray-800 text-sm">أدمن الشركة</p>
+                  <p className="text-xs text-gray-500 mt-0.5" dir="ltr">{selected.adminEmail}</p>
+                  <div className="flex gap-1.5 mt-2">
+                    <button className="px-2 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-bold hover:bg-purple-100">إعادة تعيين كلمة المرور</button>
+                    <button className="px-2 py-1 rounded-lg bg-gray-100 text-gray-600 text-[10px] font-bold hover:bg-gray-200">تسجيل الدخول باسمهم</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Usage stats */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-3">إحصائيات الاستخدام</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label:"الفروع", used:selected.usedBranches, max:selected.plan==="Enterprise"?selected.usedBranches:COMPANY_PLANS_META[selected.plan].maxBranches, color:"bg-blue-500" },
+                    { label:"المستخدمون", used:selected.users, max:selected.plan==="Enterprise"?selected.users:selected.maxUsers, color:"bg-purple-500" },
+                  ].map((u,i)=>(
+                    <div key={i} className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex justify-between text-xs font-semibold text-gray-600 mb-2">
+                        <span>{u.label}</span><span>{u.used}/{selected.plan==="Enterprise"?"∞":u.max}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 rounded-full">
+                        <div className={`h-2 rounded-full ${u.color}`} style={{width:`${Math.min(100,Math.round((u.used/u.max)*100))}%`}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modules */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-2">الوحدات المفعّلة ({selected.modules.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.modules.map(m=>(
+                    <span key={m} className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2.5 py-1 rounded-lg font-medium">✓ {m}</span>
+                  ))}
+                  {["هدر","كشف حساب","عهدة نقدية"].filter(m=>!selected.modules.includes(m)).map(m=>(
+                    <span key={m} className="text-xs bg-gray-100 text-gray-400 px-2.5 py-1 rounded-lg">○ {m}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Billing */}
+              <div className="bg-gradient-to-l from-purple-50 to-blue-50 border border-purple-100 rounded-xl p-4">
+                <p className="text-xs font-bold text-gray-500 mb-3">معلومات الفوترة</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-gray-400">الخطة</p>
+                    <p className="font-bold text-gray-800">{selected.plan}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">القيمة السنوية</p>
+                    <p className="font-bold text-purple-700">{selected.monthlyRevenue.toLocaleString()} ر.س</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">التجديد القادم</p>
+                    <p className={`font-bold ${selected.daysLeft<=30?"text-red-600":"text-gray-800"}`}>{selected.nextBilling}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upgrade/Actions */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-3">إجراءات الاشتراك</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["Basic","Professional","Enterprise"] as CompanyPlan[]).map(plan=>(
+                    <button key={plan} onClick={()=>plan!==selected.plan&&setShowUpgrade({company:selected,targetPlan:plan})}
+                      className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${selected.plan===plan?"border-purple-400 bg-purple-50 text-purple-700":"border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-50"}`}>
+                      {selected.plan===plan&&<div className="text-[10px] font-normal text-purple-500 mb-0.5">الخطة الحالية</div>}
+                      {plan}
+                      <div className="text-[10px] font-normal text-gray-400 mt-0.5">{COMPANY_PLANS_META[plan].price.toLocaleString()} ر.س/سنة</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={()=>selected.status==="suspended"?activate(selected.id):suspend(selected.id)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${selected.status==="suspended"?"bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"}`}>
+                    {selected.status==="suspended"?"✓ تفعيل الحساب":"⊘ إيقاف مؤقت"}
+                  </button>
+                  <button className="flex-1 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm font-bold hover:bg-blue-100">
+                    📧 إرسال تذكير تجديد
+                  </button>
+                </div>
+              </div>
+
+              {/* Structure */}
+              <div>
+                <p className="text-xs font-bold text-gray-500 mb-2">هيكل المجموعة</p>
+                <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-3 gap-3 text-center">
+                  <div><p className="text-2xl font-black text-gray-800">{selected.brands}</p><p className="text-[11px] text-gray-400">علامة تجارية</p></div>
+                  <div><p className="text-2xl font-black text-gray-800">{selected.restaurants}</p><p className="text-[11px] text-gray-400">مطعم</p></div>
+                  <div><p className="text-2xl font-black text-gray-800">{selected.usedBranches}</p><p className="text-[11px] text-gray-400">فرع</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade confirm */}
+      {showUpgrade && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" dir="rtl">
+            <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4"><CreditCard size={24} className="text-purple-600"/></div>
+            <h3 className="font-bold text-gray-900 text-lg mb-1">تأكيد تغيير الخطة</h3>
+            <p className="text-gray-500 text-sm mb-4">
+              تغيير خطة <span className="font-bold">{showUpgrade.company.name}</span> من <span className="font-bold text-gray-700">{showUpgrade.company.plan}</span> إلى <span className="font-bold text-purple-700">{showUpgrade.targetPlan}</span>؟
+            </p>
+            <div className="bg-gray-50 rounded-xl p-3 mb-4 text-xs text-gray-600">
+              القيمة الجديدة: <span className="font-bold text-purple-700">{COMPANY_PLANS_META[showUpgrade.targetPlan].price.toLocaleString()} ر.س/سنة</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>doUpgrade(showUpgrade.company.id,showUpgrade.targetPlan)} className="flex-1 py-2 rounded-lg bg-purple-600 text-white text-sm font-bold hover:bg-purple-700">تأكيد التغيير</button>
+              <button onClick={()=>setShowUpgrade(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Company modal */}
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={()=>setShowAdd(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="px-5 py-4 bg-gradient-to-l from-purple-700 to-purple-600 text-white flex items-center justify-between">
+              <div><h3 className="font-bold">إضافة شركة جديدة</h3><p className="text-purple-200 text-xs">منح حساب بوابة المجموعات</p></div>
+              <button onClick={()=>setShowAdd(false)} className="text-purple-200 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {[["اسم الشركة","مجموعة ..."],["اسم المسؤول",""],["البريد الإلكتروني (أدمن الشركة)","admin@company.sa"],["رقم الجوال",""]].map(([label,ph])=>(
+                <div key={label}>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">{label}</label>
+                  <input placeholder={ph} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none"/>
+                </div>
+              ))}
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">الخطة</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["Basic","Professional","Enterprise"] as CompanyPlan[]).map(p=>(
+                    <button key={p} className="py-2 rounded-xl border-2 border-gray-200 text-xs font-bold hover:border-purple-400 hover:bg-purple-50 text-gray-600 transition-all">
+                      {p}<br/><span className="text-[10px] text-gray-400 font-normal">{COMPANY_PLANS_META[p].price.toLocaleString()} ر.س</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                سيتم إنشاء حساب أدمن الشركة وإرسال بيانات الدخول على البريد الإلكتروني تلقائياً.
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <Btn onClick={()=>setShowAdd(false)}>إلغاء</Btn>
+                <Btn variant="primary" onClick={()=>{ setShowAdd(false); alert("✅ تم إنشاء حساب الشركة وإرسال بيانات الدخول"); }}><Send size={13}/> إنشاء الحساب</Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

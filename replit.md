@@ -101,7 +101,8 @@ Vite + React interactive prototype sandbox for the **ASAB (عصب)** multi-tenan
 
 **Key files:**
 - `src/components/mockups/asab/ASABPrototype.tsx` — Full interactive prototype (~10,700 lines). Roles: admin, head, accountant, branch, procurement, supplier. 9 modules, 6-stage approval pipeline, full Arabic RTL.
-- `src/components/mockups/asab/CompanyDashboard.tsx` — Standalone B2B portal for restaurant groups. Roles: company-admin, head, accountant, branch, procurement. Company Admin has full subscription management (plan, billing, users, modules, branches). Other roles reference the same ASAB system.
+- `src/components/mockups/asab/CompanyDashboard.tsx` — Standalone B2B portal for restaurant groups. Roles: company-admin, head, accountant, branch, procurement. All 5 roles fully implemented with functional pages. Company Admin: subscription/plan comparison/upgrade, users, brands & branches, modules toggle, billing, settings, support. Head Accountant: KPI dashboard, pending ops (approve/reject), approved list, brand performance, team, reports. Accountant: sales/expenses/purchases/inventory/assets/shifts/reminders. Branch Manager: branch KPIs, daily submission form, purchase requests, daily inventory, staff, shifts. Procurement: orders, suppliers (ratings), items & pricing, reports. Data model: مجموعة التاج → 3 brands → 7 restaurants → 12 branches.
+- `src/components/mockups/asab/ASABPrototype.tsx` — Full interactive prototype (~11,200 lines). ASAB Admin now includes "اشتراكات الشركات" page (admin-companies) with 6 sample companies, plan management, company detail panel, suspend/activate, upgrade modal, add company flow.
 - `src/components/mockups/asab/AdminDashboard.tsx` — ASAB Admin dashboard for managing brands/restaurants.
 - `src/.generated/mockup-components.ts` — Auto-registered component list for the preview server.
 
