@@ -321,12 +321,20 @@ function CompanyLoginScreen({ onSelect }:{ onSelect:(r:CRole)=>void }) {
 // ═══════════════════════════════════════════════════
 // APP SHELL
 // ═══════════════════════════════════════════════════
+const SHELL_NOTIFICATIONS = [
+  { id:1, title:"بيان مبيعات معلق",    body:"فرع الملقا · برغر التاج", time:"منذ 10 دقائق", icon:"📊", unread:true  },
+  { id:2, title:"تم قبول مصروف",        body:"إيجار شهر مارس - تمت الموافقة", time:"منذ ساعة",    icon:"✅", unread:true  },
+  { id:3, title:"تذكير: جرد أسبوعي",   body:"موعد جرد هذا الأسبوع اليوم",    time:"منذ 3 ساعات", icon:"📦", unread:false },
+];
 function Shell({ role, page, navigate, onLogout, children }:{
   role:CRole; page:string; navigate:(p:string)=>void; onLogout:()=>void; children:ReactNode;
 }) {
   const meta = ROLE_META[role];
   const nav  = NAV[role];
   const pageLabel = (nav.find(e=>"id" in e && (e as any).id===page) as any)?.label||"";
+  const [showNotif,setShowNotif]=useState(false);
+  const [notifs,setNotifs]=useState(SHELL_NOTIFICATIONS);
+  const unreadCount=notifs.filter(n=>n.unread).length;
   return (
     <div className="flex h-screen overflow-hidden" dir="rtl">
       <div className="w-60 flex-shrink-0 flex flex-col" style={{ background:SIDEBAR_GRAD }}>
@@ -379,9 +387,36 @@ function Shell({ role, page, navigate, onLogout, children }:{
           <div className="flex items-center gap-3">
             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">● {COMPANY.plan}</Badge>
             <Badge className="bg-purple-50 text-purple-700 border border-purple-100">{meta.icon} {meta.label}</Badge>
-            <button className="relative text-gray-400 hover:text-gray-600">
-              <Bell size={16}/><span className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">2</span>
-            </button>
+            <div className="relative">
+              <button onClick={()=>setShowNotif(v=>!v)} className="relative text-gray-400 hover:text-gray-600 transition-colors">
+                <Bell size={16}/>
+                {unreadCount>0&&<span className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadCount}</span>}
+              </button>
+              {showNotif&&(
+                <div className="absolute left-0 top-8 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50" dir="rtl">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-800 text-sm">الإشعارات</h3>
+                    <button onClick={()=>{setNotifs(n=>n.map(x=>({...x,unread:false})));}} className="text-[11px] text-purple-600 hover:text-purple-800 font-semibold">تحديد الكل كمقروء</button>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {notifs.map(n=>(
+                      <div key={n.id} onClick={()=>setNotifs(prev=>prev.map(x=>x.id===n.id?{...x,unread:false}:x))} className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${n.unread?"bg-purple-50/40":""}`}>
+                        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-base flex-shrink-0">{n.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm leading-tight ${n.unread?"font-bold text-gray-800":"font-medium text-gray-600"}`}>{n.title}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5 truncate">{n.body}</p>
+                          <p className="text-[10px] text-gray-300 mt-0.5">{n.time}</p>
+                        </div>
+                        {n.unread&&<div className="w-2 h-2 rounded-full bg-purple-500 mt-1 flex-shrink-0"/>}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <button onClick={()=>setShowNotif(false)} className="w-full text-center text-xs text-purple-600 hover:text-purple-800 font-semibold">إغلاق</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
@@ -571,7 +606,7 @@ function CAUsers() {
             </div>
             <div className="flex gap-1.5">
               <button onClick={()=>toggle(u.id)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${u.status==="active"?"bg-gray-50 border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600":"bg-emerald-50 border-emerald-200 text-emerald-700"}`}>{u.status==="active"?"إيقاف":"تفعيل"}</button>
-              <button className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><Edit2 size={13}/></button>
+              <button onClick={()=>alert(`✏️ تعديل بيانات المستخدم:\n${u.name}\n\nيمكن تعديل:\n• اسم المستخدم\n• الصلاحيات والدور\n• بيانات التواصل`)} className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit2 size={13}/></button>
             </div>
           </div>
         ))}
@@ -595,9 +630,26 @@ function CAUsers() {
 function CABranches() {
   const [expandedBrand,setExpandedBrand]=useState<string>("B1");
   const totalSales=ALL_BRANCHES.reduce((s,b)=>s+b.salesM,0);
+  const [showAddBranch,setShowAddBranch]=useState(false);
+  const [newBranchName,setNewBranchName]=useState("");
+  const [newBranchBrand,setNewBranchBrand]=useState(BRANDS[0].name);
+  const [newBranchCity,setNewBranchCity]=useState("الرياض");
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">العلامات التجارية والفروع</h2><p className="text-gray-400 text-sm">{BRANDS.length} علامات · {ALL_BRANCHES.length} فرع</p></div><Btn variant="primary"><Plus size={13}/> إضافة فرع</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">العلامات التجارية والفروع</h2><p className="text-gray-400 text-sm">{BRANDS.length} علامات · {ALL_BRANCHES.length} فرع</p></div><Btn variant="primary" onClick={()=>setShowAddBranch(true)}><Plus size={13}/> إضافة فرع</Btn></div>
+      {showAddBranch&&(
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={()=>setShowAddBranch(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-gray-800">إضافة فرع جديد</h3><button onClick={()=>setShowAddBranch(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button></div>
+            <div className="space-y-3">
+              <div><label className="text-xs font-semibold text-gray-600 block mb-1">اسم الفرع</label><input value={newBranchName} onChange={e=>setNewBranchName(e.target.value)} placeholder="مثال: فرع حي الياسمين..." className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400"/></div>
+              <div><label className="text-xs font-semibold text-gray-600 block mb-1">العلامة التجارية</label><select value={newBranchBrand} onChange={e=>setNewBranchBrand(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none">{BRANDS.map(b=><option key={b.id}>{b.name}</option>)}</select></div>
+              <div><label className="text-xs font-semibold text-gray-600 block mb-1">المدينة</label><select value={newBranchCity} onChange={e=>setNewBranchCity(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none"><option>الرياض</option><option>جدة</option><option>الدمام</option><option>مكة المكرمة</option></select></div>
+              <div className="flex gap-2 justify-end pt-1"><Btn onClick={()=>setShowAddBranch(false)}>إلغاء</Btn><Btn variant="primary" onClick={()=>{if(!newBranchName){alert("أدخل اسم الفرع");return;}setShowAddBranch(false);setNewBranchName("");alert(`✅ تم إضافة ${newBranchName} — سيظهر بعد مراجعة الإدارة`)}}><Plus size={13}/> إضافة</Btn></div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="العلامات التجارية" value={String(BRANDS.length)} sub="تحت إدارة المجموعة" icon={<Star size={18} className="text-amber-600"/>} accent="amber"/>
         <KpiCard label="إجمالي المطاعم" value={String(BRANDS.reduce((s,b)=>s+b.restaurants.length,0))} sub="مطعم" icon={<Home size={18} className="text-blue-600"/>} accent="blue"/>
@@ -690,14 +742,14 @@ function CABilling() {
         <KpiCard label="طريقة الدفع" value="بطاقة ائتمان" sub="**** 4521" icon={<Shield size={18} className="text-purple-600"/>} accent="purple"/>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between"><h3 className="font-bold text-gray-900 text-sm">سجل الفواتير</h3><button className="text-xs text-emerald-700 font-semibold flex items-center gap-1"><Download size={11}/> تصدير</button></div>
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between"><h3 className="font-bold text-gray-900 text-sm">سجل الفواتير</h3><button onClick={()=>alert("⬇️ تصدير جميع الفواتير\n\nجار تحضير ملف Excel يحتوي على:\n• جميع الفواتير المدفوعة\n• تواريخ الدفع والمبالغ\n• رقم كل فاتورة")} className="text-xs text-emerald-700 font-semibold flex items-center gap-1 hover:text-emerald-800 transition-colors"><Download size={11}/> تصدير</button></div>
         {invoices.map(inv=>(
           <div key={inv.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-50 last:border-0">
             <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0"><FileText size={16} className="text-emerald-600"/></div>
             <div className="flex-1"><p className="font-semibold text-gray-800 text-sm" dir="ltr">{inv.id}</p><p className="text-xs text-gray-400">{inv.date}</p></div>
             <span className="font-mono font-bold text-gray-800">{fmt(inv.amount)} ر.س</span>
             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">✓ مدفوع</Badge>
-            <button className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><Download size={13}/></button>
+            <button onClick={()=>alert(`⬇️ تحميل الفاتورة:\n${inv.id}\n\nجار تحميل PDF...`)} className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors" title="تحميل PDF"><Download size={13}/></button>
           </div>
         ))}
       </div>
@@ -724,21 +776,50 @@ function CASettings() {
 }
 
 function CASupport() {
+  const [msgType,setMsgType]=useState("نوع المشكلة...");
+  const [msgBody,setMsgBody]=useState("");
+  const [sent,setSent]=useState(false);
+  const channels=[
+    {ic:"💬",t:"الدردشة الفورية",d:"9 ص — 9 م",b:"متاح الآن",   action:()=>alert("✅ سيتم فتح نافذة الدردشة — متاح الآن")},
+    {ic:"📞",t:"الاتصال",         d:"800 123 4567",b:"أيام العمل",action:()=>alert("📞 يمكنك الاتصال على: 800 123 4567\nأيام العمل 9 ص — 5 م")},
+    {ic:"📧",t:"البريد",           d:"support@asab.sa",b:"خلال 24 ساعة",action:()=>alert("📧 البريد الإلكتروني: support@asab.sa")},
+  ];
+  const handleSend=()=>{
+    if(msgType==="نوع المشكلة..."){alert("يرجى تحديد نوع المشكلة");return;}
+    if(!msgBody.trim()){alert("يرجى شرح المشكلة أولاً");return;}
+    setSent(true);
+  };
   return (
     <div className="space-y-5" dir="rtl">
       <div><h2 className="text-xl font-bold text-gray-800">الدعم الفني</h2></div>
       <div className="grid grid-cols-3 gap-4">
-        {[["💬","الدردشة الفورية","9 ص — 9 م","متاح الآن"],["📞","الاتصال","800 123 4567","أيام العمل"],["📧","البريد","support@asab.sa","خلال 24 ساعة"]].map(([ic,t,d,b])=>(
-          <button key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-purple-200 transition-all"><div className="text-3xl mb-3">{ic}</div><p className="font-bold text-gray-800 text-sm">{t}</p><p className="text-xs text-gray-400 mt-1">{d}</p><Badge className="mt-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">{b}</Badge></button>
+        {channels.map(({ic,t,d,b,action})=>(
+          <button key={t} onClick={action} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-purple-200 hover:shadow-md transition-all">
+            <div className="text-3xl mb-3">{ic}</div>
+            <p className="font-bold text-gray-800 text-sm">{t}</p>
+            <p className="text-xs text-gray-400 mt-1">{d}</p>
+            <Badge className="mt-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px]">{b}</Badge>
+          </button>
         ))}
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-bold text-gray-800 text-sm mb-3">إرسال طلب دعم</h3>
-        <div className="space-y-3">
-          <select className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none"><option>نوع المشكلة...</option><option>مشكلة في الاشتراك</option><option>مشكلة تقنية</option><option>استفسار</option></select>
-          <textarea rows={4} placeholder="اشرح المشكلة..." className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none resize-none"/>
-          <Btn variant="primary"><Send size={13}/> إرسال</Btn>
-        </div>
+        {sent?(
+          <div className="text-center py-6">
+            <div className="text-4xl mb-3">✅</div>
+            <p className="font-bold text-gray-800">تم إرسال طلب الدعم</p>
+            <p className="text-sm text-gray-400 mt-1">سنتواصل معك خلال 24 ساعة</p>
+            <Btn onClick={()=>{setSent(false);setMsgBody("");setMsgType("نوع المشكلة...");}} variant="ghost" size="sm">إرسال طلب آخر</Btn>
+          </div>
+        ):(
+          <div className="space-y-3">
+            <select value={msgType} onChange={e=>setMsgType(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none">
+              <option>نوع المشكلة...</option><option>مشكلة في الاشتراك</option><option>مشكلة تقنية</option><option>استفسار عام</option><option>طلب ميزة</option>
+            </select>
+            <textarea rows={4} value={msgBody} onChange={e=>setMsgBody(e.target.value)} placeholder="اشرح المشكلة بالتفصيل..." className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none resize-none focus:border-purple-400"/>
+            <Btn variant="primary" onClick={handleSend}><Send size={13}/> إرسال الطلب</Btn>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -828,7 +909,7 @@ function HeadPending() {
               <div className="px-5 pb-4 flex gap-2 border-t border-gray-50 pt-3">
                 <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> اعتماد نهائي</Btn>
                 <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> رفض</Btn>
-                <Btn size="sm"><Paperclip size={12}/> {op.attachments} مرفقات</Btn>
+                <Btn size="sm" onClick={()=>alert(`📎 المرفقات (${op.attachments}):\n• فاتورة مبيعات POS\n• تقرير الكاشير\n• صورة إيصال التسليم`)}><Paperclip size={12}/> {op.attachments} مرفقات</Btn>
               </div>
             )}
           </div>
@@ -910,12 +991,26 @@ function HeadAccountants() {
 }
 
 function HeadReports() {
+  const reports=[
+    {t:"📊 تقرير الأرباح والخسائر",d:"P&L لكل علامة تجارية",   file:"PL_Report_Mar2026.pdf"},
+    {t:"📈 مقارنة الفروع",           d:"أداء كل فرع مقابل الهدف",file:"Branch_Comparison_Mar2026.pdf"},
+    {t:"💰 ملخص المبيعات",           d:"مبيعات شهرية وسنوية",     file:"Sales_Summary_Mar2026.pdf"},
+    {t:"📉 تحليل المصروفات",         d:"تفصيل مصروفات كل علامة", file:"Expenses_Analysis_Mar2026.pdf"},
+  ];
   return (
     <div className="space-y-5" dir="rtl">
       <div><h2 className="text-xl font-bold text-gray-800">التقارير المالية</h2></div>
       <div className="grid grid-cols-2 gap-4">
-        {[["📊 تقرير الأرباح والخسائر","P&L لكل علامة تجارية"],["📈 مقارنة الفروع","أداء كل فرع مقابل الهدف"],["💰 ملخص المبيعات","مبيعات شهرية وسنوية"],["📉 تحليل المصروفات","تفصيل مصروفات كل علامة"]].map(([t,d])=>(
-          <button key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-purple-200 transition-all"><p className="font-bold text-gray-800">{t}</p><p className="text-xs text-gray-400 mt-1">{d}</p><div className="mt-3"><Btn size="sm"><Download size={11}/> تحميل PDF</Btn></div></button>
+        {reports.map(({t,d,file})=>(
+          <div key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-purple-200 hover:shadow-md transition-all cursor-default">
+            <p className="font-bold text-gray-800">{t}</p>
+            <p className="text-xs text-gray-400 mt-1">{d}</p>
+            <div className="mt-3">
+              <button onClick={()=>alert(`⬇️ جار تحميل:\n${file}\n\nسيبدأ التحميل خلال ثوانٍ...`)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-purple-100 hover:text-purple-700 transition-colors">
+                <Download size={11}/> تحميل PDF
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -1587,7 +1682,7 @@ function AccCompanyAssets() {
     <div className="space-y-5" dir="rtl">
       <div className="flex items-start justify-between">
         <div><h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2><p className="text-gray-400 text-sm">{assets.length} أصل مسجل — جميع العلامات والفروع</p></div>
-        <div className="flex gap-2"><Btn size="sm"><Upload size={12}/> استيراد Excel</Btn><Btn variant="primary"><Plus size={13}/> أصل جديد</Btn></div>
+        <div className="flex gap-2"><Btn size="sm" onClick={()=>alert("📂 استيراد Excel\n\nيرجى اختيار ملف Excel بصيغة .xlsx يحتوي على بيانات الأصول.\nالنموذج: الاسم · الرقم التسلسلي · القيمة · الفئة · الفرع")}><Upload size={12}/> استيراد Excel</Btn><Btn variant="primary" onClick={()=>alert("➕ إضافة أصل جديد\n\nسيتم فتح نموذج لإدخال بيانات الأصل الجديد:\n• اسم الأصل\n• الرقم التسلسلي\n• الفئة والفرع\n• القيمة وتاريخ الشراء")}><Plus size={13}/> أصل جديد</Btn></div>
       </div>
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="إجمالي قيمة الأصول"  value={`${fmt(totalValue)}`}              sub="ر.س القيمة الدفترية" icon={<Building2 size={18} className="text-blue-600"/>}     accent="blue"/>
@@ -1619,7 +1714,7 @@ function AccCompanyAssets() {
             <span className="font-mono text-xs text-amber-700">{fmt(a.dep)}</span>
             <div className="flex items-center gap-1.5">
               <Badge className={`text-[10px] border ${SC[a.status]}`}>{SL[a.status]}</Badge>
-              <button className="p-1 rounded text-gray-400 hover:bg-gray-100"><Edit2 size={11}/></button>
+              <button onClick={()=>alert(`✏️ تعديل الأصل: ${a.name}\n\nيمكن تعديل:\n• الحالة (نشط / صيانة / مُهلك)\n• القيمة الدفترية الحالية\n• بيانات الموقع والفرع`)} className="p-1 rounded text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit2 size={11}/></button>
             </div>
           </div>
         ))}
@@ -1891,6 +1986,9 @@ function BranchRequests() {
 }
 
 function BranchInventory() {
+  const [showInvForm,setShowInvForm]=useState(false);
+  const [invCounts,setInvCounts]=useState<Record<string,string>>({});
+  const [invSubmitted,setInvSubmitted]=useState(false);
   const items=[
     { name:"دقيق أبيض",        qty:120,unit:"كجم", min:50, status:"ok"       },
     { name:"زيت طهي",          qty:18, unit:"لتر", min:20, status:"low"      },
@@ -1902,7 +2000,28 @@ function BranchInventory() {
   const SC:Record<string,string>={ok:"bg-emerald-50 text-emerald-700",low:"bg-amber-50 text-amber-700",critical:"bg-red-50 text-red-700"};
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الجرد اليومي</h2><p className="text-gray-400 text-sm">{MY_BRANCH.name} · {new Date().toLocaleDateString("ar-SA")}</p></div><Btn variant="primary"><Clipboard size={13}/> تسجيل جرد</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الجرد اليومي</h2><p className="text-gray-400 text-sm">{MY_BRANCH.name} · {new Date().toLocaleDateString("ar-SA")}</p></div><Btn variant="primary" onClick={()=>setShowInvForm(true)}><Clipboard size={13}/> تسجيل جرد</Btn></div>
+      {showInvForm&&(
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={()=>setShowInvForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5" onClick={e=>e.stopPropagation()} dir="rtl">
+            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-gray-800">تسجيل جرد يومي</h3><button onClick={()=>setShowInvForm(false)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button></div>
+            {invSubmitted?(
+              <div className="text-center py-6"><div className="text-4xl mb-3">✅</div><p className="font-bold text-gray-800">تم إرسال الجرد للمحاسب</p><p className="text-sm text-gray-400 mt-1">سيتم مراجعته خلال 24 ساعة</p><Btn onClick={()=>{setInvSubmitted(false);setInvCounts({});setShowInvForm(false);}}>إغلاق</Btn></div>
+            ):(
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {items.map(item=>(
+                  <div key={item.name} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
+                    <div className="flex-1"><p className="text-sm font-semibold text-gray-800">{item.name}</p><p className="text-[11px] text-gray-400">المتوقع: {item.qty} {item.unit}</p></div>
+                    <input type="number" value={invCounts[item.name]??""} onChange={e=>setInvCounts(p=>({...p,[item.name]:e.target.value}))} placeholder={String(item.qty)} className="w-20 text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none text-center focus:border-purple-400"/>
+                    <span className="text-xs text-gray-400 w-8">{item.unit}</span>
+                  </div>
+                ))}
+                <div className="flex gap-2 justify-end pt-2"><Btn onClick={()=>setShowInvForm(false)}>إلغاء</Btn><Btn variant="primary" onClick={()=>setInvSubmitted(true)}><Send size={13}/> إرسال الجرد</Btn></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-4">
         <KpiCard label="أصناف كافية" value={String(items.filter(i=>i.status==="ok").length)} sub="من إجمالي الأصناف" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
         <KpiCard label="منخفض" value={String(items.filter(i=>i.status==="low").length)} sub="يحتاج طلب شراء" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
@@ -2028,7 +2147,7 @@ function ProcOrders() {
             <div className="col-span-2"><p className="font-semibold text-gray-800 text-sm">{o.supplier}</p><p className="text-[10px] text-gray-400">{o.items} أصناف · {o.date}</p></div>
             <span className="text-xs text-gray-600">{o.brand}</span>
             <span className="font-mono font-bold text-gray-800 text-sm">{fmt(o.total)} ر.س</span>
-            <div className="flex items-center gap-1.5"><Badge className={`text-[10px] border ${SC[o.status]}`}>{SL[o.status]}</Badge><button className="p-1 rounded text-gray-400 hover:bg-gray-100"><Edit2 size={11}/></button></div>
+            <div className="flex items-center gap-1.5"><Badge className={`text-[10px] border ${SC[o.status]}`}>{SL[o.status]}</Badge><button onClick={()=>alert(`✏️ تعديل أمر الشراء\n${o.id}\n\nيمكن تعديل:\n• الأصناف والكميات\n• المورد\n• ملاحظات`)} className="p-1 rounded text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit2 size={11}/></button></div>
           </div>
         ))}
       </div>
@@ -2059,7 +2178,7 @@ function ProcSuppliers() {
   ];
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الموردون</h2><p className="text-gray-400 text-sm">{suppliers.filter(s=>s.status==="active").length} مورد نشط</p></div><Btn variant="primary"><Plus size={13}/> إضافة مورد</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الموردون</h2><p className="text-gray-400 text-sm">{suppliers.filter(s=>s.status==="active").length} مورد نشط</p></div><Btn variant="primary" onClick={()=>alert("➕ إضافة مورد جديد\n\nالبيانات المطلوبة:\n• اسم الشركة ونوع الأصناف\n• بيانات التواصل\n• الوثائق التجارية\n\nسيتم مراجعة الطلب خلال 48 ساعة.")}><Plus size={13}/> إضافة مورد</Btn></div>
       <div className="grid grid-cols-3 gap-4">
         <KpiCard label="موردون نشطون" value={String(suppliers.filter(s=>s.status==="active").length)} sub="مورد معتمد" icon={<Building2 size={18} className="text-blue-600"/>} accent="blue"/>
         <KpiCard label="إجمالي المشتريات" value={`${fmt(Math.round(suppliers.reduce((s,x)=>s+x.totalSpent,0)/1000))}K`} sub="ر.س" icon={<Wallet size={18} className="text-purple-600"/>} accent="purple"/>
@@ -2083,7 +2202,7 @@ function ProcItems() {
   const items=[{ name:"لحم بقري مفروم",unit:"كجم", lastPrice:42,brand:"برغر التاج",       suppliers:2},{ name:"دقيق أبيض",unit:"كيس", lastPrice:18,brand:"بيتزا التاج",      suppliers:3},{ name:"زيت طهي 10L",unit:"عبوة",lastPrice:85,brand:"جميع العلامات",    suppliers:2},{ name:"جبن موزاريلا",unit:"كجم", lastPrice:38,brand:"بيتزا التاج",      suppliers:1},{ name:"خبز برجر",unit:"كيس", lastPrice:12,brand:"برغر التاج",       suppliers:2}];
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الأصناف والأسعار</h2><p className="text-gray-400 text-sm">{items.length} صنف</p></div><Btn variant="primary"><Plus size={13}/> صنف جديد</Btn></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">الأصناف والأسعار</h2><p className="text-gray-400 text-sm">{items.length} صنف</p></div><Btn variant="primary" onClick={()=>alert("➕ إضافة صنف جديد\n\nأدخل:\n• اسم الصنف والوحدة\n• العلامة التجارية\n• السعر المرجعي\n• ربط الموردين")}><Plus size={13}/> صنف جديد</Btn></div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="grid grid-cols-5 gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
           <span className="col-span-2">الصنف</span><span>الوحدة</span><span>آخر سعر</span><span>الموردون</span>
@@ -2106,8 +2225,16 @@ function ProcReports() {
     <div className="space-y-5" dir="rtl">
       <div><h2 className="text-xl font-bold text-gray-800">تقارير المشتريات</h2></div>
       <div className="grid grid-cols-2 gap-4">
-        {[["📊 تقرير المشتريات الشهري","إجمالي مصنّف حسب المورد"],["📈 مقارنة الأسعار","متابعة تغيرات أسعار الموردين"],["🏭 أداء الموردين","تقييم والتزام المواعيد"],["🛒 أوامر معلقة","الأوامر التي تحتاج اعتماد"]].map(([t,d])=>(
-          <button key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-amber-200 transition-all"><p className="font-bold text-gray-800">{t}</p><p className="text-xs text-gray-400 mt-1">{d}</p><div className="mt-3"><Btn size="sm"><Download size={11}/> تحميل</Btn></div></button>
+        {[["📊 تقرير المشتريات الشهري","إجمالي مصنّف حسب المورد","Purchases_Monthly_Mar2026.pdf"],["📈 مقارنة الأسعار","متابعة تغيرات أسعار الموردين","Price_Comparison_Mar2026.pdf"],["🏭 أداء الموردين","تقييم والتزام المواعيد","Supplier_Performance_Mar2026.pdf"],["🛒 أوامر معلقة","الأوامر التي تحتاج اعتماد","Pending_Orders_Mar2026.pdf"]].map(([t,d,file])=>(
+          <div key={t} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-right hover:border-amber-200 hover:shadow-md transition-all">
+            <p className="font-bold text-gray-800">{t}</p>
+            <p className="text-xs text-gray-400 mt-1">{d}</p>
+            <div className="mt-3">
+              <button onClick={()=>alert(`⬇️ جار تحميل:\n${file}`)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-amber-100 hover:text-amber-700 transition-colors">
+                <Download size={11}/> تحميل
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>
