@@ -136,6 +136,131 @@ const MATCH_CFG:Record<CMatch,{label:string;cls:string}> = {
   diff:   { label:"⚠ فرق",   cls:"bg-red-50 text-red-700 border border-red-200"              },
 };
 
+// ═══════════════════════════════════════════════════
+// PIPELINE — 6 مراحل دورة حياة العملية (مطابق للداشبورد الرئيسي)
+// الفرع → المراجعة → موافقة المحاسب → اعتماد رئيس الحسابات → ERP → تقارير
+// ═══════════════════════════════════════════════════
+const C_PIPELINE_STAGES = [
+  { id:"submit",   icon:"📱", label:"رُفع من الفرع",     labelShort:"الرفع",     bg:"bg-blue-100",    text:"text-blue-700",    border:"border-blue-300",    fill:"bg-blue-500"    },
+  { id:"review",   icon:"🔍", label:"قيد المراجعة",       labelShort:"المراجعة",  bg:"bg-amber-100",   text:"text-amber-700",   border:"border-amber-300",   fill:"bg-amber-500"   },
+  { id:"approved", icon:"✓",  label:"موافق عليه",         labelShort:"الموافقة",  bg:"bg-sky-100",     text:"text-sky-700",     border:"border-sky-300",     fill:"bg-sky-500"     },
+  { id:"final",    icon:"🔒", label:"معتمد نهائياً",      labelShort:"الاعتماد",  bg:"bg-emerald-100", text:"text-emerald-700", border:"border-emerald-300", fill:"bg-emerald-500" },
+  { id:"erp",      icon:"🔗", label:"مُرحَّل لـ ERP",     labelShort:"ERP",       bg:"bg-indigo-100",  text:"text-indigo-700",  border:"border-indigo-300",  fill:"bg-indigo-500"  },
+  { id:"reports",  icon:"📊", label:"تقارير ERP (قراءة)", labelShort:"التقارير",  bg:"bg-slate-100",   text:"text-slate-700",   border:"border-slate-300",   fill:"bg-slate-500"   },
+] as const;
+
+function getCOpPipelineStage(op: COp): number {
+  if (op.status === "rejected") return -1;
+  if (op.status === "final-approved") return 3;
+  if (op.status === "approved") return 2;
+  return 1;
+}
+
+function COpStagePill({ op }: { op: COp }) {
+  if (op.status === "rejected") {
+    return <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">✕ مرفوض</Badge>;
+  }
+  const idx = getCOpPipelineStage(op);
+  const s = C_PIPELINE_STAGES[idx];
+  return (
+    <Badge className={`${s.bg} ${s.text} border ${s.border} text-[10px] font-semibold`}>
+      {s.icon} م{idx+1} · {s.labelShort}
+    </Badge>
+  );
+}
+
+function CPipelineBar({ op }: { op: COp }) {
+  const stage = getCOpPipelineStage(op);
+  const isRejected = op.status === "rejected";
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4" dir="rtl">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">دورة حياة العملية</span>
+        {isRejected
+          ? <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs">✕ مرفوض</Badge>
+          : <Badge className={`${C_PIPELINE_STAGES[stage]?.bg} ${C_PIPELINE_STAGES[stage]?.text} border ${C_PIPELINE_STAGES[stage]?.border} text-xs font-bold`}>
+              المرحلة {stage+1}/6 · {C_PIPELINE_STAGES[stage]?.label}
+            </Badge>
+        }
+      </div>
+      <div className="flex items-center gap-0">
+        {C_PIPELINE_STAGES.map((s, i) => {
+          const isComplete = !isRejected && i < stage;
+          const isCurrent  = !isRejected && i === stage;
+          return (
+            <div key={s.id} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs border-2 transition-all
+                  ${isComplete ? `${s.fill} border-transparent text-white` :
+                    isCurrent  ? `bg-white ${s.border} ${s.text} shadow-sm font-bold` :
+                                 "bg-gray-50 border-gray-200 text-gray-300"}`}>
+                  {isComplete ? "✓" : s.icon}
+                </div>
+                <span className={`text-[9px] font-medium leading-tight text-center max-w-[44px] truncate
+                  ${isComplete ? "text-gray-600" : isCurrent ? `${s.text} font-bold` : "text-gray-300"}`}>
+                  {s.labelShort}
+                </span>
+              </div>
+              {i < C_PIPELINE_STAGES.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 mt-[-10px]`}
+                  style={{ backgroundColor: (!isRejected && isComplete) ? "" : "#e5e7eb",
+                           background: (!isRejected && isComplete) ? `linear-gradient(90deg,${s.fill.replace("bg-","")},${s.fill.replace("bg-","")})` : undefined }}
+                  >
+                  {(!isRejected && isComplete) && <div className={`h-0.5 ${s.fill}`}/>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CPipelineOverview({ ops }: { ops: COp[] }) {
+  const stageCounts = C_PIPELINE_STAGES.map((s, i) => ({
+    ...s,
+    count: ops.filter(o => getCOpPipelineStage(o) === i).length,
+  }));
+  const rejected = ops.filter(o => o.status === "rejected").length;
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" dir="rtl">
+      <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+        <h3 className="font-bold text-gray-900 text-sm tracking-tight">مسار العمليات — رؤية شاملة للخط الزمني</h3>
+        <div className="flex items-center gap-2">
+          {rejected>0 && <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">✕ {rejected} مرفوض</Badge>}
+          <span className="text-xs text-gray-400">{ops.length} عملية إجمالاً</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-6 divide-x divide-x-reverse divide-gray-100">
+        {stageCounts.map((s, i) => {
+          const isAspirational = i === 5;
+          return (
+            <div key={s.id} className={`px-3 py-4 text-center transition-colors ${isAspirational ? "bg-slate-50/60" : "hover:bg-gray-50/80"}`}>
+              <div className="text-lg mb-1">{s.icon}</div>
+              {isAspirational ? (
+                <>
+                  <p className="text-[10px] font-bold text-slate-400 font-mono">—</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">{s.labelShort}</p>
+                  <p className="text-[8px] text-slate-300 mt-1 leading-tight">مرحلة مستقبلية</p>
+                </>
+              ) : (
+                <>
+                  <p className={`text-2xl font-extrabold font-mono ${s.count > 0 ? s.text : "text-gray-200"}`}>{s.count}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.labelShort}</p>
+                  {i < 4 && (
+                    <div className={`mx-auto mt-2 h-1 w-6 rounded-full ${s.count > 0 ? s.fill : "bg-gray-100"}`}/>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const INITIAL_OPS:COp[] = [
   // Sales
   { id:"O-2401",branch:"فرع العليا",   brandName:"برغر التاج",      brandColor:"#E53E3E",module:"sales",   moduleLabel:"مبيعات",  amount:18340,timeAgo:"قبل ساعة",   status:"pending",       attachments:3,match:"exact",  submittedBy:"فاطمة السالم", date:"21 مارس",refNum:"SL-2401" },
@@ -326,8 +451,8 @@ const SHELL_NOTIFICATIONS = [
   { id:2, title:"تم قبول مصروف",        body:"إيجار شهر مارس - تمت الموافقة", time:"منذ ساعة",    icon:"✅", unread:true  },
   { id:3, title:"تذكير: جرد أسبوعي",   body:"موعد جرد هذا الأسبوع اليوم",    time:"منذ 3 ساعات", icon:"📦", unread:false },
 ];
-function Shell({ role, page, navigate, onLogout, children }:{
-  role:CRole; page:string; navigate:(p:string)=>void; onLogout:()=>void; children:ReactNode;
+function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:{
+  role:CRole; page:string; navigate:(p:string)=>void; onLogout:()=>void; children:ReactNode; headPendingCount?:number;
 }) {
   const meta = ROLE_META[role];
   const nav  = NAV[role];
@@ -366,7 +491,9 @@ function Shell({ role, page, navigate, onLogout, children }:{
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5 ${active?"bg-white/15 text-white":"text-white/60 hover:bg-white/8 hover:text-white/90"}`}>
                 <span className={active?"text-cyan-400":""}>{item.icon}</span>
                 <span className="flex-1 text-right">{item.label}</span>
-                {item.badge&&<span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
+                {item.id==="head-pending" && headPendingCount>0
+                  ? <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{headPendingCount}</span>
+                  : item.badge ? <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span> : null}
               </button>
             );
           })}
@@ -428,12 +555,19 @@ function Shell({ role, page, navigate, onLogout, children }:{
 // ═══════════════════════════════════════════════════
 // SHARED: OPS ROW COMPONENT
 // ═══════════════════════════════════════════════════
-function OpRow({ op, onApprove, onReject, onView, expanded, onToggle }:{
+function OpRow({ op, onApprove, onReject, onView, expanded, onToggle, forHead=false }:{
   op:COp; onApprove:()=>void; onReject:()=>void; onView:()=>void;
-  expanded?:boolean; onToggle?:()=>void;
+  expanded?:boolean; onToggle?:()=>void; forHead?:boolean;
 }) {
+  const isPending = op.status === "pending";
+  const isApproved = op.status === "approved";
+  const isLocked = op.status === "final-approved";
+  const isRejected = op.status === "rejected";
   return (
-    <div className={`border-b border-gray-50 last:border-0 ${expanded?"bg-purple-50/20":""}`}>
+    <div className={`border-b border-gray-50 last:border-0
+      ${op.match==="diff"?"border-r-4 border-r-red-400":op.match==="review"?"border-r-4 border-r-amber-400":""}
+      ${isLocked?"bg-slate-50/50":isRejected?"opacity-60":""}
+      ${expanded?"bg-purple-50/20":""}`}>
       <div className="px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
         <div className="w-1 h-10 rounded-full flex-shrink-0" style={{background:op.brandColor}}/>
         <div className="flex-shrink-0 text-left">
@@ -444,21 +578,27 @@ function OpRow({ op, onApprove, onReject, onView, expanded, onToggle }:{
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-semibold text-gray-800 text-sm">{op.branch}</span>
             <Badge className="bg-gray-100 text-gray-600 text-[10px]">{op.brandName}</Badge>
+            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-100">{op.moduleLabel}</span>
             <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
-            {op.diff && <span className="text-[10px] text-red-600 font-medium">← {op.diff}</span>}
+            {op.diff && <span className="text-[10px] text-red-600 font-medium">⚠ {op.diff}</span>}
+            <Badge className={`text-[10px] border ${STATUS_CFG[op.status].cls}`}>
+              {isLocked && <Lock size={9}/>}
+              {STATUS_CFG[op.status].label}
+            </Badge>
+            <COpStagePill op={op}/>
           </div>
           <div className="flex items-center gap-3 mt-0.5">
             <span className="text-[11px] text-gray-400">{op.submittedBy}</span>
-            <span className="text-[11px] text-gray-400">{op.timeAgo}</span>
+            <span className="text-[11px] text-gray-400">⏰ {op.timeAgo}</span>
             <span className="text-[11px] text-gray-400 flex items-center gap-0.5"><Paperclip size={9}/> {op.attachments}</span>
           </div>
         </div>
         <div className="text-left flex-shrink-0">
           {op.amount>0 && <p className="font-mono font-bold text-gray-800 text-sm">{fmt(op.amount)} ر.س</p>}
-          <Badge className={`text-[10px] border mt-0.5 ${STATUS_CFG[op.status].cls}`}>{STATUS_CFG[op.status].label}</Badge>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {op.status==="pending" && <>
+          {/* محاسب: يوافق على المعلقة فقط */}
+          {!forHead && isPending && <>
             <button onClick={onApprove} title="موافقة" className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center transition-all">
               <ThumbsUp size={13}/>
             </button>
@@ -466,6 +606,20 @@ function OpRow({ op, onApprove, onReject, onView, expanded, onToggle }:{
               <ThumbsDown size={13}/>
             </button>
           </>}
+          {/* رئيس الحسابات: يعتمد نهائياً العمليات المقبولة من المحاسب */}
+          {forHead && isApproved && <>
+            <button onClick={onApprove} title="اعتماد نهائي" className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center transition-all">
+              <ThumbsUp size={13}/>
+            </button>
+            <button onClick={onReject} title="رفض" className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 flex items-center justify-center transition-all">
+              <ThumbsDown size={13}/>
+            </button>
+          </>}
+          {isLocked && (
+            <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg">
+              <Lock size={11}/> مُغلق
+            </span>
+          )}
           <button onClick={onView} title="عرض" className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 flex items-center justify-center transition-all">
             <Eye size={13}/>
           </button>
@@ -828,26 +982,51 @@ function CASupport() {
 // ═══════════════════════════════════════════════════
 // HEAD ACCOUNTANT PAGES
 // ═══════════════════════════════════════════════════
-function HeadDashboard({ navigate }:{ navigate:(p:string)=>void }) {
-  const [ops,setOps]=useState(INITIAL_OPS);
-  const pending=ops.filter(o=>o.status==="pending");
-  const totalSalesM=ALL_BRANCHES.reduce((s,b)=>s+b.salesM,0);
-  const totalExpM=ALL_BRANCHES.reduce((s,b)=>s+b.expM,0);
+// HEAD — PROPS TYPE
+// ═══════════════════════════════════════════════════
+type HeadProps = {
+  navigate:(p:string)=>void;
+  ops:COp[];
+  finalApprove:(id:string)=>void;
+  reject:(id:string)=>void;
+  bulkFinalApprove:(ids:string[])=>void;
+};
+
+// ═══════════════════════════════════════════════════
+// HEAD ACCOUNTANT — DASHBOARD
+// ═══════════════════════════════════════════════════
+function HeadDashboard({ navigate, ops, finalApprove, reject, bulkFinalApprove }:HeadProps) {
+  // العمليات التي وافق عليها المحاسب وتنتظر الاعتماد النهائي من رئيس الحسابات
+  const awaitingHead  = ops.filter(o=>o.status==="approved");
+  const finalApproved = ops.filter(o=>o.status==="final-approved");
+  const rejected      = ops.filter(o=>o.status==="rejected");
+  const totalSalesM   = ALL_BRANCHES.reduce((s,b)=>s+b.salesM,0);
+  const totalExpM     = ALL_BRANCHES.reduce((s,b)=>s+b.expM,0);
   return (
     <div className="space-y-5" dir="rtl">
       <div className="flex items-start justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">لوحة رئيس الحسابات</h2><p className="text-gray-400 text-sm">{COMPANY.name} · {ALL_BRANCHES.length} فرع</p></div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">لوحة رئيس الحسابات 👑</h2>
+          <p className="text-gray-400 text-sm">{COMPANY.name} · الإشراف على المحاسبين · الاعتماد النهائي</p>
+        </div>
         <button onClick={()=>navigate("head-pending")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 shadow-sm relative">
-          <Clock size={14}/> العمليات المعلقة
-          {pending.length>0&&<span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{pending.length}</span>}
+          <Clock size={14}/> بانتظار اعتمادي
+          {awaitingHead.length>0&&<span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{awaitingHead.length}</span>}
         </button>
       </div>
+
+      {/* KPIs — مطابقة للداشبورد الرئيسي */}
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي المبيعات" value={`${fmt(Math.round(totalSalesM/1000))}K`} sub="ر.س هذا الشهر" icon={<TrendingUp size={18} className="text-emerald-600"/>} accent="emerald" delta="+8.2%"/>
-        <KpiCard label="إجمالي المصروفات" value={`${fmt(Math.round(totalExpM/1000))}K`} sub="ر.س" icon={<Wallet size={18} className="text-red-500"/>} accent="red"/>
-        <KpiCard label="صافي الربح" value={`${fmt(Math.round((totalSalesM-totalExpM)/1000))}K`} sub="ر.س" icon={<BarChart3 size={18} className="text-purple-600"/>} accent="purple" delta="+12.4%"/>
-        <KpiCard label="تنتظر اعتمادي" value={String(pending.length)} sub="عملية معلقة" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="بانتظار اعتمادي"  value={String(awaitingHead.length)} sub="📱 من المحاسبين · م3"   icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معتمدة نهائياً"   value={String(finalApproved.length)} sub="مُغلقة · تنتظر ERP · م4" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="مرفوضة"           value={String(rejected.length)} sub="خارج المسار"                  icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="إجمالي المبيعات"  value={`${fmt(Math.round(totalSalesM/1000))}K`} sub="ر.س هذا الشهر" icon={<TrendingUp size={18} className="text-blue-600"/>} accent="blue" delta="+8.2%"/>
       </div>
+
+      {/* مسار العمليات */}
+      <CPipelineOverview ops={ops}/>
+
+      {/* أداء العلامات التجارية */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-bold text-gray-800 text-sm mb-4">أداء العلامات التجارية هذا الشهر</h3>
         <div className="space-y-4">
@@ -860,22 +1039,53 @@ function HeadDashboard({ navigate }:{ navigate:(p:string)=>void }) {
             return (
               <div key={b.id} className="flex items-center gap-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{background:b.color}}>{b.abbr}</div>
-                <div className="flex-1"><div className="flex items-center justify-between mb-1"><span className="text-xs font-semibold text-gray-700">{b.name}</span><span className="text-xs text-gray-500">{pct}% من الهدف</span></div><div className="w-full h-2 bg-gray-100 rounded-full"><div className="h-2 rounded-full" style={{width:`${Math.min(100,pct)}%`,background:b.color}}/></div></div>
-                <div className="text-left flex-shrink-0 w-32"><p className="font-mono font-bold text-gray-800 text-xs">{fmt(sales)}</p><p className="text-[10px] text-gray-400">مصروفات: {fmt(exp)}</p></div>
-                <div className="w-16 text-left flex-shrink-0"><p className={`font-bold text-sm ${sales-exp>0?"text-emerald-600":"text-red-500"}`}>{fmt(sales-exp)}</p><p className="text-[10px] text-gray-400">صافي</p></div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-700">{b.name}</span>
+                    <span className="text-xs text-gray-500">{pct}% من الهدف</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full"><div className="h-2 rounded-full" style={{width:`${Math.min(100,pct)}%`,background:b.color}}/></div>
+                </div>
+                <div className="text-left flex-shrink-0 w-32">
+                  <p className="font-mono font-bold text-gray-800 text-xs">{fmt(sales)}</p>
+                  <p className="text-[10px] text-gray-400">مصروفات: {fmt(exp)}</p>
+                </div>
+                <div className="w-16 text-left flex-shrink-0">
+                  <p className={`font-bold text-sm ${sales-exp>0?"text-emerald-600":"text-red-500"}`}>{fmt(sales-exp)}</p>
+                  <p className="text-[10px] text-gray-400">صافي</p>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* العمليات بانتظار الاعتماد النهائي */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 bg-amber-50/60 flex items-center justify-between"><h3 className="font-bold text-amber-800 text-sm">⏳ تنتظر اعتمادك ({pending.length})</h3><button onClick={()=>navigate("head-pending")} className="text-xs text-purple-600 font-semibold hover:underline">عرض الكل</button></div>
-        {pending.slice(0,4).map(op=>(
-          <div key={op.id} className="px-5 py-3.5 flex items-center gap-4 border-b border-gray-50 last:border-0">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-amber-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-amber-800 text-sm">⏳ بانتظار اعتمادك النهائي ({awaitingHead.length})</h3>
+          {awaitingHead.length>0 && (
+            <div className="flex items-center gap-2">
+              <Btn size="sm" variant="success" onClick={()=>bulkFinalApprove(awaitingHead.map(o=>o.id))}>✅ اعتماد الكل</Btn>
+              <button onClick={()=>navigate("head-pending")} className="text-xs text-purple-600 font-semibold hover:underline">عرض الكل ←</button>
+            </div>
+          )}
+        </div>
+        {awaitingHead.length===0 && <div className="p-8 text-center text-gray-400 text-sm">✅ تم اعتماد جميع العمليات الصادرة من المحاسبين</div>}
+        {awaitingHead.slice(0,4).map(op=>(
+          <div key={op.id} className="px-5 py-3.5 flex items-center gap-4 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
             <div className="w-1 h-8 rounded-full flex-shrink-0" style={{background:op.brandColor}}/>
-            <div className="flex-1"><p className="text-sm font-semibold text-gray-800">{op.moduleLabel} — {op.branch}</p><p className="text-xs text-gray-400">{op.brandName} · {op.submittedBy} · {op.timeAgo}</p></div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-800">{op.moduleLabel} — {op.branch}</p>
+              <p className="text-xs text-gray-400">{op.brandName} · {op.submittedBy} · {op.timeAgo}</p>
+            </div>
             {op.amount>0&&<span className="font-mono font-bold text-gray-800 text-sm">{fmt(op.amount)} ر.س</span>}
+            <COpStagePill op={op}/>
             <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
+            <div className="flex gap-1.5 flex-shrink-0">
+              <button onClick={()=>finalApprove(op.id)} title="اعتماد نهائي" className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center text-xs"><CheckCircle2 size={12}/></button>
+              <button onClick={()=>reject(op.id)} title="رفض" className="w-7 h-7 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 flex items-center justify-center text-xs"><XCircle size={12}/></button>
+            </div>
           </div>
         ))}
       </div>
@@ -883,33 +1093,97 @@ function HeadDashboard({ navigate }:{ navigate:(p:string)=>void }) {
   );
 }
 
-function HeadPending() {
-  const [ops,setOps]=useState(INITIAL_OPS.filter(o=>o.status==="pending"));
-  const [selected,setSelected]=useState<string|null>(null);
-  const [brandFilter,setBrandFilter]=useState("الكل");
-  const approve=(id:string)=>setOps(p=>p.filter(o=>o.id!==id));
-  const reject=(id:string)=>setOps(p=>p.filter(o=>o.id!==id));
-  const brands=["الكل",...new Set(INITIAL_OPS.map(o=>o.brandName))];
-  const shown=ops.filter(o=>brandFilter==="الكل"||o.brandName===brandFilter);
+// ═══════════════════════════════════════════════════
+// HEAD — PENDING (بانتظار الاعتماد النهائي)
+// يعرض العمليات التي وافق عليها المحاسب (status="approved")
+// وينقلها لـ "final-approved" بدلاً من حذفها
+// ═══════════════════════════════════════════════════
+function HeadPending({ ops, finalApprove, reject, bulkFinalApprove }:HeadProps) {
+  const [selected,setSelected]  = useState<string|null>(null);
+  const [brandFilter,setBrandFilter] = useState("الكل");
+  const [modFilter,setModFilter] = useState<""|CModKey>("");
+
+  // رئيس الحسابات يرى فقط العمليات التي أجاز عليها المحاسب (م3) والتي تنتظر اعتماده النهائي (→ م4)
+  const awaitingHead = ops.filter(o=>o.status==="approved");
+  const brands = ["الكل",...new Set(ops.map(o=>o.brandName))];
+  const shown  = awaitingHead.filter(o=>{
+    if(brandFilter!=="الكل" && o.brandName!==brandFilter) return false;
+    if(modFilter && o.module!==modFilter) return false;
+    return true;
+  });
+  const totalAmt = shown.reduce((s,o)=>s+o.amount,0);
+
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">العمليات المعلقة</h2><p className="text-gray-400 text-sm">{ops.length} عملية تنتظر الاعتماد</p></div>
-        {ops.length>0&&<Btn variant="success" onClick={()=>setOps([])}>اعتماد الكل ({ops.length})</Btn>}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">بانتظار الاعتماد النهائي</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{awaitingHead.length} عملية — موافق عليها من المحاسب · تنتظر اعتمادك (م3 → م4)</p>
+        </div>
+        {awaitingHead.length>0 && (
+          <Btn variant="success" onClick={()=>bulkFinalApprove(awaitingHead.map(o=>o.id))}>
+            <CheckCircle2 size={13}/> اعتماد الكل ({awaitingHead.length})
+          </Btn>
+        )}
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+
+      {/* فلاتر */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-          {brands.map(b=><button key={b} onClick={()=>setBrandFilter(b)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${brandFilter===b?"bg-white text-gray-800 shadow-sm":"text-gray-500"}`}>{b}</button>)}
+          {brands.map(b=>(
+            <button key={b} onClick={()=>setBrandFilter(b)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${brandFilter===b?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              {b}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          {(["","sales","expenses","purchases","inventory"] as (""|CModKey)[]).map(m=>{
+            const labels:Record<string,string>={sales:"💰 مبيعات",expenses:"💸 مصروفات",purchases:"🛒 مشتريات",inventory:"📦 مخزون"};
+            return (
+              <button key={m} onClick={()=>setModFilter(m)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${modFilter===m?"bg-purple-600 text-white border-purple-600":"bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
+                {m===""?"الكل":labels[m]}
+              </button>
+            );
+          })}
+          {totalAmt>0 && <span className="mr-auto text-xs text-gray-500 font-mono font-semibold">إجمالي العرض: {fmt(totalAmt)} ر.س</span>}
         </div>
       </div>
+
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        {shown.length===0?<div className="p-10 text-center text-gray-400 text-sm">✅ لا توجد عمليات معلقة</div>:shown.map(op=>(
+        {shown.length===0 ? (
+          <div className="p-10 text-center">
+            <p className="text-2xl mb-2">✅</p>
+            <p className="text-gray-600 font-semibold text-sm">لا توجد عمليات بانتظار اعتمادك النهائي</p>
+            <p className="text-gray-400 text-xs mt-1">كل العمليات معتمدة نهائياً أو ما زالت قيد المراجعة لدى المحاسب</p>
+          </div>
+        ) : shown.map(op=>(
           <div key={op.id} className={`border-b border-gray-50 last:border-0 ${selected===op.id?"bg-purple-50/30":""}`}>
-            <OpRow op={op} onApprove={()=>approve(op.id)} onReject={()=>reject(op.id)} onView={()=>setSelected(selected===op.id?null:op.id)} expanded={selected===op.id} onToggle={()=>setSelected(selected===op.id?null:op.id)}/>
-            {selected===op.id&&(
-              <div className="px-5 pb-4 flex gap-2 border-t border-gray-50 pt-3">
-                <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> اعتماد نهائي</Btn>
-                <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> رفض</Btn>
-                <Btn size="sm" onClick={()=>alert(`📎 المرفقات (${op.attachments}):\n• فاتورة مبيعات POS\n• تقرير الكاشير\n• صورة إيصال التسليم`)}><Paperclip size={12}/> {op.attachments} مرفقات</Btn>
+            <OpRow
+              op={op}
+              forHead={true}
+              onApprove={()=>{ finalApprove(op.id); setSelected(null); }}
+              onReject={()=>{ reject(op.id); setSelected(null); }}
+              onView={()=>setSelected(selected===op.id?null:op.id)}
+              expanded={selected===op.id}
+              onToggle={()=>setSelected(selected===op.id?null:op.id)}
+            />
+            {selected===op.id && (
+              <div className="px-5 pb-4 space-y-3 border-t border-gray-50 pt-3">
+                {/* Pipeline bar */}
+                <CPipelineBar op={op}/>
+                <div className="flex gap-2">
+                  <Btn variant="success" size="sm" onClick={()=>{ finalApprove(op.id); setSelected(null); }}>
+                    <Lock size={12}/> اعتماد نهائي (م4)
+                  </Btn>
+                  <Btn variant="danger" size="sm" onClick={()=>{ reject(op.id); setSelected(null); }}>
+                    <ThumbsDown size={12}/> رفض
+                  </Btn>
+                  <Btn size="sm" onClick={()=>alert(`📎 المرفقات (${op.attachments}):\n• فاتورة مبيعات POS\n• تقرير الكاشير\n• صورة إيصال التسليم`)}>
+                    <Paperclip size={12}/> {op.attachments} مرفقات
+                  </Btn>
+                </div>
               </div>
             )}
           </div>
@@ -919,17 +1193,33 @@ function HeadPending() {
   );
 }
 
-function HeadApproved() {
-  const approved=INITIAL_OPS.filter(o=>o.status==="approved"||o.status==="final-approved");
+// ═══════════════════════════════════════════════════
+// HEAD — APPROVED (المعتمدة نهائياً)
+// ═══════════════════════════════════════════════════
+function HeadApproved({ ops }:{ ops:COp[] }) {
+  const finalApproved = ops.filter(o=>o.status==="final-approved");
+  const totalAmt      = finalApproved.reduce((s,o)=>s+o.amount,0);
   return (
     <div className="space-y-5" dir="rtl">
-      <div><h2 className="text-xl font-bold text-gray-800">المعتمدة نهائياً</h2><p className="text-gray-400 text-sm">{approved.length} عملية</p></div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">المعتمدة نهائياً 🔒</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{finalApproved.length} عملية معتمدة نهائياً — م4 في مسار الاعتماد · بانتظار الترحيل لـ ERP</p>
+        </div>
+        {totalAmt>0 && <span className="text-sm font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">{fmt(totalAmt)} ر.س إجمالاً</span>}
+      </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        {approved.map(op=>(
-          <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-50 last:border-0">
+        {finalApproved.length===0 && <div className="p-8 text-center text-gray-400 text-sm">لا توجد عمليات معتمدة نهائياً حتى الآن</div>}
+        {finalApproved.map(op=>(
+          <div key={op.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-50 last:border-0 bg-slate-50/30">
             <div className="w-1 h-8 rounded-full flex-shrink-0" style={{background:op.brandColor}}/>
-            <div className="flex-1"><p className="font-semibold text-gray-800 text-sm">{op.moduleLabel} — {op.branch}</p><p className="text-xs text-gray-400">{op.brandName} · {op.submittedBy} · {op.timeAgo}</p></div>
-            {op.amount>0&&<span className="font-mono font-bold text-gray-800">{fmt(op.amount)} ر.س</span>}
+            <Lock size={12} className="text-emerald-600 flex-shrink-0"/>
+            <div className="flex-1">
+              <p className="font-semibold text-gray-800 text-sm">{op.moduleLabel} — {op.branch}</p>
+              <p className="text-xs text-gray-400">{op.brandName} · {op.submittedBy} · {op.timeAgo}</p>
+            </div>
+            {op.amount>0&&<span className="font-mono font-bold text-gray-800 text-sm">{fmt(op.amount)} ر.س</span>}
+            <COpStagePill op={op}/>
             <Badge className={`text-[10px] border ${STATUS_CFG[op.status].cls}`}>{STATUS_CFG[op.status].label}</Badge>
           </div>
         ))}
@@ -1020,59 +1310,121 @@ function HeadReports() {
 // ═══════════════════════════════════════════════════
 // ACCOUNTANT — SHARED STATE HOOK
 // ═══════════════════════════════════════════════════
-function useAccOps() {
+function useSharedOps() {
   const [ops, setOps] = useState<COp[]>(INITIAL_OPS);
-  const approve = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"approved" as COpStatus}:o));
-  const reject  = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"rejected" as COpStatus}:o));
-  const bulkApprove = (ids:string[]) => setOps(p=>p.map(o=>ids.includes(o.id)?{...o,status:"approved" as COpStatus}:o));
-  return { ops, approve, reject, bulkApprove };
+  const approve      = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"approved" as COpStatus}:o));
+  const reject       = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"rejected" as COpStatus}:o));
+  const finalApprove = (id:string) => setOps(p=>p.map(o=>o.id===id?{...o,status:"final-approved" as COpStatus}:o));
+  const bulkApprove  = (ids:string[]) => setOps(p=>p.map(o=>ids.includes(o.id)?{...o,status:"approved" as COpStatus}:o));
+  const bulkFinalApprove = (ids:string[]) => setOps(p=>p.map(o=>ids.includes(o.id)?{...o,status:"final-approved" as COpStatus}:o));
+  return { ops, approve, reject, finalApprove, bulkApprove, bulkFinalApprove };
 }
 
 // ═══════════════════════════════════════════════════
 // ACCOUNTANT DASHBOARD
 // ═══════════════════════════════════════════════════
 function AccDashboard({ navigate, ops }:{ navigate:(p:string)=>void; ops:COp[] }) {
-  const pending=ops.filter(o=>o.status==="pending");
-  const todaySales=18340+22100+15820;
+  const pending      = ops.filter(o=>o.status==="pending");
+  const approved     = ops.filter(o=>o.status==="approved");
+  const finalApproved= ops.filter(o=>o.status==="final-approved");
+  const rejected     = ops.filter(o=>o.status==="rejected");
+  const approvalRate = ops.length>0 ? Math.round((approved.length+finalApproved.length)/ops.length*100) : 0;
+  const todaySales   = 18340+22100+15820;
+
   return (
     <div className="space-y-5" dir="rtl">
-      <div><h2 className="text-xl font-bold text-gray-800">لوحة المحاسب</h2><p className="text-gray-400 text-sm">{COMPANY.name} · مسؤول عن {ALL_BRANCHES.filter(b=>b.brandName==="برغر التاج"||b.brandName==="بيتزا التاج").length} فروع</p></div>
-      <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="مبيعات اليوم"   value={fmt(todaySales)} sub="ر.س من 3 فروع"     icon={<TrendingUp size={18} className="text-emerald-600"/>} accent="emerald" delta="+5.2%"/>
-        <KpiCard label="عمليات معلقة"   value={String(pending.length)} sub="تنتظر مراجعتي" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="مطابقة تامة"    value={String(pending.filter(o=>o.match==="exact").length)} sub="لا تحتاج تدخل" icon={<CheckCircle2 size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="تحتاج مراجعة"   value={String(pending.filter(o=>o.match!=="exact").length)} sub="يحتاج تدخل"  icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+      <div>
+        <h2 className="text-xl font-bold text-gray-800">ملخص اليوم — السبت 22 مارس 2026</h2>
+        <p className="text-gray-400 text-sm mt-0.5">{COMPANY.name} · مسؤول عن {ALL_BRANCHES.filter(b=>b.brandName==="برغر التاج"||b.brandName==="بيتزا التاج").length} فروع · الموديولات: الأربعة الرئيسية</p>
       </div>
+
+      {/* KPIs — بنفس ترتيب الداشبورد الرئيسي */}
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="تنتظر مراجعتي"   value={String(pending.length)} sub="📱 رُفعت من الفروع"          icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="وافقت عليها"      value={String(approved.length)} sub="بانتظار الاعتماد النهائي"   icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="معتمدة نهائياً"  value={String(finalApproved.length)} sub="مُغلقة — بانتظار ERP"   icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="معدل الموافقة"   value={`${approvalRate}%`} sub="هذا الشهر"                       icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+      </div>
+
+      {/* شريط تقدم اليوم — مطابق للداشبورد الرئيسي */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-gray-800 text-sm">🎯 تقدم اليوم</h3>
+          <span className="text-xs text-gray-400">الهدف: مراجعة جميع العمليات المعلقة</span>
+        </div>
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            {label:"المراجعة",      done:ops.filter(o=>o.status!=="pending").length,              total:ops.length,                                  color:"bg-purple-500"},
+            {label:"الموافقة",      done:ops.filter(o=>o.status==="approved"||o.status==="final-approved").length, total:ops.length,               color:"bg-emerald-500"},
+            {label:"التوثيق",       done:finalApproved.length,                                    total:ops.filter(o=>o.status!=="pending").length||1, color:"bg-blue-500"},
+            {label:"الفروع المكتملة",done:4,                                                       total:ALL_BRANCHES.length,                           color:"bg-cyan-500"},
+          ].map(({label,done,total,color})=>{
+            const pct = Math.min(100,total>0?Math.round(done/total*100):0);
+            return (
+              <div key={label}>
+                <div className="flex justify-between text-[11px] mb-1.5">
+                  <span className="font-semibold text-gray-600">{label}</span>
+                  <span className={`font-bold ${pct===100?"text-emerald-600":"text-gray-500"}`}>{done}/{total} {pct===100?"✅":""}</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className={`h-2 rounded-full ${color} transition-all`} style={{width:`${pct}%`}}/>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5 text-left">{pct}%</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pipeline Overview — مسار العمليات الكامل */}
+      <CPipelineOverview ops={ops}/>
+
       <div className="grid grid-cols-2 gap-4">
+        {/* معلقة بحسب الموديول */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h3 className="font-bold text-gray-800 text-sm mb-3">⏳ معلقة بحسب الموديول</h3>
           <div className="space-y-2">
             {(["sales","expenses","purchases","inventory"] as CModKey[]).map(mod=>{
               const count=pending.filter(o=>o.module===mod).length;
+              const total=ops.filter(o=>o.module===mod).length;
               const labels:Record<string,string>={sales:"مبيعات",expenses:"مصروفات",purchases:"مشتريات",inventory:"مخزون"};
               const icons:Record<string,string>={sales:"💰",expenses:"💸",purchases:"🛒",inventory:"📦"};
               const pages:Record<string,string>={sales:"acc-sales",expenses:"acc-expenses",purchases:"acc-purchases",inventory:"acc-inventory"};
               return (
                 <div key={mod} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                  <span className="text-lg">{icons[mod]}</span>
+                  <span className="text-base">{icons[mod]}</span>
                   <span className="flex-1 text-sm font-medium text-gray-700">{labels[mod]}</span>
+                  <span className="text-[10px] text-gray-400">{total} إجمالي</span>
                   <Badge className={`text-[10px] ${count>0?"bg-amber-50 text-amber-700 border border-amber-200":"bg-gray-100 text-gray-400"}`}>{count} معلق</Badge>
-                  <button onClick={()=>navigate(pages[mod])} className="text-xs text-purple-600 hover:underline font-medium">عرض</button>
+                  <button onClick={()=>navigate(pages[mod])} className="text-xs text-purple-600 hover:underline font-semibold">عرض ←</button>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {/* يحتاج انتباهاً فورياً */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h3 className="font-bold text-gray-800 text-sm mb-3">🔴 يحتاج انتباهاً فورياً</h3>
           <div className="space-y-2">
+            {ops.filter(o=>o.status==="pending"&&o.match==="diff").length===0 && (
+              <p className="text-xs text-gray-400 text-center py-4">✅ لا توجد فروق تحتاج انتباهاً</p>
+            )}
             {ops.filter(o=>o.status==="pending"&&o.match==="diff").map(op=>(
               <div key={op.id} className="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0">
                 <AlertTriangle size={12} className="text-red-500 flex-shrink-0 mt-0.5"/>
-                <div className="flex-1"><p className="text-xs font-semibold text-gray-700">{op.branch} — {op.moduleLabel}</p><p className="text-[10px] text-red-600">{op.diff}</p></div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-gray-700">{op.branch} — {op.moduleLabel}</p>
+                  <p className="text-[10px] text-red-600">{op.diff}</p>
+                </div>
                 <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
               </div>
             ))}
+            {rejected.length>0 && (
+              <div className="pt-2 border-t border-gray-50 mt-1">
+                <p className="text-[11px] text-red-500 font-semibold">{rejected.length} عملية مرفوضة — تحتاج إعادة رفع من الفرع</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1845,8 +2197,16 @@ function AccCompanyReminders() {
 // ═══════════════════════════════════════════════════
 // ACCOUNTANT ROOT (with shared state)
 // ═══════════════════════════════════════════════════
-function AccountantRoot({ page, navigate }:{ page:string; navigate:(p:string)=>void }) {
-  const { ops, approve, reject, bulkApprove } = useAccOps();
+type SharedOpsProps = {
+  ops:COp[];
+  approve:(id:string)=>void;
+  reject:(id:string)=>void;
+  bulkApprove:(ids:string[])=>void;
+  finalApprove:(id:string)=>void;
+  bulkFinalApprove:(ids:string[])=>void;
+};
+
+function AccountantRoot({ page, navigate, ops, approve, reject, bulkApprove }:{ page:string; navigate:(p:string)=>void } & SharedOpsProps) {
   if(page==="acc-dashboard") return <AccDashboard navigate={navigate} ops={ops}/>;
   if(page==="acc-sales")     return <AccCompanySales ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
   if(page==="acc-expenses")  return <AccCompanyExpenses ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
@@ -2244,7 +2604,11 @@ function ProcReports() {
 // ═══════════════════════════════════════════════════
 // PAGE ROUTER
 // ═══════════════════════════════════════════════════
-function PageRouter({ role, page, navigate }:{ role:CRole; page:string; navigate:(p:string)=>void }) {
+function PageRouter({ role, page, navigate, ops, approve, reject, bulkApprove, finalApprove, bulkFinalApprove }:{
+  role:CRole; page:string; navigate:(p:string)=>void;
+} & SharedOpsProps) {
+  const headProps:HeadProps = { navigate, ops, finalApprove, reject, bulkFinalApprove };
+
   if(role==="company-admin") {
     if(page==="ca-dashboard")    return <CADashboard navigate={navigate}/>;
     if(page==="ca-subscription") return <CASubscription/>;
@@ -2257,16 +2621,16 @@ function PageRouter({ role, page, navigate }:{ role:CRole; page:string; navigate
     return <CADashboard navigate={navigate}/>;
   }
   if(role==="head") {
-    if(page==="head-dashboard")   return <HeadDashboard navigate={navigate}/>;
-    if(page==="head-pending")     return <HeadPending/>;
-    if(page==="head-approved")    return <HeadApproved/>;
+    if(page==="head-dashboard")   return <HeadDashboard {...headProps}/>;
+    if(page==="head-pending")     return <HeadPending {...headProps}/>;
+    if(page==="head-approved")    return <HeadApproved ops={ops}/>;
     if(page==="head-brands")      return <HeadBrands/>;
     if(page==="head-accountants") return <HeadAccountants/>;
     if(page==="head-reports")     return <HeadReports/>;
-    return <HeadDashboard navigate={navigate}/>;
+    return <HeadDashboard {...headProps}/>;
   }
   if(role==="accountant") {
-    return <AccountantRoot page={page} navigate={navigate}/>;
+    return <AccountantRoot page={page} navigate={navigate} ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove} finalApprove={finalApprove} bulkFinalApprove={bulkFinalApprove}/>;
   }
   if(role==="branch") {
     if(page==="br-dashboard") return <BranchDashboard/>;
@@ -2289,18 +2653,28 @@ function PageRouter({ role, page, navigate }:{ role:CRole; page:string; navigate
 }
 
 // ═══════════════════════════════════════════════════
-// ROOT
+// ROOT — الحالة المشتركة هنا (المحاسب + رئيس الحسابات يشتركان في نفس البيانات)
 // ═══════════════════════════════════════════════════
 export default function CompanyDashboard() {
   const [role, setRole] = useState<CRole|null>(null);
   const [page, setPage] = useState<string>("");
+  // الحالة المشتركة: المحاسب يوافق → رئيس الحسابات يعتمد نهائياً
+  const { ops, approve, reject, finalApprove, bulkApprove, bulkFinalApprove } = useSharedOps();
+
   const selectRole = (r:CRole) => { setRole(r); setPage(DEFAULT_PAGE[r]); };
   const navigate   = (p:string) => setPage(p);
   const logout     = () => { setRole(null); setPage(""); };
+
   if(!role) return <CompanyLoginScreen onSelect={selectRole}/>;
+
+  // عدد العمليات بانتظار الاعتماد النهائي (للبادج في الشريط الجانبي)
+  const headPendingCount = ops.filter(o=>o.status==="approved").length;
+
   return (
-    <Shell role={role} page={page} navigate={navigate} onLogout={logout}>
-      <PageRouter role={role} page={page} navigate={navigate}/>
+    <Shell role={role} page={page} navigate={navigate} onLogout={logout} headPendingCount={headPendingCount}>
+      <PageRouter role={role} page={page} navigate={navigate}
+        ops={ops} approve={approve} reject={reject}
+        bulkApprove={bulkApprove} finalApprove={finalApprove} bulkFinalApprove={bulkFinalApprove}/>
     </Shell>
   );
 }
