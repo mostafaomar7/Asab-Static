@@ -95,6 +95,31 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
 
+## Deployment
+
+The project deploys as an autoscale Node.js server via `artifacts/api-server`.
+
+### Build command (production)
+```
+PORT=3001 pnpm --filter @workspace/api-server run build
+```
+This runs `build.ts` which:
+1. Builds the ASAB frontend (`mockup-sandbox`) with `BASE_PATH=/ PORT=3000 vite build` → `artifacts/mockup-sandbox/dist/`
+2. Copies frontend files to `artifacts/api-server/dist/public/`
+3. Bundles the Express server → `artifacts/api-server/dist/index.cjs`
+
+### Run command (production)
+```
+PORT=$PORT node artifacts/api-server/dist/index.cjs
+```
+
+### URLs (after deployment)
+- `/` → ASAB landing page (choose dashboard)
+- `/preview/asab/ASABPrototype` → Main ASAB dashboard (9 modules, 6 roles)
+- `/preview/asab/CompanyDashboard` → B2B Company portal (مجموعة التاج)
+
+---
+
 ### `artifacts/mockup-sandbox` (`@workspace/mockup-sandbox`)
 
 Vite + React interactive prototype sandbox for the **ASAB (عصب)** multi-tenant restaurant financial management SaaS.

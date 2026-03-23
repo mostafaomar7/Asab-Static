@@ -1,7 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { build as esbuild } from "esbuild";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, cp, mkdir } from "fs/promises";
+import { execSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,22 @@ async function buildAll() {
   const distDir = path.resolve(__dirname, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  // ── 1. Build the ASAB frontend (mockup-sandbox) ──────────────────────────
+  console.log("building ASAB frontend...");
+  const workspaceRoot = path.resolve(__dirname, "../..");
+  execSync(
+    "BASE_PATH=/ PORT=3000 NODE_ENV=production pnpm --filter @workspace/mockup-sandbox run build",
+    { cwd: workspaceRoot, stdio: "inherit" }
+  );
+
+  // ── 2. Copy frontend dist → server dist/public ───────────────────────────
+  console.log("copying frontend assets to server dist/public...");
+  const frontendDist = path.resolve(workspaceRoot, "artifacts/mockup-sandbox/dist");
+  const publicDir = path.resolve(distDir, "public");
+  await mkdir(publicDir, { recursive: true });
+  await cp(frontendDist, publicDir, { recursive: true });
+
+  // ── 3. Build the Express server ──────────────────────────────────────────
   console.log("building server...");
   const pkgPath = path.resolve(__dirname, "package.json");
   const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
@@ -67,6 +84,8 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  console.log("✓ build complete — server + ASAB frontend bundled");
 }
 
 buildAll().catch((err) => {
