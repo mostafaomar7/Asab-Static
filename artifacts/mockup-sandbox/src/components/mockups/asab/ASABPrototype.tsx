@@ -4629,29 +4629,177 @@ function AccInventoryItems({ navigate }:PageProps) {
   );
 }
 
+// ─── Shift Setup Helpers & Types ──────────────────────────────────────────────
+const SHIFT_NAMES_AR  = ["الأول","الثاني","الثالث","الرابع","الخامس"];
+const S_DUR_OPTS      = [4,6,8,10,12];
+const sToMins  = (t:string) => { const [h,m]=(t||"00:00").split(":").map(Number); return h*60+(m||0); };
+const sAddMins = (t:string, n:number) => { const tot=(sToMins(t)+n+1440)%1440; return `${String(Math.floor(tot/60)).padStart(2,"0")}:${String(tot%60).padStart(2,"0")}`; };
+const sFmtT    = (t:string) => { if(!t||!t.includes(":")) return t; const [h,m]=t.split(":").map(Number); const ap=h<12?"ص":"م"; const h12=h===0?12:h>12?h-12:h; return `${h12}:${String(m).padStart(2,"0")} ${ap}`; };
+type ShiftSlot      = { name:string; start:string; end:string; durH:number };
+type RestShiftCfg   = { restId:string; restName:string; useOverride:boolean; numShifts:number; durH:number; firstStart:string; shifts:ShiftSlot[] };
+type BrandShiftState= { id:string; name:string; color:string; numShifts:number; durH:number; firstStart:string; shifts:ShiftSlot[]; rests:RestShiftCfg[]; saved:boolean };
+type ShiftEditState = { idx:number; tmpStart:string; tmpDurH:number } | null;
+const sGenShifts = (num:number, dur:number, start:string): ShiftSlot[] =>
+  Array.from({length:num},(_,i)=>{ const s=sAddMins(start,i*dur*60); return { name:SHIFT_NAMES_AR[i], start:s, end:sAddMins(s,dur*60), durH:dur }; });
+const sInitBrand = (b:typeof BRANDS_CATALOG[0]): BrandShiftState => {
+  const p:{[k:string]:{numShifts:number;durH:number;firstStart:string}} = {
+    reem:{numShifts:3,durH:8,firstStart:"08:00"}, herfy:{numShifts:2,durH:10,firstStart:"07:00"},
+    mcd:{numShifts:4,durH:6,firstStart:"06:00"},  broasted:{numShifts:1,durH:8,firstStart:"09:00"},
+  };
+  const cfg=p[b.id]||{numShifts:2,durH:8,firstStart:"08:00"};
+  return { id:b.id, name:b.name, color:b.color, ...cfg, shifts:sGenShifts(cfg.numShifts,cfg.durH,cfg.firstStart),
+    rests:b.restaurants.map(r=>({restId:r.id,restName:r.name,useOverride:false,...cfg,shifts:sGenShifts(cfg.numShifts,cfg.durH,cfg.firstStart)})), saved:false };
+};
+
+// ─── ShiftRow (module-level, no hooks-in-component violation) ─────────────────
+function ShiftRowCmp({ slot,idx,editState,onEditOpen,onEditChange,onEditCommit,onEditCancel }:{
+  slot:ShiftSlot; idx:number; editState:ShiftEditState;
+  onEditOpen:(idx:number,start:string,dur:number)=>void;
+  onEditChange:(start:string,dur:number)=>void;
+  onEditCommit:()=>void;
+  onEditCancel:()=>void;
+}) {
+  const isEditing = editState?.idx===idx;
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${isEditing?"bg-purple-50 border-purple-200 shadow-sm":"bg-gray-50 border-gray-100 hover:border-gray-200"}`}>
+      <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-[10px] font-black flex items-center justify-center flex-shrink-0">{idx+1}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-gray-700">الشفت {slot.name}</p>
+        {!isEditing
+          ? <p className="text-[10px] text-gray-400">{sFmtT(slot.start)} ← {sFmtT(slot.end)} · {slot.durH} ساعة</p>
+          : <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <div>
+                <label className="text-[9px] text-purple-500 font-semibold block mb-0.5">بداية الشفت</label>
+                <input type="time" value={editState!.tmpStart} onChange={e=>onEditChange(e.target.value,editState!.tmpDurH)}
+                  className="text-xs border border-purple-200 rounded-lg px-2 py-1 w-28 font-mono bg-white"/>
+              </div>
+              <div>
+                <label className="text-[9px] text-purple-500 font-semibold block mb-0.5">مدة (ساعة)</label>
+                <select value={editState!.tmpDurH} onChange={e=>onEditChange(editState!.tmpStart,+e.target.value)}
+                  className="text-xs border border-purple-200 rounded-lg px-2 py-1 bg-white">
+                  {S_DUR_OPTS.map(d=><option key={d} value={d}>{d} ساعة</option>)}
+                </select>
+              </div>
+              <div className="flex gap-1 self-end pb-px">
+                <button onClick={onEditCommit} className="px-3 py-1 bg-purple-600 text-white text-[10px] rounded-lg font-bold hover:bg-purple-700">حفظ</button>
+                <button onClick={onEditCancel} className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] rounded-lg hover:bg-gray-200">إلغاء</button>
+              </div>
+            </div>
+        }
+      </div>
+      {!isEditing && (
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] font-mono bg-white border border-gray-200 px-2 py-1 rounded-lg text-gray-700">{sFmtT(slot.start)}</span>
+          <span className="text-gray-300 text-[10px]">→</span>
+          <span className="text-[10px] font-mono bg-white border border-gray-200 px-2 py-1 rounded-lg text-gray-700">{sFmtT(slot.end)}</span>
+          <button onClick={()=>onEditOpen(idx,slot.start,slot.durH)}
+            className="w-7 h-7 rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 flex items-center justify-center transition-all ml-1">
+            <Edit3 size={11}/>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SmartPanel (module-level, pure presentational) ────────────────────────────
+function ShiftSmartPanel({ cfg, onNum, onDur, onStart, onGen }:{
+  cfg:{numShifts:number;durH:number;firstStart:string};
+  onNum:(n:number)=>void; onDur:(d:number)=>void; onStart:(s:string)=>void; onGen:()=>void;
+}) {
+  return (
+    <div className="bg-gradient-to-l from-purple-50 to-blue-50 border border-purple-100 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm">⚡</span>
+        <p className="text-sm font-bold text-purple-800">الإعداد الذكي للشفتات</p>
+        <span className="text-[10px] text-purple-400 mr-auto">يُنشئ الجدول تلقائياً حسب المدخلات</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] font-bold text-gray-600 block mb-1.5">عدد الشفتات</label>
+          <div className="flex items-center gap-1">
+            <button onClick={()=>onNum(Math.max(1,cfg.numShifts-1))} className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-red-50 hover:text-red-600 flex items-center justify-center text-lg font-bold select-none">−</button>
+            <span className="w-10 h-8 rounded-lg border border-purple-200 bg-white text-center text-sm font-black text-purple-700 flex items-center justify-center">{cfg.numShifts}</span>
+            <button onClick={()=>onNum(Math.min(5,cfg.numShifts+1))} className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 flex items-center justify-center text-lg font-bold select-none">+</button>
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-gray-600 block mb-1.5">مدة كل شفت</label>
+          <select value={cfg.durH} onChange={e=>onDur(+e.target.value)} className="w-full text-xs border border-gray-200 bg-white rounded-lg px-2 py-2">
+            {S_DUR_OPTS.map(d=><option key={d} value={d}>{d} ساعة</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-gray-600 block mb-1.5">بداية الشفت الأول</label>
+          <input type="time" value={cfg.firstStart} onChange={e=>onStart(e.target.value)} className="w-full text-xs border border-gray-200 bg-white rounded-lg px-2 py-2 font-mono"/>
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-gray-400">{cfg.numShifts} شفت × {cfg.durH}س = <span className="font-semibold text-gray-600">{cfg.numShifts*cfg.durH} ساعة/يوم</span> · يبدأ {sFmtT(cfg.firstStart)}</p>
+        <button onClick={onGen} className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition-all shadow-sm">
+          <RefreshCw size={11}/> إنشاء تلقائي
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AccShifts({ navigate, setModal }:PageProps) {
-  const [tab, setTab] = useState<"live"|"close"|"history">("live");
+  const [tab, setTab] = useState<"live"|"setup"|"close"|"history">("live");
   const [closeForm, setCloseForm] = useState({cashInDrawer:"",salesSystem:"",notes:"",branch:"فرع الرياض - العليا"});
   const [closeSent, setCloseSent] = useState(false);
 
-  const shifts = [
-    { name:"خالد الشمري", role:"مشرف الشفت", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, cash:4200, status:"active" as const },
-    { name:"محمد العتيبي", role:"كاشير رئيسي", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, cash:null, status:"active" as const },
-    { name:"سعد الدوسري", role:"مشرف الشفت", branch:"فرع مكة - المعابدة", start:"6:00 ص", duration:"5:22 ساعة", orders:45, sales:9200, cash:3800, status:"late" as const },
-    { name:"فهد القحطاني", role:"كاشير", branch:"فرع جدة - الحمراء", start:"7:00 ص", duration:"4:22 ساعة", orders:63, sales:9200, cash:null, status:"active" as const },
+  // ─── Shift Setup state ─────────────────────────────────────────────────────
+  const [brandCfgs,  setBrandCfgs]  = useState<BrandShiftState[]>(()=>BRANDS_CATALOG.map(sInitBrand));
+  const [selBrandId, setSelBrandId] = useState(BRANDS_CATALOG[0].id);
+  const [expandedRest,setExpandedRest] = useState<string|null>(null);
+  const [brandEdit,  setBrandEdit]  = useState<ShiftEditState>(null);
+  const [restEdits,  setRestEdits]  = useState<Record<string,ShiftEditState>>({});
+  const [savedBrand, setSavedBrand] = useState<string|null>(null);
+
+  const selBrand = brandCfgs.find(b=>b.id===selBrandId)!;
+
+  const updBrand = (id:string, patch:Partial<BrandShiftState>) =>
+    setBrandCfgs(p=>p.map(b=>b.id===id?{...b,...patch,saved:false}:b));
+  const updRest  = (brandId:string, restId:string, patch:Partial<RestShiftCfg>) =>
+    setBrandCfgs(p=>p.map(b=>b.id===brandId?{...b,rests:b.rests.map(r=>r.restId===restId?{...r,...patch}:r)}:b));
+
+  const doAutoGen     = (bId:string) => { const b=brandCfgs.find(x=>x.id===bId)!; updBrand(bId,{shifts:sGenShifts(b.numShifts,b.durH,b.firstStart)}); setBrandEdit(null); };
+  const doRestAutoGen = (bId:string, rId:string) => { const r=brandCfgs.find(x=>x.id===bId)!.rests.find(x=>x.restId===rId)!; updRest(bId,rId,{shifts:sGenShifts(r.numShifts,r.durH,r.firstStart)}); setRestEdits(p=>({...p,[rId]:null})); };
+  const doSave        = (bId:string) => { setBrandCfgs(p=>p.map(b=>b.id===bId?{...b,saved:true}:b)); setSavedBrand(bId); setTimeout(()=>setSavedBrand(null),2200); };
+
+  // Brand-level shift edit handlers
+  const brandEditOpen   = (idx:number,s:string,d:number) => setBrandEdit({idx,tmpStart:s,tmpDurH:d});
+  const brandEditChange = (s:string,d:number) => setBrandEdit(p=>p?{...p,tmpStart:s,tmpDurH:d}:p);
+  const brandEditCommit = () => { if(!brandEdit) return; const {idx,tmpStart,tmpDurH}=brandEdit; updBrand(selBrandId,{shifts:selBrand.shifts.map((x,j)=>j===idx?{...x,start:tmpStart,end:sAddMins(tmpStart,tmpDurH*60),durH:tmpDurH}:x)}); setBrandEdit(null); };
+
+  // Rest-level shift edit handlers
+  const restEditOpen   = (rId:string,idx:number,s:string,d:number) => setRestEdits(p=>({...p,[rId]:{idx,tmpStart:s,tmpDurH:d}}));
+  const restEditChange = (rId:string,s:string,d:number) => setRestEdits(p=>({...p,[rId]:p[rId]?{...p[rId]!,tmpStart:s,tmpDurH:d}:null}));
+  const restEditCommit = (bId:string,rId:string,slots:ShiftSlot[]) => {
+    const e=restEdits[rId]; if(!e) return;
+    updRest(bId,rId,{shifts:slots.map((x,j)=>j===e.idx?{...x,start:e.tmpStart,end:sAddMins(e.tmpStart,e.tmpDurH*60),durH:e.tmpDurH}:x)});
+    setRestEdits(p=>({...p,[rId]:null}));
+  };
+
+  const liveShifts = [
+    { name:"خالد الشمري", role:"مشرف الشفت", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, status:"active" as const },
+    { name:"محمد العتيبي", role:"كاشير رئيسي", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, status:"active" as const },
+    { name:"سعد الدوسري", role:"مشرف الشفت", branch:"فرع مكة - المعابدة", start:"6:00 ص", duration:"5:22 ساعة", orders:45, sales:9200, status:"late" as const },
+    { name:"فهد القحطاني", role:"كاشير", branch:"فرع جدة - الحمراء", start:"7:00 ص", duration:"4:22 ساعة", orders:63, sales:9200, status:"active" as const },
   ];
 
   const shiftHistory = [
-    {branch:"فرع الرياض - العليا", supervisor:"خالد الشمري", date:"13 أكت", startT:"8:00 ص", endT:"4:00 م", orders:145, sales:22400, cashExpected:8200, cashActual:8150, diff:-50, status:"closed"},
-    {branch:"فرع جدة - الحمراء",    supervisor:"فهد القحطاني", date:"13 أكت", startT:"7:00 ص", endT:"3:30 م", orders:118, sales:18900, cashExpected:7200, cashActual:7200, diff:0,   status:"closed"},
-    {branch:"فرع مكة - المعابدة",   supervisor:"سعد الدوسري",  date:"13 أكت", startT:"6:00 ص", endT:"2:00 م", orders:92,  sales:14300, cashExpected:5800, cashActual:5920, diff:120,  status:"closed"},
-    {branch:"فرع الرياض - العليا", supervisor:"خالد الشمري", date:"12 أكت", startT:"8:00 ص", endT:"4:00 م", orders:138, sales:21000, cashExpected:7800, cashActual:7800, diff:0,   status:"closed"},
-    {branch:"فرع جدة - الحمراء",    supervisor:"فهد القحطاني", date:"12 أكت", startT:"7:00 ص", endT:"3:30 م", orders:99,  sales:15600, cashExpected:6100, cashActual:6050, diff:-50,  status:"closed"},
+    {branch:"فرع الرياض - العليا", supervisor:"خالد الشمري", date:"13 أكت", startT:"8:00 ص", endT:"4:00 م", orders:145, sales:22400, cashExpected:8200, cashActual:8150, diff:-50},
+    {branch:"فرع جدة - الحمراء",    supervisor:"فهد القحطاني", date:"13 أكت", startT:"7:00 ص", endT:"3:30 م", orders:118, sales:18900, cashExpected:7200, cashActual:7200, diff:0},
+    {branch:"فرع مكة - المعابدة",   supervisor:"سعد الدوسري",  date:"13 أكت", startT:"6:00 ص", endT:"2:00 م", orders:92,  sales:14300, cashExpected:5800, cashActual:5920, diff:120},
+    {branch:"فرع الرياض - العليا", supervisor:"خالد الشمري", date:"12 أكت", startT:"8:00 ص", endT:"4:00 م", orders:138, sales:21000, cashExpected:7800, cashActual:7800, diff:0},
+    {branch:"فرع جدة - الحمراء",    supervisor:"فهد القحطاني", date:"12 أكت", startT:"7:00 ص", endT:"3:30 م", orders:99,  sales:15600, cashExpected:6100, cashActual:6050, diff:-50},
   ];
 
-  const cashIn = parseFloat(closeForm.cashInDrawer)||0;
+  const cashIn  = parseFloat(closeForm.cashInDrawer)||0;
   const salesSys = parseFloat(closeForm.salesSystem)||0;
-  const diff = cashIn - salesSys;
+  const cashDiff = cashIn - salesSys;
 
   const submitClose = () => {
     setCloseSent(true);
@@ -4659,37 +4807,51 @@ function AccShifts({ navigate, setModal }:PageProps) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" dir="rtl">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">إدارة الشفتات</h2>
-          <p className="text-gray-400 text-sm mt-0.5">الوقت الفعلي · إغلاق الشفت · السجل التاريخي</p></div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">إدارة الشفتات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">الوقت الفعلي · إعداد الشفتات · إغلاق الشفت · السجل التاريخي</p>
+        </div>
         <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>مباشر — آخر تحديث: الآن
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>مباشر — آخر تحديث: الآن
         </span>
       </div>
 
+      {/* KPIs */}
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="شفتات نشطة" value="4" sub="" icon={<span className="w-2 h-2 rounded-full bg-emerald-500"></span>} accent="emerald"/>
-        <KpiCard label="شفت متأخر" value="1" sub="يحتاج متابعة" icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="متوسط مدة الشفت" value="4.2 ساعة" sub="هذا اليوم" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="إجمالي الطلبات" value="282" sub="هذا اليوم" icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="شفتات نشطة"      value="4"         sub=""                  icon={<span className="w-2 h-2 rounded-full bg-emerald-500"/>} accent="emerald"/>
+        <KpiCard label="شفت متأخر"        value="1"         sub="يحتاج متابعة"      icon={<AlertTriangle size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="متوسط مدة الشفت" value="4.2 ساعة"  sub="هذا اليوم"         icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="إجمالي الطلبات"  value="282"       sub="هذا اليوم"         icon={<ShoppingCart size={18} className="text-blue-600"/>} accent="blue"/>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-200">
-        {[{id:"live" as const,label:"🟢 مباشر"},{id:"close" as const,label:"🔒 إغلاق الشفت"},{id:"history" as const,label:"📋 السجل التاريخي"}].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {([
+          {id:"live"    as const, label:"🟢 مباشر"},
+          {id:"setup"   as const, label:"⚙️ إعداد الشفتات"},
+          {id:"close"   as const, label:"🔒 إغلاق الشفت"},
+          {id:"history" as const, label:"📋 السجل التاريخي"},
+        ] as {id:"live"|"setup"|"close"|"history";label:string}[]).map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>
+            {t.label}
+          </button>
         ))}
       </div>
 
+      {/* ── TAB: LIVE ─────────────────────────────────────────────────────────── */}
       {tab==="live" && (
         <div className="grid grid-cols-2 gap-4">
-          {shifts.map((sh,i)=>(
+          {liveShifts.map((sh,i)=>(
             <div key={i} className={`bg-white rounded-xl border shadow-sm p-4 ${sh.status==="late"?"border-amber-300 bg-amber-50/20":"border-gray-100"}`}>
               {sh.status==="late" && <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold mb-3 bg-amber-100 rounded-lg px-3 py-2"><AlertTriangle size={13}/> انتهى وقت الشفت — لم يُغلق الصندوق بعد</div>}
               <div className="flex items-center gap-3 mb-3">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm">{sh.name[0]}</div>
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${sh.status==="late"?"bg-amber-500":"bg-emerald-500"}`}></span>
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${sh.status==="late"?"bg-amber-500":"bg-emerald-500"}`}/>
                 </div>
                 <div className="flex-1"><p className="font-bold text-gray-800 text-sm">{sh.name}</p><p className="text-xs text-gray-500">{sh.role} · {sh.branch}</p></div>
                 <Badge className={sh.status==="late"?"bg-amber-100 text-amber-700":"bg-emerald-100 text-emerald-700"}>{sh.status==="late"?"تأخير":"نشط"}</Badge>
@@ -4712,6 +4874,159 @@ function AccShifts({ navigate, setModal }:PageProps) {
         </div>
       )}
 
+      {/* ── TAB: SETUP ────────────────────────────────────────────────────────── */}
+      {tab==="setup" && (
+        <div className="space-y-4" dir="rtl">
+          {/* Brand selector pills */}
+          <div className="flex items-center gap-2 flex-wrap bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+            <span className="text-xs font-bold text-gray-500 ml-1">العلامة التجارية:</span>
+            {brandCfgs.map(b=>(
+              <button key={b.id} onClick={()=>{setSelBrandId(b.id);setExpandedRest(null);setEditingShift(null);}}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${selBrandId===b.id?"text-white border-transparent shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
+                style={selBrandId===b.id?{background:b.color,borderColor:b.color}:{}}>
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white" style={{background:b.color}}>{b.name[0]}</span>
+                {b.name}
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${selBrandId===b.id?"bg-white/20 text-white":"bg-gray-100 text-gray-500"}`}>{b.numShifts} شفت</span>
+                {b.saved && <span className="text-[9px] text-emerald-400">✓</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Selected brand configuration */}
+          {selBrand && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* Brand header bar */}
+              <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-100" style={{background:`${selBrand.color}10`}}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black" style={{background:selBrand.color}}>{selBrand.name[0]}</div>
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{selBrand.name}</p>
+                    <p className="text-[10px] text-gray-400">{selBrand.numShifts} شفت · {selBrand.durH} ساعة/شفت · يبدأ {sFmtT(selBrand.firstStart)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {savedBrand===selBrand.id && <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 size={12}/> تم الحفظ</span>}
+                  <button onClick={()=>doSave(selBrand.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-white text-xs font-bold rounded-lg shadow-sm transition-all hover:opacity-90"
+                    style={{background:selBrand.color}}>
+                    <CheckCircle2 size={11}/> حفظ إعداد العلامة
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Smart auto-gen panel */}
+                <ShiftSmartPanel
+                  cfg={selBrand}
+                  onNum={n=>updBrand(selBrand.id,{numShifts:n})}
+                  onDur={d=>updBrand(selBrand.id,{durH:d})}
+                  onStart={s=>updBrand(selBrand.id,{firstStart:s})}
+                  onGen={()=>doAutoGen(selBrand.id)}
+                />
+
+                {/* Generated shifts list */}
+                {selBrand.shifts.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-bold text-gray-600">جدول شفتات العلامة التجارية</p>
+                      <span className="text-[10px] text-gray-400">اضغط ✏️ لتعديل وقت أي شفت بشكل منفرد</span>
+                    </div>
+                    <div className="space-y-2">
+                      {selBrand.shifts.map((sl,i)=>(
+                        <ShiftRowCmp key={i} slot={sl} idx={i} editState={brandEdit}
+                          onEditOpen={brandEditOpen}
+                          onEditChange={brandEditChange}
+                          onEditCommit={brandEditCommit}
+                          onEditCancel={()=>setBrandEdit(null)}
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <p className="text-[10px] text-gray-500 text-center">
+                        يغطي الجدول{" "}
+                        <span className="font-bold text-gray-700">{selBrand.numShifts*selBrand.durH} ساعة</span> يومياً
+                        {" "}·{" "}من{" "}
+                        <span className="font-bold text-gray-700">{sFmtT(selBrand.firstStart)}</span>
+                        {" "}إلى{" "}
+                        <span className="font-bold text-gray-700">{selBrand.shifts.length>0?sFmtT(selBrand.shifts[selBrand.shifts.length-1].end):"—"}</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-restaurant overrides */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-gray-600">تخصيص حسب المطعم (اختياري)</p>
+                    <span className="text-[10px] text-gray-400">يمكن تجاوز إعداد العلامة لمطعم محدد</span>
+                  </div>
+                  <div className="space-y-2">
+                    {selBrand.rests.map(rest=>(
+                      <div key={rest.restId} className={`rounded-xl border transition-all ${rest.useOverride?"border-purple-200 bg-purple-50/30":"border-gray-100 bg-white"}`}>
+                        {/* Restaurant row header */}
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-sm flex-shrink-0">🍴</div>
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-gray-800">{rest.restName}</p>
+                            {rest.useOverride
+                              ? <p className="text-[10px] text-purple-600">{rest.numShifts} شفت مخصص · {rest.durH} ساعة · من {sFmtT(rest.firstStart)}</p>
+                              : <p className="text-[10px] text-gray-400">يستخدم إعداد العلامة ({selBrand.numShifts} شفت × {selBrand.durH}س)</p>
+                            }
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {rest.useOverride && (
+                              <button onClick={()=>setExpandedRest(expandedRest===rest.restId?null:rest.restId)}
+                                className="text-[10px] text-purple-600 font-semibold flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-purple-100">
+                                {expandedRest===rest.restId?<ChevronUp size={11}/>:<ChevronDown size={11}/>}
+                                {expandedRest===rest.restId?"طي":"تفاصيل"}
+                              </button>
+                            )}
+                            <button
+                              onClick={()=>{ updRest(selBrand.id,rest.restId,{useOverride:!rest.useOverride}); if(!rest.useOverride) setExpandedRest(rest.restId); else setExpandedRest(null); }}
+                              className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${rest.useOverride?"bg-purple-100 text-purple-700 border-purple-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200":"bg-white text-gray-500 border-gray-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200"}`}>
+                              {rest.useOverride?"✓ مخصص · إلغاء":"تخصيص"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Restaurant override config (expanded) */}
+                        {rest.useOverride && expandedRest===rest.restId && (
+                          <div className="px-4 pb-4 space-y-3 border-t border-purple-100 pt-3">
+                            <ShiftSmartPanel
+                              cfg={rest}
+                              onNum={n=>updRest(selBrand.id,rest.restId,{numShifts:n})}
+                              onDur={d=>updRest(selBrand.id,rest.restId,{durH:d})}
+                              onStart={s=>updRest(selBrand.id,rest.restId,{firstStart:s})}
+                              onGen={()=>doRestAutoGen(selBrand.id,rest.restId)}
+                            />
+                            {rest.shifts.length>0 && (
+                              <div className="space-y-2">
+                                {rest.shifts.map((sl,i)=>(
+                                  <ShiftRowCmp key={i} slot={sl} idx={i} editState={restEdits[rest.restId]??null}
+                                    onEditOpen={(idx,s,d)=>restEditOpen(rest.restId,idx,s,d)}
+                                    onEditChange={(s,d)=>restEditChange(rest.restId,s,d)}
+                                    onEditCommit={()=>restEditCommit(selBrand.id,rest.restId,rest.shifts)}
+                                    onEditCancel={()=>setRestEdits(p=>({...p,[rest.restId]:null}))}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {rest.shifts.length===0 && (
+                              <p className="text-xs text-gray-400 text-center py-2">اضغط "إنشاء تلقائي" لتوليد الشفتات</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: CLOSE ────────────────────────────────────────────────────────── */}
       {tab==="close" && (
         <div className="max-w-xl mx-auto">
           <Card title="🔒 إغلاق الشفت">
@@ -4732,33 +5047,26 @@ function AccShifts({ navigate, setModal }:PageProps) {
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-gray-500 block mb-1">النقد الفعلي في الصندوق (ر.س)</label>
-                    <input type="number" value={closeForm.cashInDrawer} onChange={e=>setCloseForm(p=>({...p,cashInDrawer:e.target.value}))}
-                      placeholder="أدخل المبلغ المعدود..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono"/>
+                    <input type="number" value={closeForm.cashInDrawer} onChange={e=>setCloseForm(p=>({...p,cashInDrawer:e.target.value}))} placeholder="أدخل المبلغ المعدود..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono"/>
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-gray-500 block mb-1">المبيعات النقدية (من النظام) (ر.س)</label>
-                    <input type="number" value={closeForm.salesSystem} onChange={e=>setCloseForm(p=>({...p,salesSystem:e.target.value}))}
-                      placeholder="من تقرير الكاشير..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono"/>
+                    <input type="number" value={closeForm.salesSystem} onChange={e=>setCloseForm(p=>({...p,salesSystem:e.target.value}))} placeholder="من تقرير الكاشير..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono"/>
                   </div>
                   {closeForm.cashInDrawer && closeForm.salesSystem && (
-                    <div className={`p-3 rounded-xl border ${diff===0?"bg-emerald-50 border-emerald-200":diff>0?"bg-blue-50 border-blue-200":"bg-red-50 border-red-200"}`}>
+                    <div className={`p-3 rounded-xl border ${cashDiff===0?"bg-emerald-50 border-emerald-200":cashDiff>0?"bg-blue-50 border-blue-200":"bg-red-50 border-red-200"}`}>
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-semibold text-gray-700">الفرق (عجز/زيادة)</span>
-                        <span className={`font-mono font-black text-lg ${diff===0?"text-emerald-700":diff>0?"text-blue-700":"text-red-700"}`}>
-                          {diff>0?"+":""}{fmtAmt(diff)} ر.س {diff===0?"✅":diff>0?"⬆":"⬇"}
-                        </span>
+                        <span className={`font-mono font-black text-lg ${cashDiff===0?"text-emerald-700":cashDiff>0?"text-blue-700":"text-red-700"}`}>{cashDiff>0?"+":""}{fmtAmt(cashDiff)} ر.س {cashDiff===0?"✅":cashDiff>0?"⬆":"⬇"}</span>
                       </div>
-                      <p className="text-[11px] mt-1 text-gray-500">{diff===0?"مطابق تاماً":diff>0?"زيادة في الصندوق — تحتاج توثيق":"نقص في الصندوق — يُحمَّل على المشرف"}</p>
+                      <p className="text-[11px] mt-1 text-gray-500">{cashDiff===0?"مطابق تاماً":cashDiff>0?"زيادة في الصندوق — تحتاج توثيق":"نقص في الصندوق — يُحمَّل على المشرف"}</p>
                     </div>
                   )}
                   <div>
                     <label className="text-[11px] font-semibold text-gray-500 block mb-1">ملاحظات (اختياري)</label>
-                    <textarea value={closeForm.notes} onChange={e=>setCloseForm(p=>({...p,notes:e.target.value}))}
-                      placeholder="ملاحظات الشفت..." rows={3} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none"/>
+                    <textarea value={closeForm.notes} onChange={e=>setCloseForm(p=>({...p,notes:e.target.value}))} placeholder="ملاحظات الشفت..." rows={3} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none"/>
                   </div>
-                  <Btn variant="success" className="w-full justify-center" onClick={submitClose} disabled={!closeForm.cashInDrawer||!closeForm.salesSystem}>
-                    <Lock size={14}/> تأكيد إغلاق الشفت
-                  </Btn>
+                  <Btn variant="success" className="w-full justify-center" onClick={submitClose} disabled={!closeForm.cashInDrawer||!closeForm.salesSystem}><Lock size={14}/> تأكيد إغلاق الشفت</Btn>
                 </>
               )}
             </div>
@@ -4766,6 +5074,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
         </div>
       )}
 
+      {/* ── TAB: HISTORY ──────────────────────────────────────────────────────── */}
       {tab==="history" && (
         <Card title="سجل الشفتات السابقة">
           <div className="overflow-x-auto">
@@ -4784,18 +5093,13 @@ function AccShifts({ navigate, setModal }:PageProps) {
               <tbody>
                 {shiftHistory.map((sh,i)=>(
                   <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60 last:border-0">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-gray-800 text-xs">{sh.branch}</p>
-                      <p className="text-[10px] text-gray-400">{sh.supervisor}</p>
-                    </td>
+                    <td className="px-4 py-3"><p className="font-semibold text-gray-800 text-xs">{sh.branch}</p><p className="text-[10px] text-gray-400">{sh.supervisor}</p></td>
                     <td className="px-4 py-3 text-center text-gray-500 text-xs">{sh.date}</td>
                     <td className="px-4 py-3 text-center font-mono text-xs text-gray-600">{sh.startT} → {sh.endT}</td>
                     <td className="px-4 py-3 text-center font-bold text-gray-800">{sh.orders}</td>
                     <td className="px-4 py-3 text-center font-mono font-bold text-purple-700">{fmtAmt(sh.sales)} ر.س</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`font-mono font-bold text-sm ${sh.diff===0?"text-emerald-600":sh.diff>0?"text-blue-600":"text-red-600"}`}>
-                        {sh.diff>0?"+":""}{sh.diff} ر.س
-                      </span>
+                      <span className={`font-mono font-bold text-sm ${sh.diff===0?"text-emerald-600":sh.diff>0?"text-blue-600":"text-red-600"}`}>{sh.diff>0?"+":""}{sh.diff} ر.س</span>
                     </td>
                     <td className="px-4 py-3 text-center"><Badge className="bg-emerald-50 text-emerald-700">مُغلق</Badge></td>
                   </tr>
