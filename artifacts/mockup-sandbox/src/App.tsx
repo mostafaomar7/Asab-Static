@@ -72,11 +72,36 @@ function PreviewRenderer({
   return <Component />;
 }
 
+// ─── Routing helpers ──────────────────────────────────────────────────────────
+
 function getBasePath(): string {
   return import.meta.env.BASE_URL.replace(/\/$/, "");
 }
 
+// Returns true when running as deployed static site (BASE_PATH = /)
+function isStaticDeployment(): boolean {
+  return getBasePath() === "";
+}
+
+// Build an href to a preview component — hash-based in production, path-based in dev
+function previewHref(componentSlug: string): string {
+  if (isStaticDeployment()) {
+    return `#/preview/${componentSlug}`;
+  }
+  return `${getBasePath()}/preview/${componentSlug}`;
+}
+
+// Detect which component to render from current URL
+// Supports BOTH:
+//   • Hash routing:     /#/preview/asab/ASABPrototype       (static deployment)
+//   • Pathname routing: /__mockup/preview/asab/ASABPrototype (dev canvas iframes)
 function getPreviewPath(): string | null {
+  // 1. Hash routing (static deployment)
+  const hash = window.location.hash;
+  const hashMatch = hash.match(/^#\/preview\/(.+)$/);
+  if (hashMatch) return hashMatch[1];
+
+  // 2. Pathname routing (dev / canvas iframes)
   const basePath = getBasePath();
   const { pathname } = window.location;
   const local =
@@ -89,31 +114,29 @@ function getPreviewPath(): string | null {
 
 // ─── ASAB Landing Page ────────────────────────────────────────────────────────
 function ASABLanding() {
-  const basePath = getBasePath();
-
   const dashboards = [
     {
-      href: `${basePath}/preview/asab/ASABPrototype`,
+      slug: "asab/ASABPrototype",
       title: "الداشبورد الرئيسي",
       subtitle: "نظام عصب الكامل",
-      description: "إدارة مالية متكاملة — المبيعات، المصروفات، المشتريات، المخزون، الشفتات، العهد النقدية، والأصول الثابتة",
+      description:
+        "إدارة مالية متكاملة — المبيعات، المصروفات، المشتريات، المخزون، الشفتات، العهد النقدية، والأصول الثابتة",
       roles: ["محاسب", "رئيس حسابات", "مدير فرع", "مدير مشتريات", "مشرف", "مدير شركة"],
       badge: "9 موديولات · 6 أدوار · خط اعتماد 6 مراحل",
       color: "#7C3AED",
-      bg: "rgba(124,58,237,0.12)",
       border: "rgba(124,58,237,0.25)",
       icon: "🏢",
       gradient: "linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(0,217,255,0.1) 100%)",
     },
     {
-      href: `${basePath}/preview/asab/CompanyDashboard`,
+      slug: "asab/CompanyDashboard",
       title: "بوابة الشركات",
       subtitle: "مجموعة التاج — B2B Portal",
-      description: "لوحة إدارة متعددة الفروع لمجموعات المطاعم — مراجعة البيانات وتدقيق العمليات عبر جميع العلامات التجارية",
+      description:
+        "لوحة إدارة متعددة الفروع لمجموعات المطاعم — مراجعة البيانات وتدقيق العمليات عبر جميع العلامات التجارية",
       roles: ["المدير التنفيذي", "المشرف المالي", "محاسب المجموعة", "محلل البيانات", "مدير مشتريات"],
       badge: "5 أدوار · 4 علامات تجارية · متعدد الفروع",
       color: "#00D9FF",
-      bg: "rgba(0,217,255,0.1)",
       border: "rgba(0,217,255,0.25)",
       icon: "🏨",
       gradient: "linear-gradient(135deg, rgba(0,217,255,0.15) 0%, rgba(124,58,237,0.1) 100%)",
@@ -169,8 +192,8 @@ function ASABLanding() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, width: "100%", maxWidth: 880 }}>
           {dashboards.map((d) => (
             <a
-              key={d.href}
-              href={d.href}
+              key={d.slug}
+              href={previewHref(d.slug)}
               style={{
                 display: "block",
                 background: "rgba(255,255,255,0.04)",
@@ -183,22 +206,19 @@ function ASABLanding() {
                 position: "relative",
                 overflow: "hidden",
               }}
-              onMouseEnter={e => {
+              onMouseEnter={(e) => {
                 (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.07)";
                 (e.currentTarget as HTMLAnchorElement).style.borderColor = d.color;
                 (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-2px)";
               }}
-              onMouseLeave={e => {
+              onMouseLeave={(e) => {
                 (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)";
                 (e.currentTarget as HTMLAnchorElement).style.borderColor = d.border;
                 (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
               }}
             >
               {/* Gradient background layer */}
-              <div style={{
-                position: "absolute", inset: 0, borderRadius: 20,
-                background: d.gradient, pointerEvents: "none",
-              }}/>
+              <div style={{ position: "absolute", inset: 0, borderRadius: 20, background: d.gradient, pointerEvents: "none" }} />
 
               <div style={{ position: "relative" }}>
                 {/* Icon & Title */}
@@ -242,8 +262,7 @@ function ASABLanding() {
                   padding: "10px 22px", borderRadius: 12,
                   fontSize: 13, fontWeight: 700,
                 }}>
-                  فتح الداشبورد
-                  <span style={{ fontSize: 16 }}>←</span>
+                  فتح الداشبورد ←
                 </div>
               </div>
             </a>
@@ -277,8 +296,16 @@ function ASABLanding() {
   );
 }
 
-// ─── App Router ───────────────────────────────────────────────────────────────
+// ─── App — listens to hash changes for SPA navigation ────────────────────────
 function App() {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const onHashChange = () => forceUpdate((n) => n + 1);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
   const previewPath = getPreviewPath();
 
   if (previewPath) {
