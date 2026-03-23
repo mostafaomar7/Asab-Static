@@ -4712,7 +4712,7 @@ function ShiftSmartPanel({ cfg, onNum, onDur, onStart, onGen }:{
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm">⚡</span>
         <p className="text-sm font-bold text-purple-800">الإعداد الذكي للشفتات</p>
-        <span className="text-[10px] text-purple-400 mr-auto">يُنشئ الجدول تلقائياً حسب المدخلات</span>
+        <span className="text-[10px] text-purple-400 mr-auto">يتحدث الجدول تلقائياً عند تغيير القيم</span>
       </div>
       <div className="grid grid-cols-3 gap-3 mb-3">
         <div>
@@ -4737,7 +4737,7 @@ function ShiftSmartPanel({ cfg, onNum, onDur, onStart, onGen }:{
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-gray-400">{cfg.numShifts} شفت × {cfg.durH}س = <span className="font-semibold text-gray-600">{cfg.numShifts*cfg.durH} ساعة/يوم</span> · يبدأ {sFmtT(cfg.firstStart)}</p>
         <button onClick={onGen} className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition-all shadow-sm">
-          <RefreshCw size={11}/> إنشاء تلقائي
+          <RefreshCw size={11}/> إعادة التوليد
         </button>
       </div>
     </div>
@@ -4756,6 +4756,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
   const [brandEdit,  setBrandEdit]  = useState<ShiftEditState>(null);
   const [restEdits,  setRestEdits]  = useState<Record<string,ShiftEditState>>({});
   const [savedBrand, setSavedBrand] = useState<string|null>(null);
+  const [restSearch, setRestSearch] = useState("");
 
   const selBrand = brandCfgs.find(b=>b.id===selBrandId)!;
 
@@ -4881,7 +4882,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
           <div className="flex items-center gap-2 flex-wrap bg-white rounded-xl border border-gray-100 shadow-sm p-3">
             <span className="text-xs font-bold text-gray-500 ml-1">العلامة التجارية:</span>
             {brandCfgs.map(b=>(
-              <button key={b.id} onClick={()=>{setSelBrandId(b.id);setExpandedRest(null);setBrandEdit(null);setRestEdits({});}}
+              <button key={b.id} onClick={()=>{setSelBrandId(b.id);setExpandedRest(null);setBrandEdit(null);setRestEdits({});setRestSearch("");}}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${selBrandId===b.id?"text-white border-transparent shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
                 style={selBrandId===b.id?{background:b.color,borderColor:b.color}:{}}>
                 <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white" style={{background:b.color}}>{b.name[0]}</span>
@@ -4918,9 +4919,9 @@ function AccShifts({ navigate, setModal }:PageProps) {
                 {/* Smart auto-gen panel */}
                 <ShiftSmartPanel
                   cfg={selBrand}
-                  onNum={n=>updBrand(selBrand.id,{numShifts:n})}
-                  onDur={d=>updBrand(selBrand.id,{durH:d})}
-                  onStart={s=>updBrand(selBrand.id,{firstStart:s})}
+                  onNum={n=>{ updBrand(selBrand.id,{numShifts:n, shifts:sGenShifts(n,selBrand.durH,selBrand.firstStart)}); setBrandEdit(null); }}
+                  onDur={d=>{ updBrand(selBrand.id,{durH:d,     shifts:sGenShifts(selBrand.numShifts,d,selBrand.firstStart)}); setBrandEdit(null); }}
+                  onStart={s=>{ updBrand(selBrand.id,{firstStart:s, shifts:sGenShifts(selBrand.numShifts,selBrand.durH,s)}); setBrandEdit(null); }}
                   onGen={()=>doAutoGen(selBrand.id)}
                 />
 
@@ -4956,12 +4957,34 @@ function AccShifts({ navigate, setModal }:PageProps) {
 
                 {/* Per-restaurant overrides */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-gray-600">تخصيص حسب المطعم (اختياري)</p>
-                    <span className="text-[10px] text-gray-400">يمكن تجاوز إعداد العلامة لمطعم محدد</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-xs font-bold text-gray-600">تخصيص حسب المطعم (اختياري)</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">يمكن تجاوز إعداد العلامة لمطعم محدد</p>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-lg font-semibold">{selBrand.rests.filter(r=>r.useOverride).length} مخصص من {selBrand.rests.length}</span>
                   </div>
+
+                  {/* Restaurant search filter */}
+                  {selBrand.rests.length > 2 && (
+                    <div className="relative mb-2">
+                      <Search size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+                      <input
+                        value={restSearch}
+                        onChange={e=>setRestSearch(e.target.value)}
+                        placeholder="بحث باسم المطعم..."
+                        className="w-full text-xs border border-gray-200 rounded-xl py-2 pr-8 pl-3 bg-gray-50 focus:bg-white focus:border-purple-300 outline-none transition-all"
+                      />
+                      {restSearch && (
+                        <button onClick={()=>setRestSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <X size={12}/>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    {selBrand.rests.map(rest=>(
+                    {selBrand.rests.filter(r=>!restSearch.trim()||r.restName.includes(restSearch)).map(rest=>(
                       <div key={rest.restId} className={`rounded-xl border transition-all ${rest.useOverride?"border-purple-200 bg-purple-50/30":"border-gray-100 bg-white"}`}>
                         {/* Restaurant row header */}
                         <div className="flex items-center gap-3 px-4 py-3">
@@ -4994,9 +5017,9 @@ function AccShifts({ navigate, setModal }:PageProps) {
                           <div className="px-4 pb-4 space-y-3 border-t border-purple-100 pt-3">
                             <ShiftSmartPanel
                               cfg={rest}
-                              onNum={n=>updRest(selBrand.id,rest.restId,{numShifts:n})}
-                              onDur={d=>updRest(selBrand.id,rest.restId,{durH:d})}
-                              onStart={s=>updRest(selBrand.id,rest.restId,{firstStart:s})}
+                              onNum={n=>{ updRest(selBrand.id,rest.restId,{numShifts:n, shifts:sGenShifts(n,rest.durH,rest.firstStart)}); setRestEdits(p=>({...p,[rest.restId]:null})); }}
+                              onDur={d=>{ updRest(selBrand.id,rest.restId,{durH:d,     shifts:sGenShifts(rest.numShifts,d,rest.firstStart)}); setRestEdits(p=>({...p,[rest.restId]:null})); }}
+                              onStart={s=>{ updRest(selBrand.id,rest.restId,{firstStart:s, shifts:sGenShifts(rest.numShifts,rest.durH,s)}); setRestEdits(p=>({...p,[rest.restId]:null})); }}
                               onGen={()=>doRestAutoGen(selBrand.id,rest.restId)}
                             />
                             {rest.shifts.length>0 && (
