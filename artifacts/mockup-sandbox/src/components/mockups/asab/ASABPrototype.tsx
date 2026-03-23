@@ -4881,7 +4881,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
           <div className="flex items-center gap-2 flex-wrap bg-white rounded-xl border border-gray-100 shadow-sm p-3">
             <span className="text-xs font-bold text-gray-500 ml-1">العلامة التجارية:</span>
             {brandCfgs.map(b=>(
-              <button key={b.id} onClick={()=>{setSelBrandId(b.id);setExpandedRest(null);setEditingShift(null);}}
+              <button key={b.id} onClick={()=>{setSelBrandId(b.id);setExpandedRest(null);setBrandEdit(null);setRestEdits({});}}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${selBrandId===b.id?"text-white border-transparent shadow-sm":"bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}
                 style={selBrandId===b.id?{background:b.color,borderColor:b.color}:{}}>
                 <span className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black text-white" style={{background:b.color}}>{b.name[0]}</span>
