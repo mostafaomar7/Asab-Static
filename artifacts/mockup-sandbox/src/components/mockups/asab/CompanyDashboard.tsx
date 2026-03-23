@@ -130,10 +130,10 @@ const STATUS_CFG:Record<COpStatus,{label:string;cls:string;short:string}> = {
   "final-approved":{ label:"معتمد نهائياً",   cls:"bg-purple-50 text-purple-700 border border-purple-200",    short:"نهائي"    },
 };
 
-const MATCH_CFG:Record<CMatch,{label:string;cls:string}> = {
-  exact:  { label:"✓ مطابق",  cls:"bg-emerald-50 text-emerald-700 border border-emerald-200" },
-  review: { label:"مراجعة",   cls:"bg-amber-50 text-amber-700 border border-amber-200"       },
-  diff:   { label:"⚠ فرق",   cls:"bg-red-50 text-red-700 border border-red-200"              },
+const MATCH_CFG:Record<CMatch,{label:string;cls:string;dot:string}> = {
+  exact:  { label:"متطابق",         cls:"bg-emerald-50 text-emerald-700 border border-emerald-200", dot:"bg-emerald-500" },
+  review: { label:"يحتاج مراجعة",  cls:"bg-amber-50 text-amber-700 border border-amber-200",       dot:"bg-amber-500"   },
+  diff:   { label:"فرق في الكمية", cls:"bg-red-50 text-red-700 border border-red-200",              dot:"bg-red-500"     },
 };
 
 // ═══════════════════════════════════════════════════
@@ -579,8 +579,11 @@ function OpRow({ op, onApprove, onReject, onView, expanded, onToggle, forHead=fa
             <span className="font-semibold text-gray-800 text-sm">{op.branch}</span>
             <Badge className="bg-gray-100 text-gray-600 text-[10px]">{op.brandName}</Badge>
             <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-100">{op.moduleLabel}</span>
-            <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
-            {op.diff && <span className="text-[10px] text-red-600 font-medium">⚠ {op.diff}</span>}
+            <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${MATCH_CFG[op.match].dot}`}/>
+              {MATCH_CFG[op.match].label}
+            </Badge>
+            {op.diff && <span className="text-[10px] text-red-600 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">⚠ {op.diff}</span>}
             <Badge className={`text-[10px] border ${STATUS_CFG[op.status].cls}`}>
               {isLocked && <Lock size={9}/>}
               {STATUS_CFG[op.status].label}
@@ -1081,7 +1084,10 @@ function HeadDashboard({ navigate, ops, finalApprove, reject, bulkFinalApprove }
             </div>
             {op.amount>0&&<span className="font-mono font-bold text-gray-800 text-sm">{fmt(op.amount)} ر.س</span>}
             <COpStagePill op={op}/>
-            <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
+            <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${MATCH_CFG[op.match].dot}`}/>
+              {MATCH_CFG[op.match].label}
+            </Badge>
             <div className="flex gap-1.5 flex-shrink-0">
               <button onClick={()=>finalApprove(op.id)} title="اعتماد نهائي" className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center text-xs"><CheckCircle2 size={12}/></button>
               <button onClick={()=>reject(op.id)} title="رفض" className="w-7 h-7 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 flex items-center justify-center text-xs"><XCircle size={12}/></button>
@@ -1417,7 +1423,10 @@ function AccDashboard({ navigate, ops }:{ navigate:(p:string)=>void; ops:COp[] }
                   <p className="text-xs font-semibold text-gray-700">{op.branch} — {op.moduleLabel}</p>
                   <p className="text-[10px] text-red-600">{op.diff}</p>
                 </div>
-                <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>{MATCH_CFG[op.match].label}</Badge>
+                <Badge className={`text-[10px] border ${MATCH_CFG[op.match].cls}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${MATCH_CFG[op.match].dot}`}/>
+                  {MATCH_CFG[op.match].label}
+                </Badge>
               </div>
             ))}
             {rejected.length>0 && (
@@ -1474,10 +1483,10 @@ function AccCompanySales({ ops, approve, reject, bulkApprove }:{ ops:COp[]; appr
         {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي البيانات"  value={String(mOps.length)} sub="كل الحالات"          icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="قيد المراجعة"     value={String(pending.length)} sub="رُفعت من الفروع"  icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="مطابقة تامة"      value={String(mOps.filter(o=>o.match==="exact").length)} sub="لا تحتاج تدخل" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="تحتاج مراجعة"    value={String(mOps.filter(o=>o.match!=="exact").length)} sub="يحتاج فحص"    icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات"          icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة"              value={String(pending.length)} sub="رُفعت من الفروع"  icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة"              value={String(mOps.filter(o=>o.status==="approved"||o.status==="final-approved").length)} sub="موافق + معتمد نهائياً" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة"                    value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
       </div>
       {/* Date quick-pick */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3" dir="rtl">
@@ -1524,6 +1533,25 @@ function AccCompanySales({ ops, approve, reject, bulkApprove }:{ ops:COp[]; appr
         </div>
         {hasFilters && <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-purple-600 hover:underline"><RotateCcw size={10}/> مسح الفلاتر</button>}
       </div>
+
+      {/* Day-level summary banner — identical to main dashboard */}
+      {dateFilter!=="الكل" && (()=>{ const d=DATE_OPTIONS.find(x=>x.val===dateFilter)!; return (
+        <div className={`rounded-xl border p-4 flex items-center gap-4 ${d.count>d.done?"bg-amber-50 border-amber-200":"bg-emerald-50 border-emerald-200"}`} dir="rtl">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-gray-800">{d.label}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {d.count} عملية مطلوبة — {d.done} مكتملة
+              {d.count>d.done && <span className="text-amber-700 font-semibold"> · {d.count-d.done} ناقصة</span>}
+            </p>
+          </div>
+          <div className="flex gap-6 text-center">
+            <div><p className="text-lg font-black text-gray-800">{d.count}</p><p className="text-[10px] text-gray-500">إجمالي</p></div>
+            <div><p className="text-lg font-black text-emerald-600">{d.done}</p><p className="text-[10px] text-gray-500">مكتملة</p></div>
+            <div><p className={`text-lg font-black ${d.count-d.done>0?"text-amber-600":"text-gray-300"}`}>{d.count-d.done}</p><p className="text-[10px] text-gray-500">ناقص</p></div>
+          </div>
+        </div>
+      ); })()}
+
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
@@ -1576,10 +1604,10 @@ function AccCompanyExpenses({ ops, approve, reject, bulkApprove }:{ ops:COp[]; a
         {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي البيانات"   value={String(mOps.length)}                                   sub="كل الحالات"          icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="قيد المراجعة"      value={String(pending.length)}                                sub="رُفعت من الفروع"    icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="إجمالي المصروفات" value={`${fmt(mOps.filter(o=>["approved","final-approved"].includes(o.status)).reduce((s,o)=>s+o.amount,0))}`} sub="ر.س مقبول" icon={<Wallet size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="مرفوضة"            value={String(mOps.filter(o=>o.status==="rejected").length)}   sub="تحتاج إعادة رفع"    icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)}                               sub="كل الحالات"          icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة"              value={String(pending.length)}                          sub="رُفعت من الفروع"    icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة"              value={String(mOps.filter(o=>o.status==="approved"||o.status==="final-approved").length)} sub="موافق + معتمد نهائياً" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة"                    value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3" dir="rtl">
         <div className="grid grid-cols-3 gap-3">
@@ -1692,10 +1720,10 @@ function AccCompanyPurchases({ ops, approve, reject, bulkApprove }:{ ops:COp[]; 
         {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
       </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي البيانات"  value={String(mOps.length)} sub="كل الحالات"     icon={<ShoppingCart size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="قيد المراجعة"     value={String(pending.length)} sub="معلق"         icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="مطابقة تامة"      value={String(mOps.filter(o=>o.match==="exact").length)} sub="لا خلاف" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="فرق في الكمية"    value={String(mOps.filter(o=>o.match==="diff").length)} sub="يحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات"     icon={<ShoppingCart size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="قيد المراجعة"              value={String(pending.length)} sub="رُفعت من الفروع"  icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="تمت الموافقة"              value={String(mOps.filter(o=>o.status==="approved"||o.status==="final-approved").length)} sub="موافق + معتمد نهائياً" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label="مرفوضة"                    value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
         <div className="grid grid-cols-3 gap-3">
