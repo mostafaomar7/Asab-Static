@@ -8,8 +8,52 @@ import {
   Send, Check, Download, Zap, Lock, ChevronDown, ChevronUp,
   Eye, Paperclip, ThumbsUp, ThumbsDown, Upload, Clipboard,
   Home, RotateCcw, Filter, GitMerge, ArrowRightToLine, CheckSquare, Edit3,
-  Activity, Trash2
+  Activity, Trash2, Globe
 } from "lucide-react";
+
+// ═══════════════════════════════════════════════════
+// BILINGUAL SUPPORT — Arabic / English
+// ═══════════════════════════════════════════════════
+type CLang = "ar"|"en";
+type CLangCtx = { lang:CLang; setLang:(l:CLang)=>void; t:(ar:string,en:string)=>string; dir:"rtl"|"ltr" };
+const CLangContext = createContext<CLangCtx>({ lang:"ar", setLang:()=>{}, t:(ar)=>ar, dir:"rtl" });
+const useCLang = () => useContext(CLangContext);
+
+const EN_C_NAV_LABELS:Record<string,string> = {
+  "ca-dashboard":"Dashboard","ca-subscription":"Plan & Subscription","ca-users":"User Management",
+  "ca-branches":"Brands & Branches","ca-modules":"Active Modules","ca-billing":"Billing & Payments",
+  "ca-settings":"Company Settings","ca-support":"Technical Support",
+  "head-dashboard":"Dashboard","head-pending":"Awaiting Approval","head-approved":"Final Approved",
+  "head-rejected":"Rejected","head-sales":"Sales","head-expenses":"Expenses",
+  "head-purchases":"Purchases","head-inventory":"Inventory","head-waste":"Waste & Spoilage",
+  "head-assets":"Fixed Assets","head-shifts":"Shifts","head-employees":"Employee Accounts",
+  "head-cash":"Cash Custody","head-reminders":"Reminders","head-accountants":"Accountant Performance",
+  "head-erp":"ERP Export","head-reports":"Financial Reports",
+  "acc-dashboard":"Dashboard","acc-reminders":"Reminders","acc-sales":"Sales",
+  "acc-expenses":"Expenses","acc-purchases":"Purchases","acc-inventory":"Inventory",
+  "acc-waste":"Waste & Spoilage","acc-assets":"Fixed Assets","acc-shifts":"Shift Management",
+  "acc-employees":"Employee Accounts","acc-cash":"Cash Custody Management","acc-reports":"Reports",
+  "branch-overview":"Overview","branch-upload":"Upload Data","branch-employees":"Employees",
+  "branch-items":"Items","branch-suppliers":"Suppliers","branch-settings":"Branch Settings",
+  "proc-overview":"Dashboard","proc-new":"New Requests","proc-grouped":"Grouped Requests",
+  "proc-sent":"Sent to Suppliers","proc-items":"Items","proc-suppliers":"Suppliers","proc-reports":"Reports",
+};
+
+const EN_C_SECTIONS:Record<string,string> = {
+  "لوحة التحكم":"Control Panel","المالية":"Finance","الإعدادات":"Settings",
+  "الرئيسية":"Main","الاعتماد":"Approval","الموديولات":"Modules",
+  "التقارير":"Reports","الوحدات":"Modules","إدارة البيانات":"Data Management",
+  "الطلبات":"Requests","الإدارة":"Management",
+};
+
+type CRoleKey = "company-admin"|"head"|"accountant"|"branch"|"procurement";
+const EN_C_ROLE_META:Record<CRoleKey,{ label:string; desc:string }> = {
+  "company-admin":{ label:"Company Admin",       desc:"Manage subscription and users"      },
+  head:           { label:"Head Accountant",     desc:"Oversight and final approval"       },
+  accountant:     { label:"Accountant",          desc:"Review financial operations"        },
+  branch:         { label:"Branch Manager",      desc:"Upload daily branch data"           },
+  procurement:    { label:"Procurement Manager", desc:"Purchase orders and suppliers"      },
+};
 
 // ═══════════════════════════════════════════════════
 // DESIGN TOKENS
@@ -46,6 +90,7 @@ function Badge({ children, className="" }:{ children:ReactNode; className?:strin
 function KpiCard({ label, value, sub, icon, accent="purple", delta }:{
   label:string; value:string; sub?:string; icon:ReactNode; accent?:string; delta?:string;
 }) {
+  const { t } = useCLang();
   const am:Record<string,string> = {
     purple:"bg-purple-50 text-purple-600 border-purple-100",
     emerald:"bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -62,7 +107,7 @@ function KpiCard({ label, value, sub, icon, accent="purple", delta }:{
       </div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       {sub && <p className="text-[11px] text-gray-400 mt-1">{sub}</p>}
-      {delta && <p className={`text-[10px] font-bold mt-1 ${delta.startsWith("+")?"text-emerald-600":"text-red-500"}`}>{delta} مقارنة بالأسبوع الماضي</p>}
+      {delta && <p className={`text-[10px] font-bold mt-1 ${delta.startsWith("+")?"text-emerald-600":"text-red-500"}`}>{delta} {t("مقارنة بالأسبوع الماضي","vs last week")}</p>}
     </div>
   );
 }
@@ -156,6 +201,17 @@ function CAssetDraftProvider({ children }:{ children:ReactNode }) {
     <CAssetDraftContext.Provider value={{drafts,addDraft,discardDraft,confirmDraft,getConvertedInvNums}}>
       {children}
     </CAssetDraftContext.Provider>
+  );
+}
+
+function CLangProvider({ children }:{ children:ReactNode }) {
+  const [lang, setLang] = useState<CLang>("ar");
+  const t   = (ar:string, en:string) => lang==="ar" ? ar : en;
+  const dir = lang==="ar" ? "rtl" : "ltr";
+  return (
+    <CLangContext.Provider value={{ lang, setLang, t, dir }}>
+      {children}
+    </CLangContext.Provider>
   );
 }
 
@@ -650,35 +706,49 @@ const DEFAULT_PAGE:Record<CRole,string> = {
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════
 function CompanyLoginScreen({ onSelect }:{ onSelect:(r:CRole)=>void }) {
+  const { lang, setLang, t, dir } = useCLang();
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" dir="rtl"
+    <div className="min-h-screen flex items-center justify-center p-6 relative" dir={dir}
       style={{ background:"linear-gradient(135deg,#0F1C35 0%,#1B3A6B 60%,#2D1B69 100%)" }}>
+      <button
+        onClick={()=>setLang(lang==="ar"?"en":"ar")}
+        className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white/80 hover:bg-white/20 hover:text-white transition-all text-xs font-semibold z-10">
+        <Globe size={13}/>
+        {lang==="ar" ? "English" : "عربي"}
+      </button>
       <div className="w-full max-w-2xl">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-4"
             style={{ background:"linear-gradient(135deg,#7C3AED,#00D9FF)" }}>
             <span className="text-3xl">👑</span>
           </div>
-          <h1 className="text-3xl font-black text-white">بوابة الشركات</h1>
-          <p className="text-blue-300 mt-2 text-sm">مدعوم بنظام <span className="text-cyan-400 font-bold">عصب</span> — مخصص لمجموعات المطاعم</p>
+          <h1 className="text-3xl font-black text-white">{t("بوابة الشركات","Company Portal")}</h1>
+          <p className="text-blue-300 mt-2 text-sm">
+            {t("مدعوم بنظام","Powered by")} <span className="text-cyan-400 font-bold">{t("عصب","ASAB")}</span> — {t("مخصص لمجموعات المطاعم","for restaurant groups")}
+          </p>
           <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20">
             <span className="text-white/70 text-xs">{COMPANY.name}</span>
-            <span className="text-cyan-400 text-xs font-bold">● متصل</span>
+            <span className="text-cyan-400 text-xs font-bold">● {t("متصل","Connected")}</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-6">
-          {(Object.entries(ROLE_META) as [CRole, typeof ROLE_META[CRole]][]).map(([id,meta])=>(
-            <button key={id} onClick={()=>onSelect(id)}
-              className="relative bg-white/8 backdrop-blur-sm rounded-2xl p-5 text-right border border-white/15 hover:border-white/40 hover:bg-white/15 transition-all group">
-              {id==="company-admin"&&<div className="absolute top-3 left-3"><Badge className="bg-purple-500/30 text-purple-300 border border-purple-400/40 text-[10px]">مميز</Badge></div>}
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-3 ${meta.color} shadow-lg`}>{meta.icon}</div>
-              <p className="font-bold text-white text-base">{meta.label}</p>
-              <p className="text-white/50 text-xs mt-1 leading-relaxed">{meta.desc}</p>
-              <ChevronRight size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/70"/>
-            </button>
-          ))}
+          {(Object.entries(ROLE_META) as [CRole, typeof ROLE_META[CRole]][]).map(([id,meta])=>{
+            const enMeta = EN_C_ROLE_META[id as CRoleKey];
+            return (
+              <button key={id} onClick={()=>onSelect(id)}
+                className={`relative bg-white/8 backdrop-blur-sm rounded-2xl p-5 border border-white/15 hover:border-white/40 hover:bg-white/15 transition-all group ${dir==="rtl"?"text-right":"text-left"}`}>
+                {id==="company-admin"&&<div className={`absolute top-3 ${dir==="rtl"?"left-3":"right-3"}`}><Badge className="bg-purple-500/30 text-purple-300 border border-purple-400/40 text-[10px]">{t("مميز","Premium")}</Badge></div>}
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-3 ${meta.color} shadow-lg`}>{meta.icon}</div>
+                <p className="font-bold text-white text-base">{t(meta.label, enMeta.label)}</p>
+                <p className="text-white/50 text-xs mt-1 leading-relaxed">{t(meta.desc, enMeta.desc)}</p>
+                <ChevronRight size={14} className={`absolute ${dir==="rtl"?"left-4":"right-4"} top-1/2 -translate-y-1/2 text-white/30 group-hover:text-white/70 ${dir==="ltr"?"rotate-180":""}`}/>
+              </button>
+            );
+          })}
         </div>
-        <p className="text-center text-white/30 text-xs">نظام عصب · الإدارة المالية لمجموعات المطاعم · v2.1</p>
+        <p className="text-center text-white/30 text-xs">
+          {t("نظام عصب · الإدارة المالية لمجموعات المطاعم · v2.1","ASAB System · Financial Management for Restaurant Groups · v2.1")}
+        </p>
       </div>
     </div>
   );
@@ -695,14 +765,19 @@ const SHELL_NOTIFICATIONS = [
 function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:{
   role:CRole; page:string; navigate:(p:string)=>void; onLogout:()=>void; children:ReactNode; headPendingCount?:number;
 }) {
+  const { lang, setLang, t, dir } = useCLang();
   const meta = ROLE_META[role];
   const nav  = NAV[role];
-  const pageLabel = (nav.find(e=>"id" in e && (e as any).id===page) as any)?.label||"";
+  const enMeta = EN_C_ROLE_META[role as CRoleKey];
+  const activeNavItem = nav.find(e=>"id" in e && (e as any).id===page) as any;
+  const pageLabelAr = activeNavItem?.label || "";
+  const pageLabelEn = activeNavItem ? (EN_C_NAV_LABELS[activeNavItem.id] || pageLabelAr) : "";
+  const pageLabel = t(pageLabelAr, pageLabelEn);
   const [showNotif,setShowNotif]=useState(false);
   const [notifs,setNotifs]=useState(SHELL_NOTIFICATIONS);
   const unreadCount=notifs.filter(n=>n.unread).length;
   return (
-    <div className="flex h-screen overflow-hidden" dir="rtl">
+    <div className="flex h-screen overflow-hidden" dir={dir}>
       <div className="w-60 flex-shrink-0 flex flex-col" style={{ background:SIDEBAR_GRAD }}>
         <div className="px-4 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -719,19 +794,27 @@ function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:
         <div className="px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10">
             <span className="text-base">{meta.icon}</span>
-            <div><p className="text-white text-xs font-bold">{meta.label}</p><p className="text-white/40 text-[10px]">مجموعة التاج</p></div>
+            <div>
+              <p className="text-white text-xs font-bold">{t(meta.label, enMeta.label)}</p>
+              <p className="text-white/40 text-[10px]">{t("مجموعة التاج","Al-Taj Group")}</p>
+            </div>
           </div>
         </div>
         <nav className="flex-1 px-3 py-3 overflow-y-auto">
           {nav.map((entry,i)=>{
-            if(isSection(entry)) return <p key={i} className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-2 mt-4 mb-1 first:mt-0">{entry.section}</p>;
+            if(isSection(entry)) return (
+              <p key={i} className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-2 mt-4 mb-1 first:mt-0">
+                {t(entry.section, EN_C_SECTIONS[entry.section]||entry.section)}
+              </p>
+            );
             const item = entry as any;
             const active = page===item.id;
+            const itemLabel = t(item.label, EN_C_NAV_LABELS[item.id]||item.label);
             return (
               <button key={item.id} onClick={()=>navigate(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-0.5 ${active?"bg-white/15 text-white":"text-white/60 hover:bg-white/8 hover:text-white/90"}`}>
                 <span className={active?"text-cyan-400":""}>{item.icon}</span>
-                <span className="flex-1 text-right">{item.label}</span>
+                <span className={`flex-1 ${dir==="rtl"?"text-right":"text-left"}`}>{itemLabel}</span>
                 {item.id==="head-pending" && headPendingCount>0
                   ? <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{headPendingCount}</span>
                   : item.badge ? <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span> : null}
@@ -739,9 +822,14 @@ function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:
             );
           })}
         </nav>
-        <div className="p-3 border-t border-white/10">
+        <div className="p-3 border-t border-white/10 space-y-1">
+          <button
+            onClick={()=>setLang(lang==="ar"?"en":"ar")}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-white/50 hover:text-white/80 hover:bg-white/8 transition-all text-sm">
+            <Globe size={14}/> {lang==="ar" ? "English" : "عربي"}
+          </button>
           <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-white/50 hover:text-white/80 hover:bg-white/8 transition-all text-sm">
-            <LogOut size={14}/> تسجيل الخروج
+            <LogOut size={14}/> {t("تسجيل الخروج","Sign Out")}
           </button>
         </div>
       </div>
@@ -749,22 +837,22 @@ function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:
         <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span className="font-bold text-gray-800">{COMPANY.name}</span>
-            <ChevronRight size={12} className="text-gray-300"/>
+            <ChevronRight size={12} className={`text-gray-300 ${dir==="ltr"?"rotate-180":""}`}/>
             <span>{pageLabel}</span>
           </div>
           <div className="flex items-center gap-3">
             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100">● {COMPANY.plan}</Badge>
-            <Badge className="bg-purple-50 text-purple-700 border border-purple-100">{meta.icon} {meta.label}</Badge>
+            <Badge className="bg-purple-50 text-purple-700 border border-purple-100">{meta.icon} {t(meta.label, enMeta.label)}</Badge>
             <div className="relative">
               <button onClick={()=>setShowNotif(v=>!v)} className="relative text-gray-400 hover:text-gray-600 transition-colors">
                 <Bell size={16}/>
                 {unreadCount>0&&<span className="absolute -top-1 -left-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadCount}</span>}
               </button>
               {showNotif&&(
-                <div className="absolute left-0 top-8 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50" dir="rtl">
+                <div className={`absolute ${dir==="rtl"?"left-0":"right-0"} top-8 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50`} dir={dir}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-800 text-sm">الإشعارات</h3>
-                    <button onClick={()=>{setNotifs(n=>n.map(x=>({...x,unread:false})));}} className="text-[11px] text-purple-600 hover:text-purple-800 font-semibold">تحديد الكل كمقروء</button>
+                    <h3 className="font-bold text-gray-800 text-sm">{t("الإشعارات","Notifications")}</h3>
+                    <button onClick={()=>{setNotifs(n=>n.map(x=>({...x,unread:false})));}} className="text-[11px] text-purple-600 hover:text-purple-800 font-semibold">{t("تحديد الكل كمقروء","Mark all as read")}</button>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {notifs.map(n=>(
@@ -780,7 +868,7 @@ function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:
                     ))}
                   </div>
                   <div className="px-4 py-2.5 border-t border-gray-100">
-                    <button onClick={()=>setShowNotif(false)} className="w-full text-center text-xs text-purple-600 hover:text-purple-800 font-semibold">إغلاق</button>
+                    <button onClick={()=>setShowNotif(false)} className="w-full text-center text-xs text-purple-600 hover:text-purple-800 font-semibold">{t("إغلاق","Close")}</button>
                   </div>
                 </div>
               )}
@@ -4437,8 +4525,10 @@ function CompanyDashboardInner() {
 
 export default function CompanyDashboard() {
   return (
-    <CAssetDraftProvider>
-      <CompanyDashboardInner/>
-    </CAssetDraftProvider>
+    <CLangProvider>
+      <CAssetDraftProvider>
+        <CompanyDashboardInner/>
+      </CAssetDraftProvider>
+    </CLangProvider>
   );
 }
