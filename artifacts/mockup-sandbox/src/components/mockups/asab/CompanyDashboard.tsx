@@ -1,5 +1,5 @@
 import "./_group.css";
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, createContext, useContext } from "react";
 import {
   LayoutDashboard, Building2, Users, Settings, Bell, LogOut, ChevronRight,
   CheckCircle2, XCircle, TrendingUp, Plus, X, Edit2, FileText,
@@ -7,7 +7,7 @@ import {
   BarChart3, AlertTriangle, Star, RefreshCw, ArrowLeftRight,
   Send, Check, Download, Zap, Lock, ChevronDown, ChevronUp,
   Eye, Paperclip, ThumbsUp, ThumbsDown, Upload, Clipboard,
-  Home, RotateCcw, Filter
+  Home, RotateCcw, Filter, GitMerge, ArrowRightToLine, CheckSquare, Edit3
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════
@@ -124,6 +124,146 @@ type COp = {
   channels?:{ name:string; icon:string; pos:number; actual:number }[];
   purchaseItems?:{ item:string; unit:string; ordQty:number; rcvQty:number; unitPrice:number }[];
 };
+
+// ═══════════════════════════════════════════════════
+// ASSET DRAFT CONTEXT — تحويل المصروف إلى أصل ثابت
+// ═══════════════════════════════════════════════════
+type CDraftStatus = "draft"|"confirmed";
+type CAssetDraft = {
+  draftId:string; invNum:string; vendor:string; desc:string;
+  amount:number; branch:string; date:string; expOpId:string;
+  assetName:string; category:string; usefulLife:number;
+  status:CDraftStatus;
+};
+type CAssetDraftCtx = {
+  drafts:CAssetDraft[];
+  addDraft:(d:CAssetDraft)=>void;
+  discardDraft:(id:string)=>void;
+  confirmDraft:(id:string)=>void;
+  getConvertedInvNums:()=>Set<string>;
+};
+const CAssetDraftContext = createContext<CAssetDraftCtx>({
+  drafts:[], addDraft:()=>{}, discardDraft:()=>{}, confirmDraft:()=>{}, getConvertedInvNums:()=>new Set(),
+});
+function CAssetDraftProvider({ children }:{ children:ReactNode }) {
+  const [drafts,setDrafts] = useState<CAssetDraft[]>([]);
+  const addDraft     = (d:CAssetDraft) => setDrafts(p=>[...p.filter(x=>x.draftId!==d.draftId),d]);
+  const discardDraft = (id:string)     => setDrafts(p=>p.filter(x=>x.draftId!==id));
+  const confirmDraft = (id:string)     => setDrafts(p=>p.map(x=>x.draftId===id?{...x,status:"confirmed" as CDraftStatus}:x));
+  const getConvertedInvNums = ()       => new Set(drafts.map(d=>d.invNum));
+  return (
+    <CAssetDraftContext.Provider value={{drafts,addDraft,discardDraft,confirmDraft,getConvertedInvNums}}>
+      {children}
+    </CAssetDraftContext.Provider>
+  );
+}
+
+const ASSET_CATS_CD = ["معدات مطبخ","تقنية وأجهزة","أثاث ومفروشات","مركبات","صيانة وإنشاءات","أخرى"];
+const USEFUL_LIFE_CD = [
+  {label:"24 شهر (سنتان)",val:24},{label:"36 شهر (3 سنوات)",val:36},
+  {label:"48 شهر (4 سنوات)",val:48},{label:"60 شهر (5 سنوات)",val:60},
+  {label:"72 شهر (6 سنوات)",val:72},{label:"84 شهر (7 سنوات)",val:84},
+];
+
+function ConvertToAssetModalCD({
+  opId, invNum, vendor, desc, amount, branch, date, onClose, onSuccess,
+}:{
+  opId:string; invNum:string; vendor:string; desc:string;
+  amount:number; branch:string; date:string;
+  onClose:()=>void; onSuccess:(draftId:string)=>void;
+}) {
+  const { addDraft } = useContext(CAssetDraftContext);
+  const [step,       setStep]      = useState<1|2>(1);
+  const [assetName,  setAssetName] = useState(vendor||desc);
+  const [cat,        setCat]       = useState(ASSET_CATS_CD[0]);
+  const [usefulLife, setUseful]    = useState(60);
+
+  const amtBeforeVat = Math.round(amount/1.15);
+  const draftId = `cd-draft-${opId}-${invNum}`;
+
+  const handleConfirm = () => {
+    addDraft({ draftId, invNum, vendor, desc, amount:amtBeforeVat, branch, date, expOpId:opId, assetName, category:cat, usefulLife, status:"draft" });
+    onSuccess(draftId);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" dir="rtl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-gradient-to-l from-purple-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-white">
+            <GitMerge size={18}/>
+            <div>
+              <p className="font-bold text-sm">تحويل مصروف إلى أصل ثابت</p>
+              <p className="text-white/70 text-[11px]">الخطوة {step} من 2</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X size={18}/></button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-purple-700">{invNum}</span>
+              <span className="font-mono font-bold text-emerald-700">{fmt(amtBeforeVat)} ر.س <span className="text-gray-400 font-normal">(قبل الضريبة)</span></span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">{vendor} · {desc}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">{branch} · {date}</p>
+          </div>
+          {step===1 && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">اسم الأصل *</label>
+                <input value={assetName} onChange={e=>setAssetName(e.target.value)}
+                  className="w-full text-sm border border-purple-200 rounded-xl px-3 py-2 outline-none focus:border-purple-400" dir="rtl"/>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">فئة الأصل *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ASSET_CATS_CD.map(c=>(
+                    <button key={c} onClick={()=>setCat(c)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all text-right ${cat===c?"bg-purple-600 text-white border-purple-600":"border-gray-200 text-gray-600 hover:border-purple-300"}`}>
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {step===2 && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">العمر الإنتاجي (الاستهلاك)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {USEFUL_LIFE_CD.map(o=>(
+                    <button key={o.val} onClick={()=>setUseful(o.val)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all text-right ${usefulLife===o.val?"bg-purple-600 text-white border-purple-600":"border-gray-200 text-gray-600 hover:border-purple-300"}`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-3 text-xs space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">اسم الأصل</span><span className="font-semibold text-gray-800">{assetName}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">الفئة</span><span className="font-semibold text-gray-800">{cat}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">القيمة (قبل الضريبة)</span><span className="font-mono font-bold text-purple-700">{fmt(amtBeforeVat)} ر.س</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">الاستهلاك السنوي</span><span className="font-mono font-bold text-amber-700">{fmt(Math.round(amtBeforeVat/(usefulLife/12)))} ر.س/سنة</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">الفرع</span><span className="font-semibold text-gray-800">{branch}</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="px-6 pb-5 flex gap-2 justify-end">
+          {step===2 && <Btn onClick={()=>setStep(1)}>→ السابق</Btn>}
+          <Btn onClick={onClose}>إلغاء</Btn>
+          {step===1
+            ? <Btn variant="primary" onClick={()=>setStep(2)} disabled={!assetName.trim()}>التالي ←</Btn>
+            : <Btn variant="primary" onClick={handleConfirm}><GitMerge size={13}/> تأكيد التحويل</Btn>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_CFG:Record<COpStatus,{label:string;cls:string;short:string}> = {
   "pending":       { label:"قيد المراجعة",    cls:"bg-amber-50 text-amber-700 border border-amber-200",       short:"معلق"     },
@@ -755,37 +895,9 @@ function OpRow({ op, onApprove, onReject, onView, expanded, onToggle, forHead=fa
               )}
             </div>
           )}
-          {/* EXPENSES: invoice table */}
-          {op.module==="expenses" && op.invoices && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2">فواتير المصروفات ({op.invoices.length})</p>
-              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <div className="grid grid-cols-5 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500">
-                  <span>رقم الفاتورة</span><span>المورد</span><span>الوصف</span><span className="text-center">المبلغ</span><span className="text-center">التحقق</span>
-                </div>
-                {op.invoices.map(inv=>(
-                  <div key={inv.invNum} className="grid grid-cols-5 px-4 py-3 border-b border-gray-50 last:border-0 text-xs items-center">
-                    <span className="font-mono font-bold text-blue-700">{inv.invNum}</span>
-                    <span className="text-gray-700 font-medium">{inv.vendor}</span>
-                    <span className="text-gray-500">{inv.desc}</span>
-                    <span className="text-center font-mono font-bold text-gray-800">{fmt(inv.amount)} ر.س</span>
-                    <span className={`text-center text-xs font-bold ${inv.verified?"text-emerald-600":"text-amber-600"}`}>
-                      {inv.verified?"✓ مُحقق":"○ بانتظار"}
-                    </span>
-                  </div>
-                ))}
-                <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs">
-                  <span className="text-gray-500">{op.invoices.filter(i=>i.verified).length} من {op.invoices.length} فواتير مُحققة</span>
-                  <span className="font-mono font-bold text-purple-700">{fmt(op.invoices.reduce((s,i)=>s+i.amount,0))} ر.س</span>
-                </div>
-              </div>
-              {isPending && !forHead && (
-                <div className="flex gap-2 mt-3 justify-end">
-                  <button onClick={e=>{e.stopPropagation();onReject();}} className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold hover:bg-red-100">✕ رفض</button>
-                  <button onClick={e=>{e.stopPropagation();onApprove();}} className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600">✓ موافقة</button>
-                </div>
-              )}
-            </div>
+          {/* EXPENSES: handled by AccCompanyExpenses with full table + VAT + convert-to-asset */}
+          {op.module==="expenses" && (
+            <p className="text-xs text-gray-400 text-center py-2">افتح البيان لعرض الفواتير كاملاً مع خيار التحويل إلى أصل ثابت</p>
           )}
           {/* PURCHASES: items table */}
           {op.module==="purchases" && op.purchaseItems && (
@@ -1944,19 +2056,23 @@ function AccCompanySales({ ops, approve, reject, bulkApprove }:{ ops:COp[]; appr
 // ACCOUNTANT — EXPENSES MODULE (Full Featured)
 // ═══════════════════════════════════════════════════
 function AccCompanyExpenses({ ops, approve, reject, bulkApprove }:{ ops:COp[]; approve:(id:string)=>void; reject:(id:string)=>void; bulkApprove:(ids:string[])=>void }) {
+  const { drafts, discardDraft, confirmDraft, getConvertedInvNums } = useContext(CAssetDraftContext);
   const [expandedId,       setExpandedId]       = useState<string|null>(null);
   const [verifiedInvoices, setVerifiedInvoices] = useState<Record<string,boolean>>({});
   const [brandFilter,      setBrandFilter]      = useState("الكل");
   const [statusFilter,     setStatusFilter]     = useState<""|COpStatus>("");
   const [search,           setSearch]           = useState("");
+  const [convertModal,     setConvertModal]     = useState<{opId:string;invNum:string;vendor:string;desc:string;amount:number;branch:string;date:string}|null>(null);
 
+  const convertedInvNums = getConvertedInvNums();
   const mOps = ops.filter(o=>o.module==="expenses");
   const pending = mOps.filter(o=>o.status==="pending");
+  const pendingDrafts = drafts.filter(d=>d.status==="draft");
 
   const shown = mOps.filter(op=>{
     if(brandFilter!=="الكل" && op.brandName!==brandFilter) return false;
     if(statusFilter && op.status!==statusFilter) return false;
-    if(search && !op.branch.includes(search) && !op.submittedBy.includes(search)) return false;
+    if(search && !op.branch.includes(search) && !op.submittedBy.includes(search) && !(op.invoices||[]).some(i=>i.invNum.includes(search)||i.vendor.includes(search))) return false;
     return true;
   });
 
@@ -2008,42 +2124,100 @@ function AccCompanyExpenses({ ops, approve, reject, bulkApprove }:{ ops:COp[]; a
                   onView={()=>setExpandedId(isExpanded?null:op.id)}
                   expanded={isExpanded} onToggle={()=>setExpandedId(isExpanded?null:op.id)}/>
                 {isExpanded && (
-                  <div className="px-5 pb-4 border-t border-gray-50 bg-gray-50/30">
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold text-gray-600">الفواتير المرفقة ({invs.length})</p>
-                        {allVerified && invs.length>0 && (
-                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">✅ كل الفواتير موثّقة</Badge>
-                        )}
+                  <div className="border-t border-gray-100 bg-gray-50/40 px-5 py-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-bold text-gray-700">الفواتير المرفقة ({invs.length})</p>
+                      <div className="flex items-center gap-2">
+                        {allVerified && invs.length>0 && <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">✅ كل الفواتير موثّقة</Badge>}
+                        <span className="text-[10px] text-purple-600 font-semibold">← عمود "أصل ثابت" للتحويل</span>
                       </div>
-                      <div className="space-y-2">
-                        {invs.map((inv,idx)=>{
-                          const key=`${op.id}-${inv.invNum}`;
-                          const verified=verifiedInvoices[key]??inv.verified;
-                          return (
-                            <div key={inv.invNum} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${verified?"bg-emerald-50 border-emerald-200":"bg-white border-gray-200"}`}>
-                              <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0"><FileText size={14} className="text-blue-600"/></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2"><span className="font-mono text-xs font-bold text-gray-700" dir="ltr">{inv.invNum}</span><span className="text-[10px] text-gray-500">{inv.vendor}</span></div>
-                                <p className="text-[10px] text-gray-400 mt-0.5">{inv.desc} · {inv.date}</p>
-                              </div>
-                              <p className="font-mono font-bold text-gray-800 text-sm flex-shrink-0">{fmt(inv.amount)} ر.س</p>
-                              <button onClick={()=>alert(`معاينة الفاتورة ${inv.invNum}`)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 flex-shrink-0"><Eye size={12}/></button>
-                              <button onClick={()=>toggleVerify(key)}
-                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex-shrink-0 ${verified?"bg-emerald-100 text-emerald-700 border-emerald-300":"bg-gray-50 text-gray-500 border-gray-200 hover:bg-emerald-50"}`}>
-                                {verified?<><Check size={10}/> موثّقة</>:<><Eye size={10}/> توثيق</>}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {op.status==="pending" && (
-                        <div className="flex gap-2 mt-3">
-                          <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> موافقة على البيان</Btn>
-                          <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> رفض</Btn>
-                        </div>
-                      )}
                     </div>
+                    {invs.length>0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border border-gray-200 rounded-xl overflow-hidden" dir="rtl">
+                          <thead>
+                            <tr className="bg-gray-100 text-gray-600 font-semibold">
+                              <th className="px-3 py-2 text-right">رقم الفاتورة</th>
+                              <th className="px-3 py-2 text-right">المورد</th>
+                              <th className="px-3 py-2 text-right">البيان</th>
+                              <th className="px-3 py-2 text-center">التاريخ</th>
+                              <th className="px-3 py-2 text-center">قبل الضريبة</th>
+                              <th className="px-3 py-2 text-center bg-amber-50/80 text-amber-700">الضريبة 15%</th>
+                              <th className="px-3 py-2 text-center bg-emerald-50/80 text-emerald-700">بعد الضريبة</th>
+                              <th className="px-3 py-2 text-center">مرفقات</th>
+                              <th className="px-3 py-2 text-center">توثيق</th>
+                              <th className="px-3 py-2 text-center bg-purple-50/80 text-purple-700">أصل ثابت</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 bg-white">
+                            {invs.map(inv=>{
+                              const key = `${op.id}-${inv.invNum}`;
+                              const verified = verifiedInvoices[key]??inv.verified;
+                              const amtBefore = Math.round(inv.amount/1.15);
+                              const vatAmt = inv.amount - amtBefore;
+                              const alreadyConverted = convertedInvNums.has(inv.invNum);
+                              return (
+                                <tr key={inv.invNum} className={`transition-colors ${verified?"bg-emerald-50/30":""} ${alreadyConverted?"bg-purple-50/20":""} hover:bg-gray-50`}>
+                                  <td className="px-3 py-2.5 font-mono font-bold text-purple-700">{inv.invNum}</td>
+                                  <td className="px-3 py-2.5 font-medium text-gray-800">{inv.vendor}</td>
+                                  <td className="px-3 py-2.5 text-gray-500">{inv.desc}</td>
+                                  <td className="px-3 py-2.5 text-center text-gray-500">{inv.date}</td>
+                                  <td className="px-3 py-2.5 text-center font-mono text-gray-600">{fmt(amtBefore)} ر.س</td>
+                                  <td className="px-3 py-2.5 text-center font-mono text-amber-600 bg-amber-50/20">{fmt(vatAmt)} ر.س</td>
+                                  <td className="px-3 py-2.5 text-center font-mono font-bold text-emerald-700 bg-emerald-50/20">{fmt(inv.amount)} ر.س</td>
+                                  <td className="px-3 py-2.5 text-center">
+                                    <button onClick={()=>alert(`📎 عرض مرفقات الفاتورة ${inv.invNum}\n\n• صورة الفاتورة الأمامية\n• صورة الختم والتوقيع\n• صورة المبلغ والإجمالي`)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-[10px] font-semibold transition-all">
+                                      <Paperclip size={9}/> عرض
+                                    </button>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center">
+                                    <button onClick={()=>toggleVerify(key)} title={verified?"مُوثَّق":"اضغط للتوثيق"}
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto transition-all ${verified?"bg-emerald-500 text-white":"border-2 border-dashed border-gray-300 text-gray-300 hover:border-emerald-400 hover:text-emerald-400"}`}>
+                                      <CheckSquare size={12}/>
+                                    </button>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center bg-purple-50/10">
+                                    {alreadyConverted ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 text-purple-700 text-[10px] font-semibold">
+                                        <Building2 size={9}/> محوّل
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={()=>setConvertModal({opId:op.id,invNum:inv.invNum,vendor:inv.vendor,desc:inv.desc,amount:inv.amount,branch:op.branch,date:inv.date})}
+                                        title="تحويل هذه الفاتورة إلى أصل ثابت"
+                                        className="group inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border-2 border-dashed border-purple-200 text-purple-400 hover:border-purple-500 hover:bg-purple-50 hover:text-purple-700 transition-all">
+                                        <ArrowRightToLine size={10}/>
+                                        <span className="text-[10px] font-semibold hidden group-hover:inline">أصل ثابت</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="bg-gray-100 border-t-2 border-gray-200 font-bold text-xs">
+                            <tr>
+                              <td colSpan={4} className="px-3 py-2.5 text-right text-gray-800">الإجمالي</td>
+                              <td className="px-3 py-2.5 text-center font-mono text-gray-600">{fmt(Math.round(invs.reduce((s,i)=>s+i.amount,0)/1.15))} ر.س</td>
+                              <td className="px-3 py-2.5 text-center font-mono text-amber-600 bg-amber-50/20">{fmt(invs.reduce((s,i)=>s+(i.amount-Math.round(i.amount/1.15)),0))} ر.س</td>
+                              <td className="px-3 py-2.5 text-center font-mono text-emerald-700 bg-emerald-50/20">{fmt(invs.reduce((s,i)=>s+i.amount,0))} ر.س</td>
+                              <td></td>
+                              <td className="px-3 py-2.5 text-center text-[10px] text-gray-500">{invs.filter(i=>verifiedInvoices[`${op.id}-${i.invNum}`]??i.verified).length}/{invs.length} موثّق</td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 text-center py-4">لا توجد فواتير مرفقة بهذا البيان</p>
+                    )}
+                    {op.status==="pending" && (
+                      <div className="flex gap-2 mt-3">
+                        <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> موافقة على البيان</Btn>
+                        <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> رفض</Btn>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2051,6 +2225,47 @@ function AccCompanyExpenses({ ops, approve, reject, bulkApprove }:{ ops:COp[]; a
           })
         }
       </div>
+
+      {/* ── بانر التحويلات المعلقة إلى أصول ثابتة ── */}
+      {pendingDrafts.length>0 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Building2 size={16} className="text-purple-600"/>
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-gray-800 text-sm">{pendingDrafts.length} {pendingDrafts.length===1?"فاتورة تنتظر":"فواتير تنتظر"} التحويل إلى أصول ثابتة</p>
+            <div className="mt-2 space-y-2">
+              {pendingDrafts.map(d=>(
+                <div key={d.draftId} className="flex items-center gap-3 bg-white rounded-xl border border-purple-100 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-800">{d.assetName}</p>
+                    <p className="text-[10px] text-gray-400">{d.invNum} · {d.vendor} · {fmt(d.amount)} ر.س · {d.branch}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={()=>confirmDraft(d.draftId)}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold hover:bg-emerald-200 transition-all flex items-center gap-1">
+                      <Check size={9}/> تأكيد
+                    </button>
+                    <button onClick={()=>discardDraft(d.draftId)}
+                      className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold hover:bg-red-100 transition-all flex items-center gap-1">
+                      <X size={9}/> إلغاء
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: تحويل مصروف إلى أصل ثابت */}
+      {convertModal && (
+        <ConvertToAssetModalCD
+          {...convertModal}
+          onClose={()=>setConvertModal(null)}
+          onSuccess={()=>setConvertModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2063,6 +2278,7 @@ function AccCompanyPurchases({ ops, approve, reject, bulkApprove }:{ ops:COp[]; 
   const [matchFilter,  setMatchFilter]  = useState<""|CMatch>("");
   const [statusFilter, setStatusFilter] = useState<""|COpStatus>("");
   const [expandedId,   setExpandedId]   = useState<string|null>(null);
+  const [viewMode,     setViewMode]     = useState<"ops"|"suppliers">("ops");
 
   const mOps = ops.filter(o=>o.module==="purchases");
   const pending = mOps.filter(o=>o.status==="pending");
@@ -2098,27 +2314,56 @@ function AccCompanyPurchases({ ops, approve, reject, bulkApprove }:{ ops:COp[]; 
           <div><label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)} className="w-full text-xs border border-gray-200 rounded-lg px-2 py-2"><option value="">الكل</option>{(Object.entries(STATUS_CFG) as [COpStatus,any][]).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      {/* Toggle: بيانات / الموردون */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 self-start">
+        {([["ops","بيانات المشتريات"],["suppliers","الموردون المعتمدون"]] as const).map(([v,l])=>(
+          <button key={v} onClick={()=>setViewMode(v)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode===v?"bg-white text-gray-800 shadow-sm":"text-gray-500"}`}>{l}</button>
+        ))}
+      </div>
+
+      {viewMode==="ops" ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">بيانات المشتريات</h3></div>
-          {shown.map(op=>(
-            <OpRow key={op.id} op={op} onApprove={()=>approve(op.id)} onReject={()=>reject(op.id)}
-              onView={()=>setExpandedId(expandedId===op.id?null:op.id)}/>
+          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm">بيانات المشتريات</h3>
+            <button onClick={()=>alert("جارٍ تصدير...")} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100"><Download size={11}/> Excel</button>
+          </div>
+          {shown.length===0 ? (
+            <div className="py-10 text-center text-gray-400 text-sm">✅ لا توجد بيانات</div>
+          ) : shown.map(op=>(
+            <OpRow key={op.id} op={op}
+              onApprove={()=>approve(op.id)} onReject={()=>reject(op.id)}
+              onView={()=>setExpandedId(expandedId===op.id?null:op.id)}
+              expanded={expandedId===op.id}
+              onToggle={()=>setExpandedId(expandedId===op.id?null:op.id)}/>
           ))}
         </div>
+      ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 text-sm mb-3">الموردون المعتمدون</h3>
+          <h3 className="font-bold text-gray-800 text-sm mb-4">الموردون المعتمدون</h3>
           <div className="space-y-3">
-            {SUPPLIERS.map(s=>(
-              <div key={s.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">🏭</div>
-                <div className="flex-1"><p className="font-semibold text-gray-800 text-xs">{s.name}</p><p className="text-[10px] text-gray-400 mt-0.5">{s.items}</p></div>
-                <div className="flex items-center gap-0.5">{[1,2,3,4,5].map(i=><span key={i} className={`text-xs ${i<=Math.floor(s.rating)?"text-amber-400":"text-gray-200"}`}>★</span>)}</div>
-              </div>
-            ))}
+            {SUPPLIERS.map(s=>{
+              const supplierOps = mOps.filter(o=>o.branch===s.name||true).slice(0,2);
+              const totalOrders = Math.floor(Math.random()*10)+5;
+              return (
+                <div key={s.name} className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0 text-lg">🏭</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800 text-sm">{s.name}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{s.items}</p>
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-0.5 mb-1">{[1,2,3,4,5].map(i=><span key={i} className={`text-sm ${i<=Math.floor(s.rating)?"text-amber-400":"text-gray-200"}`}>★</span>)}</div>
+                      <p className="text-[10px] text-gray-500">{totalOrders} طلبية هذا الشهر</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2404,6 +2649,8 @@ function AccInventoryItemsPage({ onBack }:{ onBack:()=>void }) {
 // ACCOUNTANT — ASSETS MODULE
 // ═══════════════════════════════════════════════════
 function AccCompanyAssets() {
+  const { drafts, confirmDraft, discardDraft } = useContext(CAssetDraftContext);
+  const draftAssets = drafts;
   const assets=[
     { id:"A001",name:"ثلاجة صناعية 600L",   branch:"فرع العليا",   brand:"برغر التاج",      category:"معدات مطبخ",value:18000,dep:3600, date:"يناير 2023", mgr:"فاطمة السالم",   serial:"FR-2023-001",status:"active"      },
     { id:"A002",name:"فرن بيتزا كهربائي",   branch:"فرع الملقا",   brand:"بيتزا التاج",     category:"معدات مطبخ",value:24000,dep:4800, date:"مارس 2023",  mgr:"أحمد الحربي",   serial:"OV-2023-002",status:"active"      },
@@ -2427,9 +2674,45 @@ function AccCompanyAssets() {
   return (
     <div className="space-y-5" dir="rtl">
       <div className="flex items-start justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2><p className="text-gray-400 text-sm">{assets.length} أصل مسجل — جميع العلامات والفروع</p></div>
-        <div className="flex gap-2"><Btn size="sm" onClick={()=>alert("📂 استيراد Excel\n\nيرجى اختيار ملف Excel بصيغة .xlsx يحتوي على بيانات الأصول.\nالنموذج: الاسم · الرقم التسلسلي · القيمة · الفئة · الفرع")}><Upload size={12}/> استيراد Excel</Btn><Btn variant="primary" onClick={()=>alert("➕ إضافة أصل جديد\n\nسيتم فتح نموذج لإدخال بيانات الأصل الجديد:\n• اسم الأصل\n• الرقم التسلسلي\n• الفئة والفرع\n• القيمة وتاريخ الشراء")}><Plus size={13}/> أصل جديد</Btn></div>
+        <div><h2 className="text-xl font-bold text-gray-800">الأصول الثابتة</h2><p className="text-gray-400 text-sm">{assets.length} أصل مسجل{draftAssets.length>0?` + ${draftAssets.length} مسودة`:""} — جميع العلامات والفروع</p></div>
+        <div className="flex gap-2"><Btn size="sm" onClick={()=>alert("📂 استيراد Excel")}><Upload size={12}/> استيراد Excel</Btn><Btn variant="primary" onClick={()=>alert("➕ إضافة أصل جديد")}><Plus size={13}/> أصل جديد</Btn></div>
       </div>
+
+      {/* مسودات الأصول المحوّلة من مصروفات */}
+      {draftAssets.length>0 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <GitMerge size={16} className="text-purple-600"/>
+            <p className="font-bold text-gray-800 text-sm">مسودات أصول محوّلة من مصروفات ({draftAssets.length})</p>
+            <Badge className="bg-purple-100 text-purple-700 border border-purple-200 text-[10px]">في انتظار التأكيد</Badge>
+          </div>
+          <div className="space-y-2">
+            {draftAssets.map(d=>(
+              <div key={d.draftId} className={`flex items-center gap-3 bg-white rounded-xl border px-4 py-3 ${d.status==="confirmed"?"border-emerald-200 bg-emerald-50/30":"border-purple-100"}`}>
+                <div className="w-9 h-9 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center flex-shrink-0">
+                  <Building2 size={15} className="text-purple-600"/>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 text-sm">{d.assetName}</p>
+                  <p className="text-[10px] text-gray-400">{d.category} · {d.branch} · من {d.invNum}</p>
+                </div>
+                <div className="text-left flex-shrink-0">
+                  <p className="font-mono font-bold text-purple-700 text-sm">{fmt(d.amount)} ر.س</p>
+                  <p className="text-[10px] text-gray-400">الاستهلاك: {fmt(Math.round(d.amount/(d.usefulLife/12)))} ر.س/سنة</p>
+                </div>
+                {d.status==="draft" ? (
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button onClick={()=>confirmDraft(d.draftId)} className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold hover:bg-emerald-200 transition-all flex items-center gap-1"><Check size={9}/> تأكيد</button>
+                    <button onClick={()=>discardDraft(d.draftId)} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold hover:bg-red-100 transition-all flex items-center gap-1"><X size={9}/> حذف</button>
+                  </div>
+                ) : (
+                  <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] flex-shrink-0">✅ مؤكد</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="إجمالي قيمة الأصول"  value={`${fmt(totalValue)}`}              sub="ر.س القيمة الدفترية" icon={<Building2 size={18} className="text-blue-600"/>}     accent="blue"/>
         <KpiCard label="الاستهلاك السنوي"     value={`${fmt(totalDep)}`}                sub="ر.س سنوياً"          icon={<ArrowLeftRight size={18} className="text-amber-600"/>} accent="amber"/>
@@ -3330,10 +3613,9 @@ function PageRouter({ role, page, navigate, ops, approve, reject, bulkApprove, f
 // ═══════════════════════════════════════════════════
 // ROOT — الحالة المشتركة هنا (المحاسب + رئيس الحسابات يشتركان في نفس البيانات)
 // ═══════════════════════════════════════════════════
-export default function CompanyDashboard() {
+function CompanyDashboardInner() {
   const [role, setRole] = useState<CRole|null>(null);
   const [page, setPage] = useState<string>("");
-  // الحالة المشتركة: المحاسب يوافق → رئيس الحسابات يعتمد نهائياً
   const { ops, approve, reject, finalApprove, bulkApprove, bulkFinalApprove } = useSharedOps();
 
   const selectRole = (r:CRole) => { setRole(r); setPage(DEFAULT_PAGE[r]); };
@@ -3342,7 +3624,6 @@ export default function CompanyDashboard() {
 
   if(!role) return <CompanyLoginScreen onSelect={selectRole}/>;
 
-  // عدد العمليات بانتظار الاعتماد النهائي (للبادج في الشريط الجانبي)
   const headPendingCount = ops.filter(o=>o.status==="approved").length;
 
   return (
@@ -3351,5 +3632,13 @@ export default function CompanyDashboard() {
         ops={ops} approve={approve} reject={reject}
         bulkApprove={bulkApprove} finalApprove={finalApprove} bulkFinalApprove={bulkFinalApprove}/>
     </Shell>
+  );
+}
+
+export default function CompanyDashboard() {
+  return (
+    <CAssetDraftProvider>
+      <CompanyDashboardInner/>
+    </CAssetDraftProvider>
   );
 }
