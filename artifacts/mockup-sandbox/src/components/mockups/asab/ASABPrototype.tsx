@@ -103,6 +103,89 @@ const AssetDraftContext = createContext<AssetDraftCtxType>({
   setNavigateToAssets: ()=>{},
 });
 
+// ─────────────────────────────────────────────
+// LANGUAGE CONTEXT  (Arabic / English)
+// ─────────────────────────────────────────────
+type Lang = "ar" | "en";
+interface LangCtxType {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (ar: string, en: string) => string;
+  dir: "rtl" | "ltr";
+}
+const LangContext = createContext<LangCtxType>({
+  lang: "ar", setLang: ()=>{}, t: (ar)=>ar, dir: "rtl",
+});
+const useLang = () => useContext(LangContext);
+
+// ── English translations for static configs ─────────────────────────────────
+const EN_NAV_SECTIONS: Record<string, string> = {
+  "الرئيسية":"Main", "الموديولات":"Modules", "التقارير":"Reports",
+  "المراجعة والاعتماد":"Review & Approval", "التذكيرات والتقارير":"Reminders & Reports",
+  "الإدارة":"Management", "إدارة البيانات":"Data Management",
+  "الإعدادات":"Settings", "الطلبات":"Orders", "الكتالوج":"Catalog",
+  "النظام":"System",
+};
+const EN_NAV_LABELS: Record<string, string> = {
+  "acc-dashboard":"Dashboard","acc-reminders":"Reminders","acc-sales":"Sales",
+  "acc-expenses":"Expenses","acc-purchases":"Purchases","acc-inventory":"Inventory",
+  "acc-waste":"Waste & Spoilage","acc-assets":"Fixed Assets",
+  "acc-shifts":"Shift Management","acc-employees":"Employee Accounts",
+  "acc-cash":"Cash Custody","acc-reports":"Reports",
+  "head-dashboard":"Dashboard","head-pending":"Pending Approval",
+  "head-approved":"Final Approved","head-rejected":"Rejected",
+  "head-sales":"Sales","head-expenses":"Expenses","head-purchases":"Purchases",
+  "head-inventory":"Inventory","head-waste":"Waste & Spoilage",
+  "head-assets":"Fixed Assets","head-shifts":"Shifts",
+  "head-employees":"Employee Accounts","head-cash":"Cash Custody",
+  "head-reminders":"Reminders","head-accountants":"Accountant Performance",
+  "head-erp":"ERP Export","head-reports":"Reports",
+  "admin-overview":"Overview","admin-users":"Users",
+  "admin-restaurants":"Restaurants & Branches","admin-subscriptions":"Subscriptions",
+  "admin-companies":"Company Subscriptions","admin-permissions":"Permissions",
+  "admin-reports":"Report Manager","admin-audit":"Activity Log",
+  "admin-settings":"System Settings",
+  "branch-overview":"Overview","branch-employees":"Employees",
+  "branch-items":"Items","branch-suppliers":"Suppliers",
+  "branch-upload":"Upload Data","branch-settings":"Branch Settings",
+  "proc-overview":"Dashboard","proc-new":"New Orders",
+  "proc-grouped":"Grouped Orders","proc-sent":"Sent to Suppliers",
+  "proc-items":"Items","proc-suppliers":"Suppliers","proc-reports":"Reports",
+  "sup-overview":"Dashboard","sup-new":"New Orders",
+  "sup-accepted":"Accepted","sup-rejected":"Rejected",
+  "sup-items":"Items & Prices","sup-reports":"Sales Reports",
+};
+const EN_ROLE_LABELS: Record<string, { name:string; label:string }> = {
+  admin:       { name:"Abdullah Al-Ahmad",  label:"System Admin" },
+  head:        { name:"Khaled Al-Omari",    label:"Head Accountant" },
+  accountant:  { name:"Ahmed Mohammed",     label:"Accountant — Branches 1–50" },
+  branch:      { name:"Ahmed Al-Shammari",  label:"Branch Manager — Riyadh Al-Olaya" },
+  procurement: { name:"Saeed Ahmed",        label:"Procurement Manager" },
+  supplier:    { name:"Mohammed Al-Ali",    label:"Al-Wataniyya Poultry Co." },
+};
+const EN_MATCH_CFG: Record<string, string> = {
+  exact:"Matched", review:"Needs Review", diff:"Quantity Difference",
+};
+const EN_STATUS_CFG: Record<string, string> = {
+  "pending":"Pending","approved":"Approved","rejected":"Rejected",
+  "final-approved":"Final Approved",
+};
+const EN_PIPELINE: Record<string, { label:string; labelShort:string }> = {
+  submit:  { label:"Submitted from Branch",  labelShort:"Submitted" },
+  review:  { label:"Under Review",           labelShort:"Review" },
+  approved:{ label:"Approved",               labelShort:"Approval" },
+  final:   { label:"Final Approved",         labelShort:"Final" },
+  erp:     { label:"Posted to ERP",          labelShort:"ERP" },
+  reports: { label:"ERP Reports (Read)",     labelShort:"Reports" },
+};
+const EN_ORIGIN: Record<string, string> = {
+  mobile:"Branch App", procurement:"Procurement Flow", system:"System Import",
+};
+const EN_PAGE_LABELS: Record<string, string> = {
+  "acc-sales-detail": "Sales Operation Details",
+  "acc-inventory-items": "Select Daily Inventory Items",
+};
+
 interface PageProps {
   navigate: (p: PageId) => void;
   setModal: (id: string | null) => void;
@@ -303,22 +386,24 @@ function getPipelineLabel(op: Op): string {
 
 // Horizontal 6-step pipeline indicator — used in detail pages
 function PipelineBar({ op }: { op: Op }) {
+  const { lang, t } = useLang();
   const stage = getPipelineStage(op);
   const isRejected = op.status === "rejected";
   const origin = ORIGIN_CFG[op.origin];
+  const originLabel = lang==="ar" ? origin.label : (EN_ORIGIN[op.origin] || origin.label);
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4" dir="rtl">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">دورة حياة العملية</span>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("دورة حياة العملية","Operation Lifecycle")}</span>
           <Badge className={`${origin.cls} border text-[10px] font-semibold`}>
-            {origin.icon} {origin.label}
+            {origin.icon} {originLabel}
           </Badge>
         </div>
         {isRejected
-          ? <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs">✕ مرفوض{op.rejectReason ? ` — ${op.rejectReason}` : ""}</Badge>
+          ? <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs">✕ {t("مرفوض","Rejected")}{op.rejectReason ? ` — ${op.rejectReason}` : ""}</Badge>
           : <Badge className={`${PIPELINE_STAGES[stage]?.bg} ${PIPELINE_STAGES[stage]?.text} border ${PIPELINE_STAGES[stage]?.border} text-xs font-bold`}>
-              المرحلة {stage + 1}/6 · {PIPELINE_STAGES[stage]?.label}
+              {t(`المرحلة ${stage + 1}/6 · ${PIPELINE_STAGES[stage]?.label}`, `Stage ${stage+1}/6 · ${EN_PIPELINE[PIPELINE_STAGES[stage]?.id]?.label||PIPELINE_STAGES[stage]?.label}`)}
             </Badge>
         }
       </div>
@@ -326,7 +411,7 @@ function PipelineBar({ op }: { op: Op }) {
         {PIPELINE_STAGES.map((s, i) => {
           const isComplete = !isRejected && i < stage;
           const isCurrent  = !isRejected && i === stage;
-          const isPending  = isRejected || i > stage;
+          const shortLabel = lang==="ar" ? s.labelShort : (EN_PIPELINE[s.id]?.labelShort || s.labelShort);
           return (
             <div key={s.id} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center gap-1 flex-shrink-0">
@@ -338,7 +423,7 @@ function PipelineBar({ op }: { op: Op }) {
                 </div>
                 <span className={`text-[9px] font-medium leading-tight text-center max-w-[44px] truncate
                   ${isComplete ? "text-gray-600" : isCurrent ? `${s.text} font-bold` : "text-gray-300"}`}>
-                  {s.labelShort}
+                  {shortLabel}
                 </span>
               </div>
               {i < PIPELINE_STAGES.length - 1 && (
@@ -355,30 +440,34 @@ function PipelineBar({ op }: { op: Op }) {
 
 // Compact inline pill — used in OpRow and lists
 function OpStagePill({ op }: { op: Op }) {
+  const { lang, t } = useLang();
   if (op.status === "rejected") {
-    return <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">✕ مرفوض</Badge>;
+    return <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">✕ {t("مرفوض","Rejected")}</Badge>;
   }
   const idx = getPipelineStage(op);
   const s = PIPELINE_STAGES[idx];
+  const shortLabel = lang==="ar" ? s.labelShort : (EN_PIPELINE[s.id]?.labelShort || s.labelShort);
   return (
     <Badge className={`${s.bg} ${s.text} border ${s.border} text-[10px] font-semibold`}>
-      {s.icon} م{idx+1} · {s.labelShort}
+      {s.icon} {lang==="ar"?`م${idx+1}`:`S${idx+1}`} · {shortLabel}
     </Badge>
   );
 }
 
 // Pipeline overview widget — summary counts by stage
 function PipelineOverview({ ops, navigate }: { ops: Op[]; navigate: (p:PageId)=>void }) {
+  const { lang, t } = useLang();
   const stageCounts = PIPELINE_STAGES.map((s, i) => ({
     ...s,
     count: ops.filter(o => getPipelineStage(o) === i).length,
+    shortLabel: lang==="ar" ? s.labelShort : (EN_PIPELINE[s.id]?.labelShort || s.labelShort),
   }));
   const rejected = ops.filter(o => o.status === "rejected").length;
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" dir="rtl">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-        <h3 className="font-bold text-gray-900 text-sm tracking-tight">مسار العمليات — رؤية شاملة للخط الزمني</h3>
-        <span className="text-xs text-gray-400">{ops.length} عملية إجمالاً</span>
+        <h3 className="font-bold text-gray-900 text-sm tracking-tight">{t("مسار العمليات — رؤية شاملة للخط الزمني","Operations Pipeline — Full Timeline View")}</h3>
+        <span className="text-xs text-gray-400">{ops.length} {t("عملية إجمالاً","operations total")}</span>
       </div>
       <div className="grid grid-cols-6 divide-x divide-x-reverse divide-gray-100">
         {stageCounts.map((s, i) => {
@@ -390,13 +479,13 @@ function PipelineOverview({ ops, navigate }: { ops: Op[]; navigate: (p:PageId)=>
               {isAspirational ? (
                 <>
                   <p className="text-[10px] font-bold text-slate-400 font-mono">—</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">{s.labelShort}</p>
-                  <p className="text-[8px] text-slate-300 mt-1 leading-tight">مرحلة مستقبلية</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">{s.shortLabel}</p>
+                  <p className="text-[8px] text-slate-300 mt-1 leading-tight">{t("مرحلة مستقبلية","Future Stage")}</p>
                 </>
               ) : (
                 <>
                   <p className={`text-2xl font-extrabold font-mono ${s.count > 0 ? s.text : "text-gray-200"}`}>{s.count}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.labelShort}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.shortLabel}</p>
                   {i < 4 && (
                     <div className={`mx-auto mt-2 h-1 w-6 rounded-full ${s.count > 0 ? s.fill : "bg-gray-100"}`}/>
                   )}
@@ -408,10 +497,10 @@ function PipelineOverview({ ops, navigate }: { ops: Op[]; navigate: (p:PageId)=>
       </div>
       <div className="px-5 py-2 border-t border-gray-100 bg-slate-50/30 flex items-center justify-between flex-wrap gap-2">
         {rejected > 0 && (
-          <span className="text-xs text-red-500 font-medium">✕ {rejected} مرفوضة — خارج المسار</span>
+          <span className="text-xs text-red-500 font-medium">✕ {rejected} {t("مرفوضة — خارج المسار","rejected — off pipeline")}</span>
         )}
         <span className="text-[10px] text-slate-400 mr-auto">
-          م1–م5: مدارة بواسطة آلة الحالة · م6 (تقارير ERP): بيانات مرجعية مُستوردة — مرحلة مستقبلية
+          {t("م1–م5: مدارة بواسطة آلة الحالة · م6 (تقارير ERP): بيانات مرجعية مُستوردة — مرحلة مستقبلية","S1–S5: Managed by state machine · S6 (ERP Reports): Imported reference data — Future stage")}
         </span>
       </div>
     </div>
@@ -691,18 +780,27 @@ function buildAuditTrail(op: Op): AuditEvent[] {
 // ─────────────────────────────────────────────
 function LoginScreen({ onLogin }:{ onLogin:(r:RoleId)=>void }) {
   const [hovered, setHovered] = useState<RoleId|null>(null);
+  const { lang, setLang, t } = useLang();
 
-  const roles: { id:RoleId; icon:string; title:string; desc:string; badge:string; badgeCls:string; accent:string }[] = [
-    { id:"admin",       icon:"🧠", title:"أدمن النظام",      desc:"إدارة المستخدمين، الاشتراكات، وإعدادات النظام الكاملة",  badge:"نظام",          badgeCls:"bg-red-500/20 text-red-200",     accent:"#ef4444" },
-    { id:"head",        icon:"👑", title:"رئيس الحسابات",    desc:"الاعتماد النهائي للعمليات والإشراف على أداء المحاسبين",  badge:"اعتماد نهائي",  badgeCls:"bg-amber-500/20 text-amber-200",  accent:"#f59e0b" },
-    { id:"accountant",  icon:"🧮", title:"المحاسب",          desc:"مراجعة وتدقيق العمليات اليومية من جميع الفروع المخصصة", badge:"مراجعة يومية",  badgeCls:"bg-blue-500/20 text-blue-200",    accent:"#3b82f6" },
-    { id:"branch",      icon:"🏪", title:"مدير الفرع",       desc:"رفع البيانات اليومية وإدارة موظفي وموردي الفرع",         badge:"فرع",           badgeCls:"bg-emerald-500/20 text-emerald-200", accent:"#10b981" },
-    { id:"procurement", icon:"🛒", title:"مدير المشتريات",   desc:"تجميع طلبات الشراء والتنسيق مع الموردين",               badge:"مشتريات",       badgeCls:"bg-purple-500/20 text-purple-200", accent:"#8b5cf6" },
-    { id:"supplier",    icon:"🏭", title:"المورد",            desc:"استلام طلبات التوريد وإدارة الكتالوج والأسعار",          badge:"مورد",          badgeCls:"bg-cyan-500/20 text-cyan-200",    accent:"#06b6d4" },
+  const roles: { id:RoleId; icon:string; title:string; titleEn:string; desc:string; descEn:string; badge:string; badgeEn:string; badgeCls:string; accent:string }[] = [
+    { id:"admin",       icon:"🧠", title:"أدمن النظام",      titleEn:"System Admin",        desc:"إدارة المستخدمين، الاشتراكات، وإعدادات النظام الكاملة",  descEn:"Manage users, subscriptions and full system settings",  badge:"نظام",          badgeEn:"System",        badgeCls:"bg-red-500/20 text-red-200",     accent:"#ef4444" },
+    { id:"head",        icon:"👑", title:"رئيس الحسابات",    titleEn:"Head Accountant",     desc:"الاعتماد النهائي للعمليات والإشراف على أداء المحاسبين",  descEn:"Final approval of operations and supervision of accountants", badge:"اعتماد نهائي",  badgeEn:"Final Approval",badgeCls:"bg-amber-500/20 text-amber-200",  accent:"#f59e0b" },
+    { id:"accountant",  icon:"🧮", title:"المحاسب",          titleEn:"Accountant",          desc:"مراجعة وتدقيق العمليات اليومية من جميع الفروع المخصصة", descEn:"Review and audit daily operations from all assigned branches", badge:"مراجعة يومية",  badgeEn:"Daily Review",  badgeCls:"bg-blue-500/20 text-blue-200",    accent:"#3b82f6" },
+    { id:"branch",      icon:"🏪", title:"مدير الفرع",       titleEn:"Branch Manager",      desc:"رفع البيانات اليومية وإدارة موظفي وموردي الفرع",         descEn:"Upload daily data and manage branch employees and suppliers", badge:"فرع",           badgeEn:"Branch",        badgeCls:"bg-emerald-500/20 text-emerald-200", accent:"#10b981" },
+    { id:"procurement", icon:"🛒", title:"مدير المشتريات",   titleEn:"Procurement Manager", desc:"تجميع طلبات الشراء والتنسيق مع الموردين",               descEn:"Consolidate purchase orders and coordinate with suppliers", badge:"مشتريات",       badgeEn:"Procurement",   badgeCls:"bg-purple-500/20 text-purple-200", accent:"#8b5cf6" },
+    { id:"supplier",    icon:"🏭", title:"المورد",            titleEn:"Supplier",            desc:"استلام طلبات التوريد وإدارة الكتالوج والأسعار",          descEn:"Receive supply orders and manage catalog and pricing", badge:"مورد",          badgeEn:"Supplier",      badgeCls:"bg-cyan-500/20 text-cyan-200",    accent:"#06b6d4" },
   ];
 
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0F1C35 0%,#1B3A6B 60%,#2A5298 100%)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:36, padding:24 }} dir="rtl">
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0F1C35 0%,#1B3A6B 60%,#2A5298 100%)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:36, padding:24, direction: lang==="ar"?"rtl":"ltr" }}>
+      {/* Language toggle */}
+      <div style={{ position:"absolute", top:20, left: lang==="ar"?20:undefined, right: lang==="en"?20:undefined }}>
+        <button onClick={()=>setLang(lang==="ar"?"en":"ar")}
+          style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:20, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"rgba(255,255,255,0.7)", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+          <span>🌐</span> {lang==="ar"?"English":"عربي"}
+        </button>
+      </div>
+
       {/* Header */}
       <div style={{ textAlign:"center" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:8 }}>
@@ -713,8 +811,8 @@ function LoginScreen({ onLogin }:{ onLogin:(r:RoleId)=>void }) {
             عصب <span style={{ color:"#E8A020" }}>ASAB</span>
           </div>
         </div>
-        <p style={{ color:"rgba(255,255,255,0.5)", fontSize:14 }}>نظام إدارة مالية المطاعم متعدد الفروع</p>
-        <p style={{ color:"rgba(255,255,255,0.3)", fontSize:12, marginTop:6 }}>اختر دورك للدخول إلى النموذج التفاعلي</p>
+        <p style={{ color:"rgba(255,255,255,0.5)", fontSize:14 }}>{t("نظام إدارة مالية المطاعم متعدد الفروع","Multi-Branch Restaurant Financial Management System")}</p>
+        <p style={{ color:"rgba(255,255,255,0.3)", fontSize:12, marginTop:6 }}>{t("اختر دورك للدخول إلى النموذج التفاعلي","Choose your role to enter the interactive demo")}</p>
       </div>
 
       {/* Role cards */}
@@ -743,15 +841,15 @@ function LoginScreen({ onLogin }:{ onLogin:(r:RoleId)=>void }) {
               }}
             >
               <div style={{ fontSize:38, marginBottom:10 }}>{r.icon}</div>
-              <div style={{ color:"#fff", fontWeight:700, fontSize:15, marginBottom:6 }}>{r.title}</div>
-              <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, lineHeight:1.65, marginBottom:12, minHeight:32 }}>{r.desc}</div>
-              <span style={{ display:"inline-block", padding:"4px 12px", borderRadius:20, fontSize:10, fontWeight:700, background:`${r.accent}33`, color:isHov ? "#fff" : "rgba(255,255,255,0.7)", border:`1px solid ${r.accent}55`, transition:"all 0.18s" }}>{r.badge}</span>
+              <div style={{ color:"#fff", fontWeight:700, fontSize:15, marginBottom:6 }}>{t(r.title, r.titleEn)}</div>
+              <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, lineHeight:1.65, marginBottom:12, minHeight:32 }}>{t(r.desc, r.descEn)}</div>
+              <span style={{ display:"inline-block", padding:"4px 12px", borderRadius:20, fontSize:10, fontWeight:700, background:`${r.accent}33`, color:isHov ? "#fff" : "rgba(255,255,255,0.7)", border:`1px solid ${r.accent}55`, transition:"all 0.18s" }}>{t(r.badge, r.badgeEn)}</span>
             </button>
           );
         })}
       </div>
 
-      <p style={{ color:"rgba(255,255,255,0.2)", fontSize:11 }}>نموذج تفاعلي — ASAB Prototype v2.0</p>
+      <p style={{ color:"rgba(255,255,255,0.2)", fontSize:11 }}>{t("نموذج تفاعلي — ASAB Prototype v2.0","Interactive Demo — ASAB Prototype v2.0")}</p>
     </div>
   );
 }
@@ -1061,7 +1159,10 @@ function Sidebar({ role, ops, page, navigate, logout, collapsed, setCollapsed }:
   navigate:(p:PageId)=>void; logout:()=>void;
   collapsed:boolean; setCollapsed:(v:boolean)=>void;
 }) {
-  const profile = ROLE_PROFILES[role];
+  const { lang, setLang, dir } = useLang();
+  const tNav = (ar: string) => lang === "ar" ? ar : (EN_NAV_LABELS[ar] || ar);
+  const tSection = (ar: string) => lang === "ar" ? ar : (EN_NAV_SECTIONS[ar] || ar);
+  const profile = lang === "ar" ? ROLE_PROFILES[role] : { ...ROLE_PROFILES[role], ...EN_ROLE_LABELS[role] };
   const navEntries = NAV_CONFIG[role];
   const { drafts } = useContext(AssetDraftContext);
   const activeDraftCount = drafts.filter(d=>d.status==="draft").length;
@@ -1087,7 +1188,7 @@ function Sidebar({ role, ops, page, navigate, logout, collapsed, setCollapsed }:
 
   return (
     <aside className="flex flex-col flex-shrink-0 transition-all duration-200"
-      style={{ width:collapsed?64:252, background:"linear-gradient(180deg,#0F1C35 0%,#1B3A6B 100%)", minHeight:"100vh" }}>
+      style={{ width:collapsed?64:252, background:"linear-gradient(180deg,#0F1C35 0%,#1B3A6B 100%)", minHeight:"100vh", direction:"rtl" }}>
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-3 py-4 border-b border-white/10">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -1105,20 +1206,40 @@ function Sidebar({ role, ops, page, navigate, logout, collapsed, setCollapsed }:
           <div className="text-[11px] px-2 py-1 rounded-full inline-block font-semibold bg-white/10 text-white/80">{profile.label}</div>
         </div>
       )}
+      {/* Language toggle */}
+      {!collapsed && (
+        <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+          <span className="text-white/40 text-[10px]">{lang==="ar"?"اللغة":"Language"}</span>
+          <div className="flex bg-white/10 rounded-lg p-0.5 gap-0.5">
+            {(["ar","en"] as const).map(l=>(
+              <button key={l} onClick={()=>setLang(l)}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${lang===l?"bg-white text-gray-800 shadow-sm":"text-white/50 hover:text-white/80"}`}>
+                {l==="ar"?"عربي":"EN"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {collapsed && (
+        <button onClick={()=>setLang(lang==="ar"?"en":"ar")}
+          className="mx-auto my-2 w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-colors text-[9px] font-bold flex-shrink-0">
+          {lang==="ar"?"EN":"ع"}
+        </button>
+      )}
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
         {navEntries.map((entry,i) => {
           if(isSection(entry)) return !collapsed
-            ? <div key={i} className="text-white/30 text-[10px] font-bold uppercase tracking-widest px-3 pt-4 pb-1">{entry.section}</div>
+            ? <div key={i} className="text-white/30 text-[10px] font-bold uppercase tracking-widest px-3 pt-4 pb-1">{tSection(entry.section)}</div>
             : <div key={i} className="my-2 border-t border-white/10"/>;
           const active = page===entry.id || (entry.id==="acc-sales" && page==="acc-sales-detail") || (entry.id==="acc-inventory" && page==="acc-inventory-items");
           const badge = getBadge(entry);
           return (
             <button key={entry.id} onClick={()=>navigate(entry.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors text-right ${active?"bg-white/15 text-white":"text-white/55 hover:bg-white/8 hover:text-white/90"}`}>
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${dir==="ltr"?"text-left":"text-right"} ${active?"bg-white/15 text-white":"text-white/55 hover:bg-white/8 hover:text-white/90"}`}>
               <span className={`flex-shrink-0 ${active?"text-[#00D9FF]":""}`}>{entry.icon}</span>
               {!collapsed && (<>
-                <span className="text-[13px] font-medium flex-1 text-right leading-tight">{entry.label}</span>
+                <span className="text-[13px] font-medium flex-1 leading-tight">{lang==="ar" ? entry.label : (EN_NAV_LABELS[entry.id] || entry.label)}</span>
                 {badge ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${entry.id==="acc-assets"?"bg-purple-500 text-white":(entry as NavItem).badgeColor==="yellow"?"bg-amber-500 text-white":"bg-red-500 text-white"}`}>{badge}</span> : null}
               </>)}
             </button>
@@ -1153,6 +1274,7 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
   navigate:(p:PageId)=>void; logout:()=>void;
   setModal:(id:string|null)=>void; setDetailId:(id:string|null)=>void;
 }) {
+  const { lang, setLang, t: tL, dir } = useLang();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUserData[]>([
     { name:"أحمد محمد الشهري", email:"ahmed@asab.sa",   phone:"0501234567", role:"محاسب",         brands:["علامة الريم"],                           restaurants:["مطعم الريم — العليا","مطعم الريم — جدة"], branches:[],                     modules:["المبيعات","المصروفات","المشتريات","المخزون"], reportsTo:"خالد العمري",  scope:"restaurant", status:"active" },
@@ -1169,16 +1291,20 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
 
   const pageLabel = useMemo(()=>{
     const nav = NAV_CONFIG[role];
-    for(const e of nav) if(!isSection(e) && e.id===state.page) return e.label;
-    if(state.page==="acc-sales-detail") return "تفاصيل عملية المبيعات";
-    if(state.page==="acc-inventory-items") return "تحديد أصناف الجرد اليومي";
+    for(const e of nav) if(!isSection(e) && e.id===state.page) {
+      return lang === "ar" ? e.label : (EN_NAV_LABELS[e.id] || e.label);
+    }
+    if(state.page==="acc-sales-detail") return lang==="ar"?"تفاصيل عملية المبيعات":"Sales Operation Details";
+    if(state.page==="acc-inventory-items") return lang==="ar"?"تحديد أصناف الجرد اليومي":"Select Daily Inventory Items";
     return "";
-  }, [role, state.page]);
+  }, [role, state.page, lang]);
 
   const pageProps: PageProps = { navigate, setModal, setDetailId, detailId:state.detailId, ops, approveOp, rejectOp, finalApproveOp, bulkApprove, addCorrectiveOp, markErpPosted };
 
+  const enProfile = lang === "ar" ? profile : { ...profile, ...EN_ROLE_LABELS[role] };
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F0F4FA]" dir="rtl">
+    <div className="flex h-screen overflow-hidden bg-[#F0F4FA]" dir={dir}>
       <Sidebar role={role} ops={ops} page={state.page} navigate={navigate} logout={logout}
         collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed}/>
 
@@ -1187,18 +1313,31 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
         <header className="bg-white border-b border-gray-100 px-5 py-3 flex items-center gap-4 flex-shrink-0 shadow-sm z-10">
           <div className="flex-1 min-w-0">
             <h1 className="text-gray-800 font-bold text-base leading-tight">{pageLabel}</h1>
-            <p className="text-gray-400 text-xs">{profile.label}</p>
+            <p className="text-gray-400 text-xs">{enProfile.label}</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg hidden sm:block">الاثنين، 14 أكتوبر 2025</div>
+            <div className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg hidden sm:block">
+              {tL("الاثنين، 14 أكتوبر 2025","Monday, October 14, 2025")}
+            </div>
             <select className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-gray-50">
-              <option>هذا الشهر</option><option>هذا الأسبوع</option><option>اليوم</option>
+              <option>{tL("هذا الشهر","This Month")}</option>
+              <option>{tL("هذا الأسبوع","This Week")}</option>
+              <option>{tL("اليوم","Today")}</option>
             </select>
+            {/* Language Globe */}
+            <button onClick={()=>setLang(lang==="ar"?"en":"ar")}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 font-semibold transition-colors"
+              title={lang==="ar"?"Switch to English":"التبديل للعربية"}>
+              <Globe size={13}/>
+              {lang==="ar"?"EN":"عربي"}
+            </button>
             <button className="relative w-9 h-9 flex items-center justify-center rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 transition-colors">
               <Bell size={16}/>
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
-            <button onClick={logout} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-1"><LogOut size={13}/> خروج</button>
+            <button onClick={logout} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-1">
+              <LogOut size={13}/> {tL("خروج","Logout")}
+            </button>
           </div>
         </header>
 
@@ -1259,8 +1398,12 @@ function AppShell({ state, ops, approveOp, rejectOp, finalApproveOp, bulkApprove
 function OpRow({ op, onView, onApprove, onReject }: {
   op:Op; onView:()=>void; onApprove:()=>void; onReject:()=>void;
 }) {
+  const { lang, t } = useLang();
   const match = MATCH_CFG[op.match];
   const statusCfg = STATUS_CFG[op.status];
+  const matchLabel = lang==="ar" ? match.label : (EN_MATCH_CFG[op.match] || match.label);
+  const statusLabel = lang==="ar" ? statusCfg.label : (EN_STATUS_CFG[op.status] || statusCfg.label);
+  const originLabel = lang==="ar" ? ORIGIN_CFG[op.origin].label : (EN_ORIGIN[op.origin] || ORIGIN_CFG[op.origin].label);
   const isPending = op.status==="pending";
   const isLocked = op.status==="final-approved";
   const isRejected = op.status==="rejected";
@@ -1277,37 +1420,37 @@ function OpRow({ op, onView, onApprove, onReject }: {
           <span className="text-gray-200">·</span>
           <span className="text-xs text-gray-400">⏰ {op.timeAgo}</span>
           <Badge className={`${ORIGIN_CFG[op.origin].cls} border text-[9px]`}>
-            {ORIGIN_CFG[op.origin].icon} {ORIGIN_CFG[op.origin].label}
+            {ORIGIN_CFG[op.origin].icon} {originLabel}
           </Badge>
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <Badge className={`${match.cls} border`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${match.dot}`}></span>
-            {match.label}
+            {matchLabel}
           </Badge>
           {op.diff && <span className="text-xs text-red-600 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">⚠ {op.diff}</span>}
           <span className="flex items-center gap-1 text-xs text-gray-400"><Paperclip size={10}/> {op.attachments}</span>
           <Badge className={`${statusCfg.cls} border ${isLocked?"border-slate-200":""}`}>
             {isLocked && <Lock size={10}/>}
-            {statusCfg.label}
+            {statusLabel}
           </Badge>
           <OpStagePill op={op}/>
           {op.isCorrection && op.correctiveRef && (
-            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">تعديل ← {op.correctiveRef}</Badge>
+            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">{t("تعديل","Correction")} ← {op.correctiveRef}</Badge>
           )}
-          {isRejected && op.rejectReason && <span className="text-xs text-red-500 font-medium">سبب: {op.rejectReason}</span>}
+          {isRejected && op.rejectReason && <span className="text-xs text-red-500 font-medium">{t("سبب:","Reason:")} {op.rejectReason}</span>}
         </div>
       </div>
-      <div className="font-extrabold text-gray-800 font-mono text-sm flex-shrink-0 tabular-nums">{fmtAmt(op.amount)} ر.س</div>
+      <div className="font-extrabold text-gray-800 font-mono text-sm flex-shrink-0 tabular-nums">{fmtAmt(op.amount)} {t("ر.س","SAR")}</div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <Btn size="sm" onClick={onView}><Eye size={12}/> عرض</Btn>
+        <Btn size="sm" onClick={onView}><Eye size={12}/> {t("عرض","View")}</Btn>
         {isPending && <>
           <Btn size="sm" variant="success" onClick={onApprove}><ThumbsUp size={12}/></Btn>
           <Btn size="sm" variant="danger"  onClick={onReject}><ThumbsDown size={12}/></Btn>
         </>}
         {isLocked && (
           <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-lg">
-            <Lock size={11}/> مُغلق
+            <Lock size={11}/> {t("مُغلق","Locked")}
           </span>
         )}
       </div>
@@ -1321,31 +1464,32 @@ function OpRow({ op, onView, onApprove, onReject }: {
 interface Filters { branch:string; status:string; match:string; search:string; }
 
 function FilterBar({ filters, onChange, branches }:{ filters:Filters; onChange:(f:Filters)=>void; branches:string[] }) {
+  const { t } = useLang();
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
         <Search size={13} className="text-gray-400"/>
-        <input value={filters.search} onChange={e=>onChange({...filters,search:e.target.value})} placeholder="بحث..." className="text-xs outline-none text-gray-600 w-28"/>
+        <input value={filters.search} onChange={e=>onChange({...filters,search:e.target.value})} placeholder={t("بحث...","Search...")} className="text-xs outline-none text-gray-600 w-28"/>
       </div>
       <select value={filters.branch} onChange={e=>onChange({...filters,branch:e.target.value})} className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white">
-        <option value="">الكل — الفروع</option>
+        <option value="">{t("الكل — الفروع","All Branches")}</option>
         {branches.map(b=><option key={b}>{b}</option>)}
       </select>
       <select value={filters.status} onChange={e=>onChange({...filters,status:e.target.value})} className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white">
-        <option value="">كل الحالات</option>
-        <option value="pending">معلق</option>
-        <option value="approved">موافق عليه</option>
-        <option value="rejected">مرفوض</option>
-        <option value="final-approved">معتمد نهائياً</option>
+        <option value="">{t("كل الحالات","All Statuses")}</option>
+        <option value="pending">{t("معلق","Pending")}</option>
+        <option value="approved">{t("موافق عليه","Approved")}</option>
+        <option value="rejected">{t("مرفوض","Rejected")}</option>
+        <option value="final-approved">{t("معتمد نهائياً","Final Approved")}</option>
       </select>
       <select value={filters.match} onChange={e=>onChange({...filters,match:e.target.value})} className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white">
-        <option value="">كل المطابقات</option>
-        <option value="exact">متطابق</option>
-        <option value="review">يحتاج مراجعة</option>
-        <option value="diff">فرق</option>
+        <option value="">{t("كل المطابقات","All Matches")}</option>
+        <option value="exact">{t("متطابق","Exact Match")}</option>
+        <option value="review">{t("يحتاج مراجعة","Needs Review")}</option>
+        <option value="diff">{t("فرق","Difference")}</option>
       </select>
       {(filters.branch||filters.status||filters.match||filters.search) &&
-        <button onClick={()=>onChange({branch:"",status:"",match:"",search:""})} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        <button onClick={()=>onChange({branch:"",status:"",match:"",search:""})} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> {t("مسح الفلاتر","Clear Filters")}</button>
       }
     </div>
   );
@@ -2388,8 +2532,9 @@ function SimplePage({ title, icon, desc }:{ title:string; icon:string; desc:stri
 // ════════════════════════════════════════════════════════════
 
 function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
+  const { t, lang } = useLang();
   const [filters, setFilters] = useState<Filters>({branch:"",status:"pending",match:"",search:""});
-  const [period, setPeriod] = useState<"اليوم"|"الأسبوع"|"الشهر">("اليوم");
+  const [period, setPeriod] = useState<"today"|"week"|"month">("today");
 
   const pending = ops.filter(o=>o.status==="pending");
   const approved = ops.filter(o=>o.status==="approved");
@@ -2404,15 +2549,15 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
   pending.forEach(o=>{ pendingByModule[o.moduleKey]=(pendingByModule[o.moduleKey]||0)+1; });
 
   const modules = [
-    { id:"acc-sales",     label:"المبيعات",         icon:"💰", color:"bg-emerald-500", key:"sales" as ModuleKey },
-    { id:"acc-expenses",  label:"المصروفات",         icon:"💸", color:"bg-red-500",     key:"expenses" as ModuleKey },
-    { id:"acc-purchases", label:"المشتريات",         icon:"🛒", color:"bg-blue-500",    key:"purchases" as ModuleKey },
-    { id:"acc-inventory", label:"المخزون",           icon:"📦", color:"bg-amber-500",   key:"inventory" as ModuleKey },
-    { id:"acc-waste",     label:"الهدر والتالف",    icon:"🗑️", color:"bg-rose-500",    key:null },
-    { id:"acc-assets",    label:"الأصول الثابتة",   icon:"🏢", color:"bg-purple-500",  key:null },
-    { id:"acc-shifts",    label:"إدارة الشفتات",    icon:"⏰", color:"bg-cyan-500",    key:"shifts" as ModuleKey },
-    { id:"acc-employees", label:"كشف الموظفين",     icon:"👥", color:"bg-indigo-500",  key:"employees" as ModuleKey },
-    { id:"acc-cash",      label:"العهد النقدية",     icon:"💼", color:"bg-orange-500",  key:"cash" as ModuleKey },
+    { id:"acc-sales",     label:t("المبيعات","Sales"),             icon:"💰", color:"bg-emerald-500", key:"sales" as ModuleKey },
+    { id:"acc-expenses",  label:t("المصروفات","Expenses"),         icon:"💸", color:"bg-red-500",     key:"expenses" as ModuleKey },
+    { id:"acc-purchases", label:t("المشتريات","Purchases"),        icon:"🛒", color:"bg-blue-500",    key:"purchases" as ModuleKey },
+    { id:"acc-inventory", label:t("المخزون","Inventory"),          icon:"📦", color:"bg-amber-500",   key:"inventory" as ModuleKey },
+    { id:"acc-waste",     label:t("الهدر والتالف","Waste"),        icon:"🗑️", color:"bg-rose-500",    key:null },
+    { id:"acc-assets",    label:t("الأصول الثابتة","Fixed Assets"),icon:"🏢", color:"bg-purple-500",  key:null },
+    { id:"acc-shifts",    label:t("إدارة الشفتات","Shifts"),       icon:"⏰", color:"bg-cyan-500",    key:"shifts" as ModuleKey },
+    { id:"acc-employees", label:t("كشف الموظفين","Employees"),     icon:"👥", color:"bg-indigo-500",  key:"employees" as ModuleKey },
+    { id:"acc-cash",      label:t("العهد النقدية","Cash Custody"),  icon:"💼", color:"bg-orange-500",  key:"cash" as ModuleKey },
   ];
 
   const displayed = applyFilters(ops, filters);
@@ -2422,20 +2567,20 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-gray-800 font-bold text-xl">ملخص — الاثنين 14 أكتوبر 2025</h2>
-          <p className="text-gray-400 text-sm mt-0.5">الفروع المخصصة: 1–50 | الموديولات: التسعة</p>
+          <h2 className="text-gray-800 font-bold text-xl">{t("ملخص — الاثنين 14 أكتوبر 2025","Summary — Monday, October 14, 2025")}</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{t("الفروع المخصصة: 1–50 | الموديولات: التسعة","Assigned branches: 1–50 | Modules: All nine")}</p>
         </div>
         <div className="flex items-center gap-3">
           {overdueCount>0 && (
             <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
-              <AlertTriangle size={12}/> {overdueCount} عملية متأخرة &gt;يومين
+              <AlertTriangle size={12}/> {overdueCount} {t("عملية متأخرة >يومين","operations overdue >2 days")}
             </div>
           )}
           <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
-            {(["اليوم","الأسبوع","الشهر"] as const).map(p=>(
+            {(["today","week","month"] as const).map(p=>(
               <button key={p} onClick={()=>setPeriod(p)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${period===p?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
-                {p}
+                {p==="today"?t("اليوم","Today"):p==="week"?t("الأسبوع","Week"):t("الشهر","Month")}
               </button>
             ))}
           </div>
@@ -2444,26 +2589,26 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
       <div className="grid grid-cols-4 gap-4">
         <div className="relative">
-          <KpiCard label="تنتظر مراجعتي" value={String(pending.length)} sub="📱 رُفعت من الفروع" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
-          {overdueCount>0 && <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{overdueCount} متأخر</span>}
+          <KpiCard label={t("تنتظر مراجعتي","Awaiting My Review")} value={String(pending.length)} sub={t("📱 رُفعت من الفروع","📱 Uploaded from branches")} icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
+          {overdueCount>0 && <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{overdueCount} {t("متأخر","overdue")}</span>}
         </div>
-        <KpiCard label="وافقت عليها" value={String(approved.length)} sub="بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={20} className="text-sky-600"/>} accent="blue"/>
-        <KpiCard label="معتمدة نهائياً" value={String(ops.filter(o=>o.status==="final-approved").length)} sub="مُغلقة — تنتظر ERP أو مُرحَّلة" icon={<Lock size={20} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub={`هذا ${period}`} icon={<TrendingUp size={20} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label={t("وافقت عليها","I Approved")} value={String(approved.length)} sub={t("بانتظار الاعتماد النهائي","Awaiting final approval")} icon={<CheckCircle2 size={20} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label={t("معتمدة نهائياً","Final Approved")} value={String(ops.filter(o=>o.status==="final-approved").length)} sub={t("مُغلقة — تنتظر ERP أو مُرحَّلة","Closed — awaiting ERP or posted")} icon={<Lock size={20} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label={t("معدل الموافقة","Approval Rate")} value={`${approvalRate}%`} sub={`${t("هذا","This")} ${period==="today"?t("اليوم","Day"):period==="week"?t("الأسبوع","Week"):t("الشهر","Month")}`} icon={<TrendingUp size={20} className="text-purple-600"/>} accent="purple"/>
       </div>
 
       {/* Daily progress bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-800 text-sm">🎯 تقدم اليوم</h3>
-          <span className="text-xs text-gray-400">الهدف: مراجعة جميع العمليات المعلقة</span>
+          <h3 className="font-bold text-gray-800 text-sm">🎯 {t("تقدم اليوم","Today's Progress")}</h3>
+          <span className="text-xs text-gray-400">{t("الهدف: مراجعة جميع العمليات المعلقة","Goal: Review all pending operations")}</span>
         </div>
         <div className="grid grid-cols-4 gap-4">
           {[
-            {label:"المراجعة",done:ops.filter(o=>o.status!=="pending").length,total:ops.length,color:"bg-purple-500"},
-            {label:"الموافقة",done:ops.filter(o=>o.status==="approved"||o.status==="final-approved").length,total:ops.length,color:"bg-emerald-500"},
-            {label:"التوثيق",done:ops.filter(o=>o.status==="final-approved"&&o.erpPosted).length,total:ops.filter(o=>o.status==="final-approved").length||1,color:"bg-blue-500"},
-            {label:"الفروع المكتملة",done:4,total:8,color:"bg-cyan-500"},
+            {label:t("المراجعة","Review"),done:ops.filter(o=>o.status!=="pending").length,total:ops.length,color:"bg-purple-500"},
+            {label:t("الموافقة","Approval"),done:ops.filter(o=>o.status==="approved"||o.status==="final-approved").length,total:ops.length,color:"bg-emerald-500"},
+            {label:t("التوثيق","Documentation"),done:ops.filter(o=>o.status==="final-approved"&&o.erpPosted).length,total:ops.filter(o=>o.status==="final-approved").length||1,color:"bg-blue-500"},
+            {label:t("الفروع المكتملة","Completed Branches"),done:4,total:8,color:"bg-cyan-500"},
           ].map(({label,done,total,color})=>{
             const pct = Math.min(100,total>0?Math.round(done/total*100):0);
             return (
@@ -2488,7 +2633,7 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2">
-          <Card title="الموديولات التسعة" actions={<span className="text-xs text-gray-400">المعلق / الإجمالي</span>}>
+          <Card title={t("الموديولات التسعة","Nine Modules")} actions={<span className="text-xs text-gray-400">{t("المعلق / الإجمالي","Pending / Total")}</span>}>
             <div className="p-4 grid grid-cols-4 gap-3">
               {modules.map(m=>{
                 const mod_pending = m.key ? (pendingByModule[m.key]||0) : 0;
@@ -2510,40 +2655,43 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
           </Card>
         </div>
         <div>
-          <Card title="فلاتر البحث">
+          <Card title={t("فلاتر البحث","Search Filters")}>
             <div className="p-4 space-y-3">
               {[
-                { label:"🏪 الفرع", key:"branch" as const, opts:["الكل", ...BRANCHES] },
-                { label:"🔄 الحالة", key:"status" as const, opts:["الكل","pending","approved","rejected","final-approved"] },
+                { label:t("🏪 الفرع","🏪 Branch"), key:"branch" as const, opts:[t("الكل","All"), ...BRANCHES] },
+                { label:t("🔄 الحالة","🔄 Status"), key:"status" as const, opts:[t("الكل","All"),"pending","approved","rejected","final-approved"] },
               ].map(f=>(
                 <div key={f.key}>
                   <label className="text-xs font-semibold text-gray-500 block mb-1">{f.label}</label>
-                  <select value={filters[f.key]} onChange={e=>setFilters(p=>({...p,[f.key]:e.target.value==="الكل"?"":e.target.value}))}
+                  <select value={filters[f.key]} onChange={e=>setFilters(p=>({...p,[f.key]:e.target.value===t("الكل","All")?"":e.target.value}))}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600">
-                    {f.opts.map(o=><option key={o} value={o==="الكل"?"":o}>{STATUS_CFG[o as OpStatus]?.label||o}</option>)}
+                    {f.opts.map(o=>{
+                      const label = o===t("الكل","All") ? t("الكل","All") : (lang==="ar" ? (STATUS_CFG[o as OpStatus]?.label||o) : (EN_STATUS_CFG[o as OpStatus]||STATUS_CFG[o as OpStatus]?.label||o));
+                      return <option key={o} value={o===t("الكل","All")?"":o}>{label}</option>;
+                    })}
                   </select>
                 </div>
               ))}
               <div className="flex items-center gap-2 mt-1">
                 <Search size={13} className="text-gray-400 flex-shrink-0"/>
-                <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder="بحث..." className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
+                <input value={filters.search} onChange={e=>setFilters(p=>({...p,search:e.target.value}))} placeholder={t("بحث...","Search...")} className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600"/>
               </div>
               {(filters.branch||filters.status!=="pending"||filters.match||filters.search) &&
-                <button onClick={()=>setFilters({branch:"",status:"pending",match:"",search:""})} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+                <button onClick={()=>setFilters({branch:"",status:"pending",match:"",search:""})} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> {t("مسح الفلاتر","Clear Filters")}</button>
               }
             </div>
           </Card>
         </div>
       </div>
 
-      <Card title="قائمة العمليات" actions={
+      <Card title={t("قائمة العمليات","Operations List")} actions={
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{displayed.length} عملية</span>
-          {pendingIds.length>0 && <Btn size="sm" variant="success" onClick={()=>bulkApprove(pendingIds)}>✓ موافقة جماعية ({pendingIds.length})</Btn>}
+          <span className="text-xs text-gray-400">{displayed.length} {t("عملية","operations")}</span>
+          {pendingIds.length>0 && <Btn size="sm" variant="success" onClick={()=>bulkApprove(pendingIds)}>✓ {t("موافقة جماعية","Bulk Approve")} ({pendingIds.length})</Btn>}
         </div>
       }>
         {displayed.length===0
-          ? <EmptyState icon="✅" title="لا توجد عمليات" desc="تم معالجة جميع العمليات أو لا تطابق الفلاتر المحددة"/>
+          ? <EmptyState icon="✅" title={t("لا توجد عمليات","No Operations")} desc={t("تم معالجة جميع العمليات أو لا تطابق الفلاتر المحددة","All operations processed or no matches for the selected filters")}/>
           : displayed.slice(0,8).map(op=>(
               <OpRow key={op.id} op={op}
                 onView={()=>{ setDetailId(op.id); navigate("acc-sales-detail"); }}
@@ -2553,7 +2701,7 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
         }
         {displayed.length>8 && (
           <div className="px-5 py-3 text-center">
-            <button onClick={()=>navigate("acc-sales")} className="text-xs text-purple-600 hover:underline">عرض كل {displayed.length} عملية</button>
+            <button onClick={()=>navigate("acc-sales")} className="text-xs text-purple-600 hover:underline">{t("عرض كل","View all")} {displayed.length} {t("عملية","operations")}</button>
           </div>
         )}
       </Card>
@@ -2562,6 +2710,7 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
 }
 
 function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps&{moduleKey:ModuleKey;title:string}) {
+  const { t } = useLang();
   const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
   const mOps    = ops.filter(o=>o.moduleKey===moduleKey);
   const filtered = applyFilters(ops, filters, moduleKey);
@@ -2570,26 +2719,26 @@ function AccModulePage({ moduleKey, title, navigate, setModal, setDetailId, ops,
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">موديول {title}</h2>
-          <p className="text-gray-400 text-sm mt-0.5">{pending.length} بيان معلق بانتظار مراجعتك</p>
+        <div><h2 className="text-xl font-bold text-gray-800">{t("موديول","Module")} {title}</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{pending.length} {t("بيان معلق بانتظار مراجعتك","pending statements awaiting your review")}</p>
         </div>
         <div className="flex gap-2">
-          {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ موافقة على الكل ({pending.length})</Btn>}
+          {pending.length>0 && <Btn variant="success" size="sm" onClick={()=>bulkApprove(pending.map(o=>o.id))}>✓ {t("موافقة على الكل","Approve All")} ({pending.length})</Btn>}
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="إجمالي البيانات المرفوعة" value={String(mOps.length)} sub="كل الحالات" icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
-        <KpiCard label="قيد المراجعة" value={String(pending.length)} sub="رُفعت من الفروع" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="تمت الموافقة" value={String(mOps.filter(o=>o.status==="approved").length)} sub="بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
-        <KpiCard label="مرفوضة" value={String(mOps.filter(o=>o.status==="rejected").length)} sub="تحتاج إعادة رفع من الفرع" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label={t("إجمالي البيانات المرفوعة","Total Uploaded")} value={String(mOps.length)} sub={t("كل الحالات","All statuses")} icon={<FileText size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label={t("قيد المراجعة","Under Review")} value={String(pending.length)} sub={t("رُفعت من الفروع","Uploaded from branches")} icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label={t("تمت الموافقة","Approved")} value={String(mOps.filter(o=>o.status==="approved").length)} sub={t("بانتظار الاعتماد النهائي","Awaiting final approval")} icon={<CheckCircle2 size={18} className="text-sky-600"/>} accent="blue"/>
+        <KpiCard label={t("مرفوضة","Rejected")} value={String(mOps.filter(o=>o.status==="rejected").length)} sub={t("تحتاج إعادة رفع من الفرع","Needs re-upload from branch")} icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
       </div>
 
       <FilterBar filters={filters} onChange={setFilters} branches={BRANCHES}/>
 
-      <Card title={`عمليات ${title}`}>
+      <Card title={`${t("عمليات","Operations")} ${title}`}>
         {filtered.length===0
-          ? <EmptyState icon="✅" title="لا توجد عمليات" desc="لا توجد عمليات تطابق الفلاتر المحددة"/>
+          ? <EmptyState icon="✅" title={t("لا توجد عمليات","No Operations")} desc={t("لا توجد عمليات تطابق الفلاتر المحددة","No operations match the selected filters")}/>
           : filtered.map(op=>(
               <OpRow key={op.id} op={op}
                 onView={()=>{ setDetailId(op.id); navigate("acc-sales-detail"); }}
@@ -7681,6 +7830,7 @@ function ReportsPage({}: PageProps) {
 // HEAD ACCOUNTANT PAGES
 // ════════════════════════════════════════════════════════════
 function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove, markErpPosted }:PageProps) {
+  const { t } = useLang();
   const [tab, setTab] = useState<"approval"|"performance"|"erp">("approval");
   const awaitingHead = ops.filter(o=>o.status==="approved");
   const finalApproved = ops.filter(o=>o.status==="final-approved");
@@ -7689,38 +7839,38 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-800">لوحة رئيس الحسابات 👑</h2>
-        <p className="text-gray-400 text-sm mt-0.5">الإشراف على 4 محاسبين · 100 فرع · الاعتماد النهائي وترحيل ERP</p>
+        <h2 className="text-xl font-bold text-gray-800">{t("لوحة رئيس الحسابات 👑","Head Accountant Dashboard 👑")}</h2>
+        <p className="text-gray-400 text-sm mt-0.5">{t("الإشراف على 4 محاسبين · 100 فرع · الاعتماد النهائي وترحيل ERP","Supervising 4 accountants · 100 branches · Final approval & ERP posting")}</p>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="📱 من المحاسبين · م3" icon={<Clock size={18} className="text-amber-600"/>} accent="amber" onClick={()=>setTab("approval")}/>
-        <KpiCard label="معتمدة نهائياً" value={String(finalApproved.filter(o=>!o.erpPosted).length)} sub="مُغلقة · تنتظر ERP · م4" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald" onClick={()=>setTab("erp")}/>
-        <KpiCard label="مُرحَّلة لـ ERP" value={String(finalApproved.filter(o=>o.erpPosted).length)} sub="مُعالَجة · م5" icon={<ChevronsRight size={18} className="text-indigo-600"/>} accent="blue" onClick={()=>setTab("erp")}/>
-        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="خارج المسار" icon={<XCircle size={18} className="text-red-600"/>} accent="red" onClick={()=>setTab("approval")}/>
-        <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple" onClick={()=>setTab("performance")}/>
+        <KpiCard label={t("بانتظار اعتمادي","Awaiting My Approval")} value={String(awaitingHead.length)} sub={t("📱 من المحاسبين · م3","📱 From accountants · S3")} icon={<Clock size={18} className="text-amber-600"/>} accent="amber" onClick={()=>setTab("approval")}/>
+        <KpiCard label={t("معتمدة نهائياً","Final Approved")} value={String(finalApproved.filter(o=>!o.erpPosted).length)} sub={t("مُغلقة · تنتظر ERP · م4","Closed · Awaiting ERP · S4")} icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald" onClick={()=>setTab("erp")}/>
+        <KpiCard label={t("مُرحَّلة لـ ERP","Posted to ERP")} value={String(finalApproved.filter(o=>o.erpPosted).length)} sub={t("مُعالَجة · م5","Processed · S5")} icon={<ChevronsRight size={18} className="text-indigo-600"/>} accent="blue" onClick={()=>setTab("erp")}/>
+        <KpiCard label={t("مرفوضة","Rejected")} value={String(rejected.length)} sub={t("خارج المسار","Off pipeline")} icon={<XCircle size={18} className="text-red-600"/>} accent="red" onClick={()=>setTab("approval")}/>
+        <KpiCard label={t("معدل الأداء","Performance Rate")} value="87%" sub={t("هذا الشهر","This Month")} icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple" onClick={()=>setTab("performance")}/>
       </div>
       {/* Weekly performance chart */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-800 text-sm">📈 الأداء الأسبوعي — عمليات مكتملة</h3>
-          <span className="text-xs text-gray-400">الأسبوع الماضي مقارنةً بهذا الأسبوع</span>
+          <h3 className="font-bold text-gray-800 text-sm">📈 {t("الأداء الأسبوعي — عمليات مكتملة","Weekly Performance — Completed Operations")}</h3>
+          <span className="text-xs text-gray-400">{t("الأسبوع الماضي مقارنةً بهذا الأسبوع","Last week vs this week")}</span>
         </div>
         <div className="flex items-end gap-3 h-28">
           {[
-            {day:"الأحد",    thisW:24, lastW:18},
-            {day:"الاثنين",  thisW:32, lastW:22},
-            {day:"الثلاثاء", thisW:19, lastW:28},
-            {day:"الأربعاء", thisW:41, lastW:31},
-            {day:"الخميس",  thisW:35, lastW:25},
-            {day:"الجمعة",  thisW:12, lastW:9},
-            {day:"السبت",   thisW:28, lastW:20},
+            {day:t("الأحد","Sun"),    thisW:24, lastW:18},
+            {day:t("الاثنين","Mon"),  thisW:32, lastW:22},
+            {day:t("الثلاثاء","Tue"), thisW:19, lastW:28},
+            {day:t("الأربعاء","Wed"), thisW:41, lastW:31},
+            {day:t("الخميس","Thu"),  thisW:35, lastW:25},
+            {day:t("الجمعة","Fri"),  thisW:12, lastW:9},
+            {day:t("السبت","Sat"),   thisW:28, lastW:20},
           ].map((d,i)=>{
             const max = 41;
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full flex items-end gap-0.5 h-20">
-                  <div className="flex-1 bg-gray-200 rounded-t" style={{height:`${(d.lastW/max)*100}%`}} title={`الأسبوع الماضي: ${d.lastW}`}/>
-                  <div className="flex-1 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t" style={{height:`${(d.thisW/max)*100}%`}} title={`هذا الأسبوع: ${d.thisW}`}/>
+                  <div className="flex-1 bg-gray-200 rounded-t" style={{height:`${(d.lastW/max)*100}%`}}/>
+                  <div className="flex-1 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t" style={{height:`${(d.thisW/max)*100}%`}}/>
                 </div>
                 <p className="text-[9px] text-gray-400 text-center leading-tight">{d.day}</p>
               </div>
@@ -7728,9 +7878,9 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
           })}
         </div>
         <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100">
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500 flex-shrink-0"/><span className="text-[11px] text-gray-600">هذا الأسبوع</span></div>
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-200 flex-shrink-0"/><span className="text-[11px] text-gray-600">الأسبوع الماضي</span></div>
-          <div className="mr-auto text-[11px] text-emerald-600 font-semibold">↑ +18% مقارنة بالأسبوع الماضي</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500 flex-shrink-0"/><span className="text-[11px] text-gray-600">{t("هذا الأسبوع","This Week")}</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-gray-200 flex-shrink-0"/><span className="text-[11px] text-gray-600">{t("الأسبوع الماضي","Last Week")}</span></div>
+          <div className="mr-auto text-[11px] text-emerald-600 font-semibold">↑ +18% {t("مقارنة بالأسبوع الماضي","vs last week")}</div>
         </div>
       </div>
 
@@ -7738,8 +7888,12 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
       <ExceptionPanel ops={ops} forRole="head" navigate={navigate}/>
       <ModuleAggregationGrid ops={ops} navigate={navigate}/>
       <div className="flex gap-2 border-b border-gray-200">
-        {[{id:"approval" as const,label:"✅ الاعتماد النهائي"},{id:"performance" as const,label:"👥 أداء المحاسبين"},{id:"erp" as const,label:"🔗 الترحيل لـ ERP"}].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab===t.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{t.label}</button>
+        {[
+          {id:"approval" as const,label:`✅ ${t("الاعتماد النهائي","Final Approval")}`},
+          {id:"performance" as const,label:`👥 ${t("أداء المحاسبين","Accountants")}`},
+          {id:"erp" as const,label:`🔗 ${t("الترحيل لـ ERP","ERP Posting")}`},
+        ].map(tb=>(
+          <button key={tb.id} onClick={()=>setTab(tb.id)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab===tb.id?"border-purple-600 text-purple-700":"border-transparent text-gray-500 hover:text-gray-700"}`}>{tb.label}</button>
         ))}
       </div>
       {tab==="approval" && <HeadApprovalTab ops={ops} finalApproveOp={finalApproveOp} rejectOp={rejectOp} setModal={setModal} setDetailId={setDetailId} bulkApprove={bulkApprove}/>}
@@ -7763,13 +7917,14 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
     { key:"g1", accountant:"سارة العمري", module:"المشتريات والمخزون",    ops:awaitingHead.slice(Math.ceil(awaitingHead.length/2)) },
   ].filter(g=>g.ops.length>0);
 
+  const { t } = useLang();
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">العمليات مجمعة حسب المحاسب · اعتماد دفعة واحدة أو فردي</p>
-        {awaitingHead.length>0 && <Btn variant="success" onClick={()=>bulkApprove(awaitingHead.map(o=>o.id))}>✅ اعتماد الكل ({awaitingHead.length})</Btn>}
+        <p className="text-sm text-gray-500">{t("العمليات مجمعة حسب المحاسب · اعتماد دفعة واحدة أو فردي","Operations grouped by accountant · Bulk or individual approval")}</p>
+        {awaitingHead.length>0 && <Btn variant="success" onClick={()=>bulkApprove(awaitingHead.map(o=>o.id))}>✅ {t("اعتماد الكل","Approve All")} ({awaitingHead.length})</Btn>}
       </div>
-      {awaitingHead.length===0 && <EmptyState icon="✅" title="تم اعتماد جميع العمليات" desc="لا توجد عمليات بانتظار اعتمادك النهائي"/>}
+      {awaitingHead.length===0 && <EmptyState icon="✅" title={t("تم اعتماد جميع العمليات","All Operations Approved")} desc={t("لا توجد عمليات بانتظار اعتمادك النهائي","No operations awaiting your final approval")}/>}
       {groups.map(g=>(
         <div key={g.key} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50 border-b border-gray-100" onClick={()=>setExpanded(expanded===g.key?null:g.key)}>
@@ -7778,11 +7933,11 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-800 text-sm">{g.accountant}</span>
                 <Badge className="bg-blue-50 text-blue-700">{g.module}</Badge>
-                {g.ops.some(o=>o.match==="diff") && <Badge className="bg-red-50 text-red-700">⚠ يوجد فروق</Badge>}
+                {g.ops.some(o=>o.match==="diff") && <Badge className="bg-red-50 text-red-700">⚠ {t("يوجد فروق","Differences Found")}</Badge>}
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">{g.ops.length} عمليات موافق عليها</p>
+              <p className="text-xs text-gray-400 mt-0.5">{g.ops.length} {t("عمليات موافق عليها","approved operations")}</p>
             </div>
-            <span className="font-mono font-bold text-purple-700">{fmtAmt(g.ops.reduce((s,o)=>s+o.amount,0))} ر.س</span>
+            <span className="font-mono font-bold text-purple-700">{fmtAmt(g.ops.reduce((s,o)=>s+o.amount,0))} {t("ر.س","SAR")}</span>
             <div className="flex items-center gap-2">
               <Btn size="sm" variant="success" onClick={e=>{ e.stopPropagation(); bulkApprove(g.ops.map(o=>o.id)); }}><CheckCircle2 size={13}/> اعتماد الكل</Btn>
               {expanded===g.key?<ChevronUp size={16} className="text-gray-400"/>:<ChevronDown size={16} className="text-gray-400"/>}
@@ -12643,6 +12798,10 @@ function SupReports({}: PageProps) {
 // MAIN EXPORT
 // ════════════════════════════════════════════════════════════
 export function ASABPrototype() {
+  const [lang, setLang] = useState<Lang>("ar");
+  const t = (ar: string, en: string) => lang === "ar" ? ar : en;
+  const dir = lang === "ar" ? "rtl" : "ltr";
+
   const [appState, setAppState] = useState<AppState>({ role:null, page:"", detailId:null, modal:null });
   const [ops, setOps] = useState<Op[]>(INITIAL_OPS);
 
@@ -12684,11 +12843,11 @@ export function ASABPrototype() {
   ));
   const bulkApprove = (ids:string[]) => {
     const set = new Set(ids);
-    const t = now();
+    const ts = now();
     setOps(p=>p.map(o=>{
       if(!set.has(o.id)) return o;
-      if(o.status==="pending")  return {...o, status:"approved" as OpStatus, approvedBy:"المحاسب المختص", approvedAt:t};
-      if(o.status==="approved") return {...o, status:"final-approved" as OpStatus, finalApprovedBy:"رئيس الحسابات", finalApprovedAt:t};
+      if(o.status==="pending")  return {...o, status:"approved" as OpStatus, approvedBy:"المحاسب المختص", approvedAt:ts};
+      if(o.status==="approved") return {...o, status:"final-approved" as OpStatus, finalApprovedBy:"رئيس الحسابات", finalApprovedAt:ts};
       return o; // final-approved and rejected are immutable — skip silently
     }));
   };
@@ -12726,17 +12885,23 @@ export function ASABPrototype() {
     ));
   };
 
-  if(!appState.role) return <LoginScreen onLogin={login}/>;
+  if(!appState.role) return (
+    <LangContext.Provider value={{ lang, setLang, t, dir }}>
+      <LoginScreen onLogin={login}/>
+    </LangContext.Provider>
+  );
 
   return (
-    <AssetDraftProvider>
-      <AppShell
-        state={appState} ops={ops}
-        approveOp={approveOp} rejectOp={rejectOp} finalApproveOp={finalApproveOp} bulkApprove={bulkApprove}
-        addCorrectiveOp={addCorrectiveOp} markErpPosted={markErpPosted}
-        navigate={navigate} logout={logout} setModal={setModal} setDetailId={setDetailId}
-      />
-    </AssetDraftProvider>
+    <LangContext.Provider value={{ lang, setLang, t, dir }}>
+      <AssetDraftProvider>
+        <AppShell
+          state={appState} ops={ops}
+          approveOp={approveOp} rejectOp={rejectOp} finalApproveOp={finalApproveOp} bulkApprove={bulkApprove}
+          addCorrectiveOp={addCorrectiveOp} markErpPosted={markErpPosted}
+          navigate={navigate} logout={logout} setModal={setModal} setDetailId={setDetailId}
+        />
+      </AssetDraftProvider>
+    </LangContext.Provider>
   );
 }
 
