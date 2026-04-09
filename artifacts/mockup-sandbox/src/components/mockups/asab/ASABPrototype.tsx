@@ -7,7 +7,8 @@ import {
   AlertTriangle, Paperclip, ThumbsUp, ThumbsDown, RefreshCw, Star,
   Upload, ChevronsRight, Phone, Search, Plus, Trash2, Edit2, Edit3, X, FileText,
   Truck, Home, Shield, RotateCcw, Lock, Send, Tag, Smartphone, CheckSquare,
-  ZapOff, ChevronLeft, Clipboard, Check, CreditCard, ArrowRightToLine, Layers, GitMerge
+  ZapOff, ChevronLeft, Clipboard, Check, CreditCard, ArrowRightToLine, Layers, GitMerge,
+  Printer, Globe, MapPin, Copy, ToggleLeft, ToggleRight
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -491,8 +492,8 @@ function Btn({ children, onClick, variant="ghost", size="md", className="" }:{
   return <button onClick={onClick} className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>{children}</button>;
 }
 
-function KpiCard({ label, value, sub, icon, accent="purple" }:{
-  label:string; value:string; sub?:string; icon:ReactNode; accent?:string
+function KpiCard({ label, value, sub, icon, accent="purple", onClick }:{
+  label:string; value:string; sub?:string; icon:ReactNode; accent?:string; onClick?:()=>void
 }) {
   const accents: Record<string,string> = {
     purple:"border-t-purple-500 bg-purple-500",
@@ -505,12 +506,13 @@ function KpiCard({ label, value, sub, icon, accent="purple" }:{
   const borderCls = accents[accent]?.split(" ")[0] || "border-t-purple-500";
   const iconBg    = accents[accent]?.split(" ")[1] || "bg-purple-500";
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 border-t-2 ${borderCls} p-5 flex items-start gap-4`}>
+    <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-gray-100 border-t-2 ${borderCls} p-5 flex items-start gap-4 ${onClick?"cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all":""}`}>
       <div className={`w-10 h-10 rounded-xl ${iconBg} bg-opacity-10 flex items-center justify-center flex-shrink-0`}>{icon}</div>
       <div className="min-w-0">
         <p className="text-gray-500 text-xs font-medium uppercase tracking-wider leading-tight">{label}</p>
         <p className="text-gray-900 font-extrabold text-3xl mt-1 leading-none font-mono">{value}</p>
         {sub && <p className="text-gray-400 text-xs mt-1.5">{sub}</p>}
+        {onClick && <p className="text-[10px] text-purple-500 mt-1">← اضغط للتفاصيل</p>}
       </div>
     </div>
   );
@@ -2387,11 +2389,16 @@ function SimplePage({ title, icon, desc }:{ title:string; icon:string; desc:stri
 
 function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectOp, bulkApprove }:PageProps) {
   const [filters, setFilters] = useState<Filters>({branch:"",status:"pending",match:"",search:""});
+  const [period, setPeriod] = useState<"اليوم"|"الأسبوع"|"الشهر">("اليوم");
 
   const pending = ops.filter(o=>o.status==="pending");
   const approved = ops.filter(o=>o.status==="approved");
   const rejected = ops.filter(o=>o.status==="rejected");
   const approvalRate = ops.length>0 ? Math.round((approved.length+ops.filter(o=>o.status==="final-approved").length)/ops.length*100) : 0;
+  const overdueCount = pending.filter(o=>{
+    const daysAgo = o.timeAgo.includes("يوم") ? parseInt(o.timeAgo) || 2 : o.timeAgo.includes("أمس") ? 1 : 0;
+    return daysAgo >= 2;
+  }).length;
 
   const pendingByModule: Record<ModuleKey,number> = {} as any;
   pending.forEach(o=>{ pendingByModule[o.moduleKey]=(pendingByModule[o.moduleKey]||0)+1; });
@@ -2415,16 +2422,34 @@ function AccDashboard({ navigate, setModal, setDetailId, ops, approveOp, rejectO
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-gray-800 font-bold text-xl">ملخص اليوم — الاثنين 14 أكتوبر 2025</h2>
+          <h2 className="text-gray-800 font-bold text-xl">ملخص — الاثنين 14 أكتوبر 2025</h2>
           <p className="text-gray-400 text-sm mt-0.5">الفروع المخصصة: 1–50 | الموديولات: التسعة</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {overdueCount>0 && (
+            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
+              <AlertTriangle size={12}/> {overdueCount} عملية متأخرة &gt;يومين
+            </div>
+          )}
+          <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
+            {(["اليوم","الأسبوع","الشهر"] as const).map(p=>(
+              <button key={p} onClick={()=>setPeriod(p)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${period===p?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="تنتظر مراجعتي" value={String(pending.length)} sub="📱 رُفعت من الفروع" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
+        <div className="relative">
+          <KpiCard label="تنتظر مراجعتي" value={String(pending.length)} sub="📱 رُفعت من الفروع" icon={<Clock size={20} className="text-amber-600"/>} accent="amber"/>
+          {overdueCount>0 && <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{overdueCount} متأخر</span>}
+        </div>
         <KpiCard label="وافقت عليها" value={String(approved.length)} sub="بانتظار الاعتماد النهائي" icon={<CheckCircle2 size={20} className="text-sky-600"/>} accent="blue"/>
         <KpiCard label="معتمدة نهائياً" value={String(ops.filter(o=>o.status==="final-approved").length)} sub="مُغلقة — تنتظر ERP أو مُرحَّلة" icon={<Lock size={20} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub="هذا الشهر" icon={<TrendingUp size={20} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="معدل الموافقة" value={`${approvalRate}%`} sub={`هذا ${period}`} icon={<TrendingUp size={20} className="text-purple-600"/>} accent="purple"/>
       </div>
 
       {/* Daily progress bar */}
@@ -3086,6 +3111,22 @@ function AccExpensesPage({ navigate, setModal, setDetailId, ops, approveOp, reje
         </div>
       </div>
 
+      {/* Smart alert: invoices > 1,000 SAR suggest asset conversion */}
+      {filtered.some(op=>(INVOICES[op.id]||INVOICES["default"]).some(inv=>inv.amount>=1000&&!convertedInvNums.has(inv.invNum))) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3" dir="rtl">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={14} className="text-amber-600"/>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800">فواتير مقترح تحويلها إلى أصول ثابتة</p>
+            <p className="text-xs text-amber-700 mt-0.5">يوجد {filtered.flatMap(op=>(INVOICES[op.id]||INVOICES["default"]).filter(inv=>inv.amount>=1000&&!convertedInvNums.has(inv.invNum))).length} فاتورة بقيمة أعلى من 1,000 ر.س — يُنصح بمراجعتها للنظر في تصنيفها كأصل ثابت بدلاً من مصروف.</p>
+          </div>
+          <button onClick={()=>alert("جارٍ الانتقال إلى صفحة الأصول الثابتة...")} className="text-xs text-amber-700 border border-amber-300 bg-white px-2.5 py-1.5 rounded-lg hover:bg-amber-100 font-semibold flex-shrink-0">
+            عرض الأصول ←
+          </button>
+        </div>
+      )}
+
       {/* Expenses list with batch invoice expansion */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
@@ -3382,6 +3423,7 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
   const remaining       = variance - assignedTotal;
 
   const isLocked = op?.status === "final-approved";
+  const [reconVarReason, setReconVarReason] = useState("");
 
   return (
     <div className="space-y-4">
@@ -3539,6 +3581,22 @@ function AccSalesDetail({ navigate, setModal, setDetailId, detailId, ops, approv
                     </span>
                   </div>
                   <div className="p-4 space-y-2">
+                    {/* سبب الفرق */}
+                    <div className="mb-3">
+                      <label className="text-[11px] font-bold text-red-700 block mb-1.5">سبب الفرق <span className="text-red-400">*</span></label>
+                      <select value={reconVarReason} onChange={e=>setReconVarReason(e.target.value)}
+                        className="w-full text-sm border border-red-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-red-400">
+                        <option value="">— اختر سبب الفرق —</option>
+                        <option value="تأخر تحويل">تأخر تحويل من تطبيقات التوصيل</option>
+                        <option value="خطأ في الجهاز">خطأ في جهاز نقطة البيع (POS)</option>
+                        <option value="عملية ملغاة">عملية مبيعات ملغاة</option>
+                        <option value="فارق صندوق">فارق في الصندوق النقدي</option>
+                        <option value="خطأ في الإدخال">خطأ في إدخال البيانات</option>
+                        <option value="تسوية لاحقة">تسوية لاحقة — جارٍ المتابعة</option>
+                        <option value="أخرى">أخرى</option>
+                      </select>
+                      {reconVarReason && <p className="text-[10px] text-red-500 mt-1">✓ سبب مُسجَّل: {reconVarReason}</p>}
+                    </div>
                     {varEmps.map((e,i)=>(
                       <div key={i} className="flex items-center gap-2">
                         <div className="flex flex-col gap-0.5">
@@ -3975,6 +4033,7 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                 <th className="px-3 py-2 text-right font-semibold text-gray-600">اسم الصنف</th>
                 <th className="px-3 py-2 text-center font-semibold text-gray-600">الوحدة</th>
                 <th className="px-3 py-2 text-center font-semibold text-gray-600">سعر الوحدة</th>
+                <th className="px-3 py-2 text-center font-semibold text-sky-700 bg-sky-50/60">آخر سعر وصول</th>
                 <th className="px-3 py-2 text-center font-semibold text-gray-600">الكمية</th>
                 <th className="px-3 py-2 text-center font-semibold text-gray-600">الإجمالي</th>
                 <th className="px-3 py-2 text-center font-semibold text-emerald-700 bg-emerald-50/50">توثيق ✓</th>
@@ -3997,8 +4056,14 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
                     <td className="px-3 py-2.5 text-center font-mono">
                       {isEditing
                         ? <input defaultValue={String(row.price)} className="w-20 text-center border border-purple-200 rounded-lg px-2 py-1 text-xs font-mono bg-white focus:border-purple-400 outline-none"/>
-                        : <span className="font-bold text-gray-800">{row.price} ر.س</span>
+                        : <span className={`font-bold ${row.price>row.histPrice?"text-red-600":"text-gray-800"}`}>{row.price} ر.س</span>
                       }
+                    </td>
+                    <td className="px-3 py-2.5 text-center bg-sky-50/20">
+                      <p className="font-mono text-gray-500">{row.histPrice} ر.س</p>
+                      {row.price>row.histPrice && <p className="text-[9px] text-red-500 font-bold">▲ +{(row.price-row.histPrice).toFixed(1)}</p>}
+                      {row.price<row.histPrice && <p className="text-[9px] text-emerald-500 font-bold">▼ -{(row.histPrice-row.price).toFixed(1)}</p>}
+                      {row.price===row.histPrice && <p className="text-[9px] text-gray-400">مطابق</p>}
                     </td>
                     <td className="px-3 py-2.5 text-center font-mono">
                       {isEditing
@@ -4019,7 +4084,7 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
             </tbody>
             <tfoot className="bg-gray-50 border-t-2 border-gray-200">
               <tr>
-                <td colSpan={4} className="px-3 py-2.5 font-bold text-gray-900 text-right">إجمالي الفاتورة</td>
+                <td colSpan={5} className="px-3 py-2.5 font-bold text-gray-900 text-right">إجمالي الفاتورة</td>
                 <td className="px-3 py-2.5 text-center font-black font-mono text-blue-800">{fmtAmt(rec.items.reduce((s,r)=>s+r.received*r.price,0))} ر.س</td>
                 <td className="px-3 py-2.5 text-center text-[10px] text-gray-500">
                   {Object.keys(verifiedRows).filter(k=>k.startsWith(rec.id+"-")).length}/{rec.items.length} موثّق
@@ -4035,9 +4100,15 @@ function AccPurchases({ navigate, setModal, setDetailId, ops, approveOp, rejectO
           </div>
         )}
         {recStatus==="pending" && (
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2 pt-1 flex-wrap">
             <Btn size="sm" variant="success" onClick={()=>approveRecord(rec.id)}><ThumbsUp size={12}/> موافقة على الفاتورة</Btn>
             <Btn size="sm" variant="danger"><ThumbsDown size={12}/> رفض</Btn>
+            {rec.items.some(r=>r.price>r.histPrice) && (
+              <button onClick={()=>alert(`جارٍ إرسال طلب تعديل للمورد: ${rec.supplier}\nالأصناف ذات فروق السعر:\n${rec.items.filter(r=>r.price>r.histPrice).map(r=>`• ${r.name}: السعر الحالي ${r.price} ر.س / آخر سعر ${r.histPrice} ر.س`).join("\n")}`)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold hover:bg-sky-100 transition-all">
+                <Send size={11}/> طلب تعديل من المورد
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -5157,11 +5228,12 @@ function AccShifts({ navigate, setModal }:PageProps) {
   };
 
   const liveShifts = [
-    { name:"خالد الشمري", role:"مشرف الشفت", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, status:"active" as const },
-    { name:"محمد العتيبي", role:"كاشير رئيسي", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", orders:87, sales:12500, status:"active" as const },
-    { name:"سعد الدوسري", role:"مشرف الشفت", branch:"فرع مكة - المعابدة", start:"6:00 ص", duration:"5:22 ساعة", orders:45, sales:9200, status:"late" as const },
-    { name:"فهد القحطاني", role:"كاشير", branch:"فرع جدة - الحمراء", start:"7:00 ص", duration:"4:22 ساعة", orders:63, sales:9200, status:"active" as const },
+    { name:"خالد الشمري", role:"مشرف الشفت", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", durationHrs:3.4, orders:87, sales:12500, status:"active" as const },
+    { name:"محمد العتيبي", role:"كاشير رئيسي", branch:"فرع الرياض - العليا", start:"8:00 ص", duration:"3:22 ساعة", durationHrs:3.4, orders:87, sales:12500, status:"active" as const },
+    { name:"سعد الدوسري", role:"مشرف الشفت", branch:"فرع مكة - المعابدة", start:"6:00 ص", duration:"9:22 ساعة", durationHrs:9.4, orders:45, sales:9200, status:"late" as const },
+    { name:"فهد القحطاني", role:"كاشير", branch:"فرع جدة - الحمراء", start:"7:00 ص", duration:"4:22 ساعة", durationHrs:4.4, orders:63, sales:9200, status:"active" as const },
   ];
+  const overdueShifts = liveShifts.filter(s=>s.durationHrs>8);
 
   const shiftHistory = [
     {branch:"فرع الرياض - العليا", supervisor:"خالد الشمري", date:"13 أكت", startT:"8:00 ص", endT:"4:00 م", orders:145, sales:22400, cashExpected:8200, cashActual:8150, diff:-50},
@@ -5218,10 +5290,23 @@ function AccShifts({ navigate, setModal }:PageProps) {
 
       {/* ── TAB: LIVE ─────────────────────────────────────────────────────────── */}
       {tab==="live" && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
+          {overdueShifts.length>0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-start gap-3" dir="rtl">
+              <AlertTriangle size={16} className="text-red-600 flex-shrink-0 mt-0.5"/>
+              <div>
+                <p className="text-sm font-bold text-red-800">⚠️ تنبيه: {overdueShifts.length} شفت متأخر أكثر من 8 ساعات</p>
+                <p className="text-xs text-red-700 mt-1">
+                  {overdueShifts.map(s=>`${s.name} (${s.branch}) — ${s.duration}`).join(" · ")} — يُرجى إغلاق الشفت فوراً.
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
           {liveShifts.map((sh,i)=>(
-            <div key={i} className={`bg-white rounded-xl border shadow-sm p-4 ${sh.status==="late"?"border-amber-300 bg-amber-50/20":"border-gray-100"}`}>
-              {sh.status==="late" && <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold mb-3 bg-amber-100 rounded-lg px-3 py-2"><AlertTriangle size={13}/> انتهى وقت الشفت — لم يُغلق الصندوق بعد</div>}
+            <div key={i} className={`bg-white rounded-xl border shadow-sm p-4 ${sh.durationHrs>8?"border-red-300 bg-red-50/20":sh.status==="late"?"border-amber-300 bg-amber-50/20":"border-gray-100"}`}>
+              {sh.durationHrs>8 && <div className="flex items-center gap-2 text-red-700 text-xs font-semibold mb-3 bg-red-100 rounded-lg px-3 py-2"><AlertTriangle size={13}/> شفت متأخر — {sh.durationHrs.toFixed(0)} ساعة بدون إغلاق! يتجاوز الحد المسموح به</div>}
+              {sh.durationHrs<=8 && sh.status==="late" && <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold mb-3 bg-amber-100 rounded-lg px-3 py-2"><AlertTriangle size={13}/> انتهى وقت الشفت — لم يُغلق الصندوق بعد</div>}
               <div className="flex items-center gap-3 mb-3">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm">{sh.name[0]}</div>
@@ -5245,6 +5330,7 @@ function AccShifts({ navigate, setModal }:PageProps) {
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 
@@ -5575,7 +5661,7 @@ function AccEmployees({ navigate, setModal }:PageProps) {
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
             <select value={empFilter.brand} onChange={e=>setEmpFilter(p=>({...p,brand:e.target.value}))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              {["الكل","برغر خليفة","بيتزا باكو","وسطاوي"].map(b=><option key={b}>{b}</option>)}
+              {["الكل","علامة الريم","برغر خليفة","بيتزا باكو","وسطاوي","هرفي الكويتي"].map(b=><option key={b}>{b}</option>)}
             </select>
           </div>
         </div>
@@ -5607,6 +5693,9 @@ function AccEmployees({ navigate, setModal }:PageProps) {
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
                 <FileText size={11}/> Excel
               </button>
+              <button onClick={()=>window.print()} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold hover:bg-blue-100 transition-all">
+                <Printer size={11}/> طباعة
+              </button>
               <Btn size="sm"><Download size={12}/> PDF</Btn>
               <button onClick={()=>setModal("contact")} className="text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1"><Phone size={11}/> تواصل</button>
             </div>
@@ -5621,7 +5710,7 @@ function AccEmployees({ navigate, setModal }:PageProps) {
                 {emp.movements.map((m,i)=>(
                   <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${m.type==="credit"?"bg-emerald-50":"bg-red-50"}`}>{m.type==="credit"?"⬆":"⬇"}</div>
-                    <div className="flex-1"><p className="text-xs font-medium text-gray-700">{m.desc}</p><p className="text-[10px] text-gray-400">{m.date}</p></div>
+                    <div className="flex-1"><p className="text-xs font-medium text-gray-700">{m.desc}</p><p className="text-[10px] text-gray-400">{m.date} 2025</p></div>
                     <span className={`font-mono font-bold text-sm ${m.type==="credit"?"text-emerald-600":"text-red-600"}`}>{m.type==="credit"?"+":"-"}{fmtAmt(m.amt)} ر.س</span>
                   </div>
                 ))}
@@ -5638,9 +5727,10 @@ function AccCash({}: PageProps) {
   const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
   const [searchTerm,     setSearchTerm]     = useState("");
   const [statusFilter,   setStatusFilter]   = useState("");
+  const [settlementReqs, setSettlementReqs] = useState<Record<string,boolean>>({});
 
   const branches = [
-    { branch:"فرع الرياض - العليا", custodian:"أحمد الشمري", amount:5000, used:3200,
+    { branch:"فرع الرياض - العليا", custodian:"أحمد الشمري", amount:5000, used:3200, daysSinceSettlement:18,
       txns:[
         {date:"14 أكت", desc:"صيانة طارئة — مكيف",      type:"debit",  amt:450},
         {date:"14 أكت", desc:"مواد تنظيف",               type:"debit",  amt:180},
@@ -5654,7 +5744,7 @@ function AccCash({}: PageProps) {
       ],
       pendingTxns:1
     },
-    { branch:"فرع جدة - الحمراء", custodian:"سعد القحطاني", amount:3000, used:2800,
+    { branch:"فرع جدة - الحمراء", custodian:"سعد القحطاني", amount:3000, used:2800, daysSinceSettlement:32,
       txns:[
         {date:"14 أكت", desc:"إيداع عهدة شهر أكتوبر",    type:"credit", amt:3000},
         {date:"13 أكت", desc:"صيانة شبكة كهرباء",        type:"debit",  amt:750},
@@ -5665,7 +5755,7 @@ function AccCash({}: PageProps) {
       ],
       pendingTxns:2
     },
-    { branch:"فرع مكة - المعابدة", custodian:"فهد العتيبي", amount:4000, used:1500,
+    { branch:"فرع مكة - المعابدة", custodian:"فهد العتيبي", amount:4000, used:1500, daysSinceSettlement:7,
       txns:[
         {date:"14 أكت", desc:"إيداع عهدة شهر أكتوبر",    type:"credit", amt:4000},
         {date:"13 أكت", desc:"مواد تنظيف",               type:"debit",  amt:600},
@@ -5674,6 +5764,7 @@ function AccCash({}: PageProps) {
       pendingTxns:0
     },
   ];
+  const overdueSettlement = branches.filter(b=>b.daysSinceSettlement>=30);
 
   const filtered = branches.filter(b=>{
     if(searchTerm && !b.branch.includes(searchTerm) && !b.custodian.includes(searchTerm)) return false;
@@ -5686,11 +5777,21 @@ function AccCash({}: PageProps) {
         <h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <KpiCard label="عدد العهود النشطة" value={String(branches.length)} sub="فروع لديها عهدة مفتوحة" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} accent="orange"/>
         <KpiCard label="طلبات صرف معلقة" value={String(branches.reduce((s,b)=>s+b.pendingTxns,0))} sub="بانتظار المراجعة والموافقة" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
         <KpiCard label="عهود قريبة من النفاد" value={String(branches.filter(b=>b.amount-b.used<500).length)} sub="أقل من 500 ر.س متبقٍ" icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+        <KpiCard label="تسويات متأخرة" value={String(overdueSettlement.length)} sub="+30 يوم بدون تسوية" icon={<Clock size={18} className="text-red-600"/>} accent="red"/>
       </div>
+      {overdueSettlement.length>0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 flex items-start gap-3" dir="rtl">
+          <AlertTriangle size={15} className="text-red-600 flex-shrink-0 mt-0.5"/>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-red-800">تنبيه: {overdueSettlement.length} عهدة لم تُسوَّ منذ أكثر من 30 يوماً</p>
+            <p className="text-xs text-red-700 mt-0.5">{overdueSettlement.map(b=>`${b.branch} (${b.daysSinceSettlement} يوم)`).join(" · ")}</p>
+          </div>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
@@ -5747,6 +5848,10 @@ function AccCash({}: PageProps) {
                     <span className="text-xs text-gray-500">{b.custodian}</span>
                     {isLow && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">⚠ قريبة من النفاد</span>}
                     {b.pendingTxns>0 && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">{b.pendingTxns} طلب معلق</span>}
+                    {b.daysSinceSettlement>=30
+                      ? <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">⏰ {b.daysSinceSettlement} يوم بدون تسوية</span>
+                      : <span className="text-[10px] text-gray-400">آخر تسوية: {b.daysSinceSettlement} يوم</span>
+                    }
                   </div>
                   <div className="flex items-center gap-3 mt-1.5">
                     <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-32">
@@ -5756,6 +5861,12 @@ function AccCash({}: PageProps) {
                     <span className={`text-xs font-bold font-mono ${isLow?"text-red-600":"text-emerald-600"}`}>{fmtAmt(rem)} ر.س متبقٍ</span>
                   </div>
                 </div>
+                {b.daysSinceSettlement>=30 && (
+                  <button onClick={()=>setSettlementReqs(p=>({...p,[b.branch]:true}))}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all flex-shrink-0 ${settlementReqs[b.branch]?"bg-emerald-50 text-emerald-700 border-emerald-200":"bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
+                    {settlementReqs[b.branch]?<><CheckCircle2 size={11}/> تم إرسال الطلب</>:<><Send size={11}/> طلب تسوية</>}
+                  </button>
+                )}
                 <Btn size="sm" onClick={()=>setExpandedBranch(isOpen?null:b.branch)}>
                   {isOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>} المعاملات
                 </Btn>
@@ -6122,6 +6233,8 @@ function AccAssets({ navigate }: PageProps) {
 
   const [expandedId,     setExpandedId]    = useState<string|null>(null);
   const [filterStatus,   setFilterStatus]  = useState<"الكل"|AssetStatus>("الكل");
+  const [filterCat,      setFilterCat]     = useState<"الكل"|AssetCat>("الكل");
+  const [filterYear,     setFilterYear]    = useState("الكل");
   const [viewMode,       setViewMode]      = useState<"list"|"branch_report">("list");
   const [filterBranch,   setFilterBranch]  = useState("الكل");
   const [assetAttach,    setAssetAttach]   = useState<{assetId:string; name:string}|null>(null);
@@ -6189,7 +6302,15 @@ function AccAssets({ navigate }: PageProps) {
   const pendingAccountant = assets.filter(a=>a.status==="pending_accountant");
   const pendingBranch     = assets.filter(a=>a.status==="pending_branch");
   const confirmed         = assets.filter(a=>a.status==="confirmed");
-  const displayedAssets   = (filterStatus==="الكل"?assets:assets.filter(a=>a.status===filterStatus));
+  const displayedAssets   = assets.filter(a=>{
+    if(filterStatus!=="الكل" && a.status!==filterStatus) return false;
+    if(filterCat!=="الكل" && a.cat!==filterCat) return false;
+    if(filterYear!=="الكل") {
+      const yearMap:Record<string,string[]> = {"2025":["FA-001","FA-002","FA-003","FA-005","FA-006"],"2024":["FA-004"]};
+      if(!(yearMap[filterYear]||[]).includes(a.id)) return false;
+    }
+    return true;
+  });
   const ASSET_BRANCHES    = [...new Set(assets.map(a=>a.branch))];
   const branchFiltered    = filterBranch==="الكل"?assets:assets.filter(a=>a.branch===filterBranch);
   const activeDrafts      = drafts.filter(d=>d.status==="draft");
@@ -6533,18 +6654,40 @@ function AccAssets({ navigate }: PageProps) {
             </div>
           </div>
 
-          {/* Status filter */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
-            <div>
-              <label className="text-[11px] font-semibold text-gray-500 block mb-1">تصفية حسب الحالة</label>
-              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value as "الكل"|AssetStatus)} className="text-sm border border-gray-200 rounded-lg px-3 py-2 min-w-[220px]">
-                <option value="الكل">الكل — {assets.length} أصل</option>
-                <option value="pending_accountant">ينتظر مراجعة المحاسب ({pendingAccountant.length})</option>
-                <option value="pending_branch">ينتظر تأكيد الفرع ({pendingBranch.length})</option>
-                <option value="confirmed">مؤكد — مكتمل ({confirmed.length})</option>
-              </select>
+          {/* Filters: Status + Category + Year */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">الحالة</label>
+                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value as "الكل"|AssetStatus)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+                  <option value="الكل">الكل — {assets.length} أصل</option>
+                  <option value="pending_accountant">ينتظر مراجعة المحاسب ({pendingAccountant.length})</option>
+                  <option value="pending_branch">ينتظر تأكيد الفرع ({pendingBranch.length})</option>
+                  <option value="confirmed">مؤكد — مكتمل ({confirmed.length})</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">تصنيف الأصل</label>
+                <select value={filterCat} onChange={e=>setFilterCat(e.target.value as "الكل"|AssetCat)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+                  <option value="الكل">الكل</option>
+                  {(["معدات","تقنية","أثاث","مركبات","أخرى"] as AssetCat[]).map(c=>(
+                    <option key={c} value={c}>{CAT_ICON[c]} {c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 block mb-1">سنة الشراء</label>
+                <select value={filterYear} onChange={e=>setFilterYear(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+                  {["الكل","2025","2024","2023","2022"].map(y=><option key={y}>{y}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end">
+                {(filterStatus!=="الكل"||filterCat!=="الكل"||filterYear!=="الكل") && (
+                  <button onClick={()=>{ setFilterStatus("الكل"); setFilterCat("الكل"); setFilterYear("الكل"); }}
+                    className="text-xs text-purple-600 hover:underline flex items-center gap-1 pb-2"><RotateCcw size={11}/> مسح الفلاتر</button>
+                )}
+              </div>
             </div>
-            {filterStatus!=="الكل" && <button onClick={()=>setFilterStatus("الكل")} className="text-xs text-purple-600 hover:underline flex items-center gap-1 mt-4"><RotateCcw size={11}/> مسح</button>}
           </div>
 
           {/* Assets list */}
@@ -7158,6 +7301,36 @@ function AccWaste({}: PageProps) {
           );
         })}
       </div>
+
+      {/* Branch Waste Comparison */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2"><BarChart2 size={15} className="text-rose-500"/> مقارنة نسبة الهدر بين الفروع</h3>
+          <span className="text-[11px] text-gray-400">نسبة الهدر = إجمالي الهدر ÷ المبيعات المقدّرة</span>
+        </div>
+        <div className="p-5 space-y-3">
+          {WASTE_BRANCHES.map((br,i)=>{
+            const brTotal  = entries.filter(e=>e.branch===br).reduce((s,e)=>s+e.products.reduce((p,pr)=>p+pr.qty*pr.unitPrice,0),0);
+            const brSales  = [1200000,980000,750000,850000,600000][i] || 700000;
+            const pct      = Math.round(brTotal/brSales*100*10)/10;
+            const barColor = pct>3?"bg-red-500":pct>1.5?"bg-amber-400":"bg-emerald-500";
+            return (
+              <div key={br} className="flex items-center gap-3">
+                <span className="text-xs text-gray-600 w-44 text-right flex-shrink-0 truncate">{br}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div className={`${barColor} h-3 rounded-full transition-all`} style={{width:`${Math.min(pct*15,100)}%`}}></div>
+                </div>
+                <span className={`text-xs font-bold font-mono w-14 flex-shrink-0 ${pct>3?"text-red-600":pct>1.5?"text-amber-600":"text-emerald-600"}`}>{pct}%</span>
+                <span className="text-[10px] text-gray-400 w-28 flex-shrink-0 font-mono">{fmtAmt(brTotal)} ر.س هدر</span>
+                {pct>3 && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold flex-shrink-0">⚠ مرتفع</span>}
+              </div>
+            );
+          })}
+          <div className="pt-2 border-t border-gray-100 text-[11px] text-gray-400">
+            المعيار المقبول: أقل من 1.5% ✅ · تحذير: 1.5–3% 🟡 · مرتفع: أكثر من 3% 🔴
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -7520,11 +7693,11 @@ function HeadDashboard({ navigate, setModal, setDetailId, ops, finalApproveOp, r
         <p className="text-gray-400 text-sm mt-0.5">الإشراف على 4 محاسبين · 100 فرع · الاعتماد النهائي وترحيل ERP</p>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="📱 من المحاسبين · م3" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="معتمدة نهائياً" value={String(finalApproved.filter(o=>!o.erpPosted).length)} sub="مُغلقة · تنتظر ERP · م4" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="مُرحَّلة لـ ERP" value={String(finalApproved.filter(o=>o.erpPosted).length)} sub="مُعالَجة · م5" icon={<ChevronsRight size={18} className="text-indigo-600"/>} accent="blue"/>
-        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="خارج المسار" icon={<XCircle size={18} className="text-red-600"/>} accent="red"/>
-        <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="📱 من المحاسبين · م3" icon={<Clock size={18} className="text-amber-600"/>} accent="amber" onClick={()=>setTab("approval")}/>
+        <KpiCard label="معتمدة نهائياً" value={String(finalApproved.filter(o=>!o.erpPosted).length)} sub="مُغلقة · تنتظر ERP · م4" icon={<Lock size={18} className="text-emerald-600"/>} accent="emerald" onClick={()=>setTab("erp")}/>
+        <KpiCard label="مُرحَّلة لـ ERP" value={String(finalApproved.filter(o=>o.erpPosted).length)} sub="مُعالَجة · م5" icon={<ChevronsRight size={18} className="text-indigo-600"/>} accent="blue" onClick={()=>setTab("erp")}/>
+        <KpiCard label="مرفوضة" value={String(rejected.length)} sub="خارج المسار" icon={<XCircle size={18} className="text-red-600"/>} accent="red" onClick={()=>setTab("approval")}/>
+        <KpiCard label="معدل الأداء" value="87%" sub="هذا الشهر" icon={<TrendingUp size={18} className="text-purple-600"/>} accent="purple" onClick={()=>setTab("performance")}/>
       </div>
       {/* Weekly performance chart */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -7644,6 +7817,11 @@ function HeadPending({ navigate, setModal, setDetailId, ops, finalApproveOp, rej
   const [brandFilter, setBrandFilter] = useState("الكل");
   const [groupBy, setGroupBy] = useState<"flat"|"module"|"accountant">("module");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [conditionalId, setConditionalId] = useState<string|null>(null);
+  const [approvalComment, setApprovalComment] = useState("");
+  const [conditionalApproved, setConditionalApproved] = useState<Set<string>>(new Set());
+  const REJECT_REASONS = ["يوجد فرق في المبالغ","مستندات ناقصة","يحتاج مراجعة المورد","تكرار في القيد","خطأ في الفرع","أخرى"];
+  const [selectedRejectReason, setSelectedRejectReason] = useState("");
   const HEAD_ACCS = ["أحمد الشهري","سارة العمري","محمد الحربي","فاطمة السالم"];
   const getAcc = (id:string) => HEAD_ACCS[parseInt(id.replace(/\D/g,"").slice(-2)||"0") % HEAD_ACCS.length];
   let filtered = applyFilters(ops, filters).filter(o=>o.status==="approved");
@@ -7672,24 +7850,59 @@ function HeadPending({ navigate, setModal, setDetailId, ops, finalApproveOp, rej
 
   const OpRow = ({ op }:{ op:Op }) => {
     const accountant = getAcc(op.id);
+    const isCond     = conditionalId===op.id;
+    const wasCond    = conditionalApproved.has(op.id);
     return (
-      <div key={op.id} className={`px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/60 ${op.match==="diff"?"border-r-4 border-r-red-400":""}`}>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{accountant[0]}</div>
-        {groupBy!=="module" && <Badge className="bg-purple-50 text-purple-700 border border-purple-100 text-xs flex-shrink-0">{op.moduleLabel}</Badge>}
-        {groupBy!=="accountant" && <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] flex-shrink-0">{accountant}</Badge>}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm text-gray-800">{op.branch}</span>
-            <span className="text-xs font-mono text-gray-400">{op.id}</span>
-            <Badge className={`${MATCH_CFG[op.match].cls} border text-[10px]`}>{MATCH_CFG[op.match].label}</Badge>
+      <div key={op.id} className={`border-b border-gray-100 last:border-0 ${op.match==="diff"?"border-r-4 border-r-red-400":""}`}>
+        <div className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/60">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-cyan-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{accountant[0]}</div>
+          {groupBy!=="module" && <Badge className="bg-purple-50 text-purple-700 border border-purple-100 text-xs flex-shrink-0">{op.moduleLabel}</Badge>}
+          {groupBy!=="accountant" && <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] flex-shrink-0">{accountant}</Badge>}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-sm text-gray-800">{op.branch}</span>
+              <span className="text-xs font-mono text-gray-400">{op.id}</span>
+              <Badge className={`${MATCH_CFG[op.match].cls} border text-[10px]`}>{MATCH_CFG[op.match].label}</Badge>
+              {wasCond && <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold">⚡ اعتماد مشروط</span>}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">⏰ {op.timeAgo}</p>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">⏰ {op.timeAgo}</p>
+          <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtAmt(op.amount)} ر.س</span>
+          <div className="flex gap-1.5 flex-shrink-0">
+            <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
+            <button onClick={()=>{ setConditionalId(isCond?null:op.id); setApprovalComment(""); }}
+              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-all ${isCond?"bg-amber-100 text-amber-800 border-amber-300":"bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}>
+              <AlertTriangle size={11}/> مشروط
+            </button>
+            <div className="relative group">
+              <button className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 font-semibold hover:bg-red-100">
+                <XCircle size={11}/> رفض
+              </button>
+              <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-20 hidden group-hover:block w-56">
+                <p className="text-[10px] font-bold text-gray-500 mb-1.5 px-1">سبب الرفض</p>
+                {REJECT_REASONS.map(r=>(
+                  <button key={r} onClick={()=>{ setDetailId?.(op.id); rejectOp?.(op.id); }}
+                    className="w-full text-right text-xs px-2 py-1.5 rounded-lg hover:bg-red-50 text-red-700 hover:font-semibold transition-colors">{r}</button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-        <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtAmt(op.amount)} ر.س</span>
-        <div className="flex gap-1.5">
-          <Btn size="sm" variant="success" onClick={()=>finalApproveOp(op.id)}><CheckCircle2 size={12}/> اعتماد</Btn>
-          <Btn size="sm" variant="danger" onClick={()=>{ setDetailId(op.id); setModal("reject"); }}><XCircle size={12}/> رفض</Btn>
-        </div>
+        {isCond && (
+          <div className="px-5 pb-4 bg-amber-50/40 border-t border-amber-100">
+            <p className="text-[11px] font-bold text-amber-800 mb-2 pt-2">تفاصيل الاعتماد المشروط</p>
+            <textarea value={approvalComment} onChange={e=>setApprovalComment(e.target.value)}
+              placeholder="اكتب الشروط أو الملاحظات المطلوبة من الفرع قبل التنفيذ النهائي..."
+              className="w-full text-sm border border-amber-200 rounded-lg px-3 py-2 resize-none h-20 bg-white focus:outline-none focus:border-amber-400"/>
+            <div className="flex gap-2 mt-2">
+              <button onClick={()=>{ setConditionalApproved(p=>new Set(p).add(op.id)); finalApproveOp(op.id); setConditionalId(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-all">
+                <CheckCircle2 size={11}/> تأكيد الاعتماد المشروط
+              </button>
+              <button onClick={()=>setConditionalId(null)} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">إلغاء</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -8071,10 +8284,10 @@ function HeadModulePage({ moduleKey, navigate, setModal, setDetailId, ops, final
 function HeadAccountants({}: PageProps) {
   const [expandedAcc, setExpandedAcc] = useState<number|null>(null);
   const accountants = [
-    { name:"أحمد محمد الشهري", branches:20, reviewed:250, approved:230, pending:5,  rate:92, rating:4.8, avgTime:4.5,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
-    { name:"سارة العمري",      branches:20, reviewed:210, approved:197, pending:2,  rate:94, rating:4.9, avgTime:3.8,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
-    { name:"محمد الحربي",      branches:20, reviewed:185, approved:128, pending:8,  rate:69, rating:3.8, avgTime:8.2,  level:"مقبول",   levelCls:"bg-amber-100 text-amber-700"   },
-    { name:"فاطمة السالم",     branches:20, reviewed:290, approved:284, pending:1,  rate:98, rating:5.0, avgTime:2.9,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
+    { name:"أحمد محمد الشهري", branches:20, reviewed:250, approved:230, pending:5,  rate:92, prevRate:88, rating:4.8, avgTime:4.5,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
+    { name:"سارة العمري",      branches:20, reviewed:210, approved:197, pending:2,  rate:94, prevRate:95, rating:4.9, avgTime:3.8,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
+    { name:"محمد الحربي",      branches:20, reviewed:185, approved:128, pending:8,  rate:69, prevRate:64, rating:3.8, avgTime:8.2,  level:"مقبول",   levelCls:"bg-amber-100 text-amber-700"   },
+    { name:"فاطمة السالم",     branches:20, reviewed:290, approved:284, pending:1,  rate:98, prevRate:97, rating:5.0, avgTime:2.9,  level:"ممتاز",   levelCls:"bg-emerald-100 text-emerald-700" },
   ];
 
   const recentMovements = [
@@ -8158,9 +8371,19 @@ function HeadAccountants({}: PageProps) {
               </div>
 
               {/* Progress bar */}
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-3">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
                 <div className={`h-1.5 rounded-full ${acc.rate>=90?"bg-emerald-500":acc.rate>=70?"bg-amber-500":"bg-red-500"}`} style={{width:`${acc.rate}%`}}></div>
               </div>
+
+              {/* Trend vs last month */}
+              {(()=>{const diff=acc.rate-acc.prevRate; return (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`flex items-center gap-0.5 text-[11px] font-bold ${diff>0?"text-emerald-600":diff<0?"text-red-600":"text-gray-500"}`}>
+                    {diff>0?"↑":diff<0?"↓":"→"} {Math.abs(diff)}% مقارنة بالشهر الماضي
+                  </span>
+                  <span className="text-[10px] text-gray-400">(كان {acc.prevRate}%)</span>
+                </div>
+              );})()}
 
               {/* Toggle detail */}
               <button onClick={()=>setExpandedAcc(expandedAcc===i?null:i)}
@@ -8189,6 +8412,29 @@ function HeadAccountants({}: PageProps) {
             )}
           </div>
         ))}
+      </div>
+
+      {/* Performance comparison bars */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h4 className="font-bold text-gray-800 text-sm mb-3">📊 مقارنة الأداء — معدل الاعتماد هذا الشهر</h4>
+        <div className="space-y-2.5">
+          {[...accountants].sort((a,b)=>b.rate-a.rate).map((acc,rank)=>{
+            const diff=acc.rate-acc.prevRate;
+            return (
+              <div key={acc.name} className="flex items-center gap-3">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${rank===0?"bg-amber-400 text-white":rank===1?"bg-gray-300 text-gray-700":rank===2?"bg-orange-300 text-white":"bg-gray-100 text-gray-500"}`}>{rank+1}</span>
+                <span className="text-xs font-medium text-gray-700 w-28 truncate flex-shrink-0">{acc.name.split(" ")[0]} {acc.name.split(" ")[1]}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-3 relative">
+                  <div className={`h-3 rounded-full ${acc.rate>=90?"bg-emerald-500":acc.rate>=70?"bg-amber-500":"bg-red-500"}`} style={{width:`${acc.rate}%`}}/>
+                </div>
+                <span className="font-mono font-bold text-sm text-gray-800 w-10 text-center flex-shrink-0">{acc.rate}%</span>
+                <span className={`text-[11px] font-bold w-14 flex-shrink-0 ${diff>0?"text-emerald-600":diff<0?"text-red-600":"text-gray-400"}`}>
+                  {diff>0?"↑":diff<0?"↓":"→"}{Math.abs(diff)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -8336,7 +8582,53 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
           )}
         </div>
       )}
-      {tab==="export" && (
+      {tab==="export" && (<>
+      {/* Pre-export validation checklist */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h3 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2"><CheckCircle2 size={15} className="text-emerald-500"/> قائمة التحقق قبل التصدير</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {ok:true,  label:"لا يوجد قيود معلقة تجاوزت 48 ساعة"},
+            {ok:true,  label:"جميع مديري الفروع أكدوا الأصول"},
+            {ok:false, label:"فرع الدمام: تقرير المبيعات مفقود"},
+            {ok:true,  label:"المبالغ متطابقة مع سجل الاعتمادات"},
+            {ok:true,  label:"لا يوجد فروقات غير محلولة في الكاش"},
+            {ok:false, label:"INV-B009: لم يُعتمد بعد من الرئيس"},
+          ].map((c,i)=>(
+            <div key={i} className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${c.ok?"bg-emerald-50 text-emerald-700":"bg-red-50 text-red-700"}`}>
+              {c.ok?<CheckCircle2 size={12}/>:<AlertTriangle size={12}/>}
+              <span>{c.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+          <AlertTriangle size={11}/> يوجد 2 بنود تحتاج مراجعة — يمكنك المتابعة أو تأجيل التصدير
+        </div>
+      </div>
+
+      {/* Export history log */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h3 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2"><Clock size={15} className="text-purple-500"/> سجل دفعات التصدير السابقة</h3>
+        <div className="space-y-2">
+          {[
+            {id:"ERP-BATCH-20251013-001", date:"13 أكت 2025، 09:22", ops:18, amt:"487,200", status:"success", by:"أحمد الشهري"},
+            {id:"ERP-BATCH-20251010-002", date:"10 أكت 2025، 14:05", ops:24, amt:"1,023,400", status:"success", by:"سارة العمري"},
+            {id:"ERP-BATCH-20251007-003", date:"7 أكت 2025، 11:55",  ops:9,  amt:"231,600",  status:"partial", by:"محمد الحربي"},
+          ].map((h,i)=>(
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
+              <span className="font-mono text-xs text-purple-600 flex-1">{h.id}</span>
+              <span className="text-[11px] text-gray-400">{h.date}</span>
+              <span className="text-xs font-mono font-bold text-gray-700">{h.ops} عملية</span>
+              <span className="text-xs font-mono font-bold text-gray-800">{h.amt} ر.س</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${h.status==="success"?"bg-emerald-100 text-emerald-700":"bg-amber-100 text-amber-700"}`}>
+                {h.status==="success"?"✓ مكتمل":"⚡ جزئي"}
+              </span>
+              <span className="text-[11px] text-gray-500">{h.by}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center gap-0 mb-6">
           {[{n:1,label:"1. اختيار الفترة",icon:"📅"},{n:2,label:"2. معاينة البيانات",icon:"👁"},{n:3,label:"3. تأكيد الإرسال",icon:"✅"}].map((s,i)=>(
@@ -8490,7 +8782,7 @@ function HeadERP({ ops, markErpPosted }:PageProps) {
           </div>
         )}
       </div>
-      )}
+      </>)}
     </div>
   );
 }
@@ -8697,7 +8989,13 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
           <h2 className="text-xl font-bold text-gray-800">إدارة المستخدمين</h2>
           <p className="text-gray-400 text-sm mt-0.5">{users.length} مستخدم — متعدد العلامات التجارية والمطاعم</p>
         </div>
-        <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> مستخدم جديد</Btn>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>alert("جارٍ استيراد المستخدمين من ملف CSV...")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-700 border border-gray-200 text-sm font-semibold hover:bg-gray-100 transition-all">
+            <Upload size={13}/> استيراد CSV
+          </button>
+          <Btn variant="primary" onClick={()=>setModal("add-user")}><Plus size={14}/> مستخدم جديد</Btn>
+        </div>
       </div>
 
       {/* Main tabs */}
@@ -9244,6 +9542,26 @@ function AdminUsers({ navigate, setModal, ops, approveOp, rejectOp, finalApprove
                             <p className="text-gray-400 font-semibold mb-1">الموديولات ({u.modules.length})</p>
                             <div className="flex flex-wrap gap-1">
                               {u.modules.map(m=><span key={m} className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px]">{m}</span>)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200 text-xs">
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                            <Clock size={12} className="text-gray-400 flex-shrink-0"/>
+                            <div>
+                              <p className="text-gray-400 text-[10px]">آخر تسجيل دخول</p>
+                              <p className="font-semibold text-gray-700">
+                                {["اليوم 09:15 ص","أمس 14:30","12 أكت 2025","10 أكت 2025","8 أكت 2025","اليوم 11:00 ص","أمس 09:45","13 أكت 2025","11 أكت 2025","9 أكت 2025"][i%10]}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                            <Calendar size={12} className="text-gray-400 flex-shrink-0"/>
+                            <div>
+                              <p className="text-gray-400 text-[10px]">تاريخ الإنشاء</p>
+                              <p className="font-semibold text-gray-700">
+                                {["5 يناير 2025","12 مارس 2025","20 فبراير 2025","1 أبريل 2025","15 مايو 2025","8 يونيو 2025","3 يوليو 2025","25 أغسطس 2025","10 سبتمبر 2025","1 أكتوبر 2025"][i%10]}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -9829,6 +10147,9 @@ function AdminRestaurants({}: PageProps) {
 function AdminSubscriptions({}: PageProps) {
   const [subs, setSubs] = useState(BRANDS_DATA.map(b=>({...b})));
   const [expandedSub, setExpandedSub] = useState<string|null>(null);
+  const [autoReminders, setAutoReminders] = useState<Record<string,boolean>>(
+    Object.fromEntries(BRANDS_DATA.map(b=>[b.id, b.subStatus!=="active"]))
+  );
   const statusCls = { active:"border-emerald-200 bg-emerald-50/20",warning:"border-amber-200 bg-amber-50/20",danger:"border-red-200 bg-red-50/20",expired:"border-red-300 bg-red-50/30" };
   const statusBadgeCls = { active:"bg-emerald-50 text-emerald-700",warning:"bg-amber-50 text-amber-700",danger:"bg-red-50 text-red-700",expired:"bg-red-100 text-red-800" };
   const statusLabel = { active:"اشتراك نشط",warning:"ينتهي قريباً",danger:"إنذار انتهاء",expired:"منتهي الاشتراك" };
@@ -9888,7 +10209,14 @@ function AdminSubscriptions({}: PageProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={()=>setAutoReminders(p=>({...p,[sub.id]:!p[sub.id]}))}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${autoReminders[sub.id]?"bg-purple-600":"bg-gray-200"}`}>
+                      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${autoReminders[sub.id]?"translate-x-4":"translate-x-0"}`}/>
+                    </button>
+                    <span className="text-[10px] text-gray-500">تذكير تلقائي</span>
+                  </div>
                   <button onClick={()=>renew(sub.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${sub.subStatus==="expired"?"bg-red-600 text-white hover:bg-red-700":"bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"}`}>
                     {sub.subStatus==="expired"?"تفعيل":"تجديد"}
@@ -10679,27 +11007,91 @@ function AdminReports({}: PageProps) {
 }
 
 function AdminAudit({}: PageProps) {
-  const logs = [
-    {action:"إضافة مستخدم جديد",user:"الأدمن",time:"10:30 ص",icon:"👤",cls:"bg-gray-50"},
-    {action:"اعتماد نهائي لـ 45 عملية",user:"خالد العمري — رئيس الحسابات",time:"10:15 ص",icon:"✅",cls:"bg-emerald-50"},
-    {action:"تجديد اشتراك مطعم هرفي",user:"الأدمن",time:"9:45 ص",icon:"💳",cls:"bg-gray-50"},
-    {action:"رفض عملية EXP-0441",user:"أحمد محمد الشهري",time:"9:30 ص",icon:"❌",cls:"bg-red-50"},
-    {action:"تصدير بيانات ERP",user:"خالد العمري",time:"9:00 ص",icon:"🔗",cls:"bg-gray-50"},
-    {action:"تحديث أصناف الجرد اليومي",user:"أحمد محمد الشهري",time:"8:45 ص",icon:"📦",cls:"bg-gray-50"},
+  const ALL_LOGS = [
+    {action:"إضافة مستخدم جديد",           user:"الأدمن",                        time:"10:30 ص",icon:"👤",type:"مستخدمين", date:"اليوم"},
+    {action:"اعتماد نهائي لـ 45 عملية",    user:"خالد العمري — رئيس الحسابات",  time:"10:15 ص",icon:"✅",type:"اعتمادات",  date:"اليوم"},
+    {action:"تجديد اشتراك مطعم هرفي",      user:"الأدمن",                        time:"9:45 ص", icon:"💳",type:"اشتراكات",  date:"اليوم"},
+    {action:"رفض عملية EXP-0441",           user:"أحمد محمد الشهري",              time:"9:30 ص", icon:"❌",type:"رفض",        date:"اليوم"},
+    {action:"تصدير بيانات ERP",             user:"خالد العمري",                   time:"9:00 ص", icon:"🔗",type:"تصدير",      date:"اليوم"},
+    {action:"تحديث أصناف الجرد اليومي",    user:"أحمد محمد الشهري",              time:"8:45 ص", icon:"📦",type:"مخزون",      date:"اليوم"},
+    {action:"تعديل صلاحيات دور المحاسب",   user:"الأدمن",                        time:"أمس 14:30",icon:"🔑",type:"صلاحيات", date:"أمس"},
+    {action:"حذف مستخدم: عمر السعد",       user:"الأدمن",                        time:"أمس 11:00",icon:"🗑️",type:"مستخدمين",date:"أمس"},
+    {action:"اعتماد طلب شراء PO-8821",     user:"سارة العمري",                   time:"أمس 09:15",icon:"🛒",type:"مشتريات",  date:"أمس"},
   ];
+  const [userFilter, setUserFilter]   = useState("");
+  const [actionFilter,setActionFilter]= useState("الكل");
+  const [dateFilter,  setDateFilter]  = useState("الكل");
+
+  const ACTION_TYPES = ["الكل","مستخدمين","اعتمادات","اشتراكات","رفض","تصدير","مخزون","صلاحيات","مشتريات"];
+  const DATE_OPTIONS = ["الكل","اليوم","أمس"];
+
+  const shown = ALL_LOGS.filter(l=>{
+    if(userFilter && !l.user.includes(userFilter)) return false;
+    if(actionFilter!=="الكل" && l.type!==actionFilter) return false;
+    if(dateFilter!=="الكل" && l.date!==dateFilter) return false;
+    return true;
+  });
+
   return (
-    <div className="space-y-5"><h2 className="text-xl font-bold text-gray-800">سجل النشاطات</h2>
-      <Card title="آخر النشاطات">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">سجل النشاطات</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{ALL_LOGS.length} نشاط مسجل</p>
+        </div>
+        <button onClick={()=>alert("جارٍ تصدير سجل النشاطات إلى Excel...")}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100 transition-all">
+          <FileText size={13}/> تصدير Excel
+        </button>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالمستخدم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400 flex-shrink-0"/>
+              <input value={userFilter} onChange={e=>setUserFilter(e.target.value)} placeholder="اسم المستخدم..." className="flex-1 text-sm outline-none"/>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">نوع النشاط</label>
+            <select value={actionFilter} onChange={e=>setActionFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {ACTION_TYPES.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">التاريخ</label>
+            <select value={dateFilter} onChange={e=>setDateFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {DATE_OPTIONS.map(d=><option key={d}>{d}</option>)}
+            </select>
+          </div>
+        </div>
+        {(userFilter||actionFilter!=="الكل"||dateFilter!=="الكل") && (
+          <button onClick={()=>{ setUserFilter(""); setActionFilter("الكل"); setDateFilter("الكل"); }}
+            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>
+        )}
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">النشاطات</h3>
+          <span className="text-xs text-gray-400">{shown.length} نشاط</span>
+        </div>
         <div className="divide-y divide-gray-100">
-          {logs.map((log,i)=>(
+          {shown.map((log,i)=>(
             <div key={i} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 ${log.cls}`}>{log.icon}</div>
-              <div className="flex-1"><p className="text-sm font-medium text-gray-800">{log.action}</p><p className="text-xs text-gray-400">{log.user}</p></div>
-              <span className="text-xs text-gray-400">{log.time}</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 bg-gray-50">{log.icon}</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">{log.action}</p>
+                <p className="text-xs text-gray-400">{log.user}</p>
+              </div>
+              <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{log.type}</span>
+              <span className="text-xs text-gray-400 w-20 text-left flex-shrink-0">{log.time}</span>
             </div>
           ))}
+          {shown.length===0 && (
+            <div className="px-5 py-8 text-center text-gray-400 text-sm">لا توجد نشاطات بالفلاتر المحددة</div>
+          )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -10743,6 +11135,24 @@ function AdminPermissions({}: PageProps) {
   const [editMode,  setEditMode]  = useState(false);
   const [saved,     setSaved]     = useState(false);
   const [changes,   setChanges]   = useState(0);
+  const [cloneFrom, setCloneFrom] = useState("");
+  const [cloneTo,   setCloneTo]   = useState("");
+  const [showClone, setShowClone] = useState(false);
+  const [cloneDone, setCloneDone] = useState(false);
+
+  const handleClone = () => {
+    if(!cloneFrom||!cloneTo||cloneFrom===cloneTo) return;
+    const fromIdx = roles.indexOf(cloneFrom);
+    const toIdx   = roles.indexOf(cloneTo);
+    if(fromIdx<0||toIdx<0) return;
+    setMatrix(prev=>prev.map(row=>({
+      ...row,
+      perms: row.perms.map((p,j)=>j===toIdx?row.perms[fromIdx]:p)
+    })));
+    setCloneDone(true);
+    setChanges(c=>c+3);
+    setTimeout(()=>{ setShowClone(false); setCloneDone(false); setCloneFrom(""); setCloneTo(""); },1000);
+  };
 
   const cyclePermission = (rowIdx:number, colIdx:number) => {
     if (!editMode) return;
@@ -10781,12 +11191,50 @@ function AdminPermissions({}: PageProps) {
             </>
           )}
           {saved && <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">✓ تم الحفظ</Badge>}
+          <button onClick={()=>setShowClone(!showClone)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
+            <Copy size={12}/> نسخ دور
+          </button>
           <button onClick={()=>{ setEditMode(!editMode); if(editMode) resetAll(); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${editMode?"bg-red-50 text-red-600 border border-red-200 hover:bg-red-100":"bg-purple-600 text-white hover:bg-purple-700"}`}>
             {editMode?<><X size={12}/> إلغاء التعديل</>:<><Edit2 size={12}/> تعديل الصلاحيات</>}
           </button>
         </div>
       </div>
+
+      {/* Clone role panel */}
+      {showClone && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <p className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2"><Copy size={14}/> نسخ صلاحيات دور إلى دور آخر</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div>
+              <label className="text-[11px] font-semibold text-blue-700 block mb-1">من دور</label>
+              <select value={cloneFrom} onChange={e=>setCloneFrom(e.target.value)} className="text-sm border border-blue-200 rounded-lg px-3 py-2 bg-white">
+                <option value="">اختر الدور المصدر</option>
+                {roles.map(r=><option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="text-blue-400 mt-4">←</div>
+            <div>
+              <label className="text-[11px] font-semibold text-blue-700 block mb-1">إلى دور</label>
+              <select value={cloneTo} onChange={e=>setCloneTo(e.target.value)} className="text-sm border border-blue-200 rounded-lg px-3 py-2 bg-white">
+                <option value="">اختر الدور الهدف</option>
+                {roles.filter(r=>r!==cloneFrom).map(r=><option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="mt-4">
+              <button onClick={handleClone} disabled={!cloneFrom||!cloneTo}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${cloneDone?"bg-emerald-600 text-white":cloneFrom&&cloneTo?"bg-blue-600 text-white hover:bg-blue-700":"bg-gray-200 text-gray-400 cursor-not-allowed"}`}>
+                {cloneDone?"✓ تم النسخ":"تطبيق النسخ"}
+              </button>
+            </div>
+            <div className="mt-4">
+              <button onClick={()=>setShowClone(false)} className="text-xs text-gray-500 hover:underline">إلغاء</button>
+            </div>
+          </div>
+          <p className="text-[11px] text-blue-600 mt-2">⚠ سيتم استبدال صلاحيات الدور الهدف بصلاحيات الدور المصدر</p>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -10987,25 +11435,67 @@ function BranchSuppliers({}: PageProps) {
 
 function BranchUpload({}: PageProps) {
   const [uploads, setUploads] = useState<Record<string,boolean>>({});
-  const reports = [{id:"sales",name:"تقرير المبيعات اليومي",desc:"POS + التطبيقات",required:true},{id:"inventory",name:"جرد المخزون اليومي",desc:"10 أصناف محددة",required:true},{id:"cash",name:"كشف حساب الصندوق",desc:"نقدي + مدفوعات",required:true},{id:"waste",name:"تقرير الهدر والتالف",desc:"الأصناف التالفة",required:false}];
+  const reports = [
+    {id:"sales",    name:"تقرير المبيعات اليومي",  desc:"POS + التطبيقات",     required:true,  lastUpload:"أمس 11:23 م",  lastStatus:"success", todayDeadline:"11:59 م"},
+    {id:"inventory",name:"جرد المخزون اليومي",      desc:"10 أصناف محددة",      required:true,  lastUpload:"أمس 10:47 م",  lastStatus:"success", todayDeadline:"11:59 م"},
+    {id:"cash",     name:"كشف حساب الصندوق",        desc:"نقدي + مدفوعات",      required:true,  lastUpload:"13 أكت 09:15 ص",lastStatus:"late",    todayDeadline:"10:00 ص"},
+    {id:"waste",    name:"تقرير الهدر والتالف",     desc:"الأصناف التالفة",     required:false, lastUpload:"12 أكت 10:30 ص",lastStatus:"success", todayDeadline:"اختياري"},
+    {id:"purchases",name:"طلبات الشراء",             desc:"الكميات والأصناف",    required:true,  lastUpload:"لم يُرفع بعد",  lastStatus:"missing", todayDeadline:"02:00 م"},
+    {id:"expenses", name:"المصروفات اليومية",        desc:"فواتير + مستندات",    required:false, lastUpload:"أمس 08:55 م",  lastStatus:"success", todayDeadline:"اختياري"},
+  ];
+  const dueToday = reports.filter(r=>r.required && !uploads[r.id] && r.lastStatus!=="success");
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">رفع البيانات اليومية</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {reports.map(rep=>(
-          <div key={rep.id} className={`bg-white rounded-xl border shadow-sm p-4 ${uploads[rep.id]?"border-emerald-200 bg-emerald-50/30":"border-gray-100"}`}>
-            <div className="flex items-start justify-between mb-3">
-              <div><p className="font-semibold text-sm text-gray-800">{rep.name}</p><p className="text-xs text-gray-400 mt-0.5">{rep.desc}</p></div>
-              {rep.required && <Badge className="bg-red-50 text-red-700">مطلوب</Badge>}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-800">رفع البيانات اليومية</h2>
+        <span className="text-sm text-gray-400">التاريخ: 14 أكتوبر 2025</span>
+      </div>
+
+      {dueToday.length>0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5"/>
+          <div>
+            <p className="text-sm font-bold text-amber-800 mb-1">تقارير مطلوبة اليوم لم تُرفع بعد</p>
+            <div className="flex flex-wrap gap-2">
+              {dueToday.map(r=>(
+                <span key={r.id} className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-medium border border-amber-200">
+                  {r.name} · موعد: {r.todayDeadline}
+                </span>
+              ))}
             </div>
-            {uploads[rep.id]
-              ? <div className="flex items-center gap-2 text-emerald-700 text-sm"><CheckCircle2 size={16}/><span className="font-medium">تم الرفع بنجاح</span></div>
-              : <div onClick={()=>setUploads(p=>({...p,[rep.id]:true}))} className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all">
-                  <Upload size={20} className="text-gray-300 mx-auto mb-1"/><p className="text-xs text-gray-400">اضغط لرفع الملف</p>
-                </div>
-            }
           </div>
-        ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        {reports.map(rep=>{
+          const statusIcon = rep.lastStatus==="success"?"✅":rep.lastStatus==="late"?"⚠️":"❌";
+          const statusCls  = rep.lastStatus==="success"?"text-emerald-600":rep.lastStatus==="late"?"text-amber-600":"text-red-600";
+          const alreadyUploaded = uploads[rep.id];
+          return (
+            <div key={rep.id} className={`bg-white rounded-xl border shadow-sm p-4 ${alreadyUploaded?"border-emerald-200 bg-emerald-50/30":rep.lastStatus==="missing"?"border-red-200":rep.lastStatus==="late"?"border-amber-200":"border-gray-100"}`}>
+              <div className="flex items-start justify-between mb-2">
+                <div><p className="font-semibold text-sm text-gray-800">{rep.name}</p><p className="text-xs text-gray-400 mt-0.5">{rep.desc}</p></div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {rep.required && <Badge className="bg-red-50 text-red-700 text-[10px]">مطلوب</Badge>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs mb-3">
+                <span className={statusCls}>{statusIcon}</span>
+                <span className="text-gray-500">آخر رفع: <span className={`font-medium ${statusCls}`}>{rep.lastUpload}</span></span>
+                {rep.todayDeadline!=="اختياري" && !alreadyUploaded && (
+                  <span className="text-gray-400 mr-auto">الموعد: {rep.todayDeadline}</span>
+                )}
+              </div>
+              {alreadyUploaded
+                ? <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 rounded-lg px-3 py-2"><CheckCircle2 size={14}/><span className="font-medium">تم الرفع بنجاح — اليوم</span></div>
+                : <div onClick={()=>setUploads(p=>({...p,[rep.id]:true}))} className="border-2 border-dashed border-gray-300 rounded-xl p-3 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/20 transition-all">
+                    <Upload size={18} className="text-gray-300 mx-auto mb-1"/><p className="text-xs text-gray-400">اضغط لرفع الملف</p>
+                  </div>
+              }
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -11084,26 +11574,42 @@ const PROC_ITEMS: Record<string, PurItem[]> = {
 
 function ProcNewOrders({}: PageProps) {
   const [orders, setOrders] = useState([
-    { id:"PO-101", branch:"فرع الرياض - العليا", supplier:"شركة الدواجن الوطنية",  items:4, total:4800, urgency:"عادي", status:"pending" as const, time:"قبل 30 دقيقة" },
-    { id:"PO-102", branch:"فرع الرياض - العليا", supplier:"شركة الدواجن الوطنية",  items:2, total:2200, urgency:"عادي", status:"pending" as const, time:"قبل ساعة" },
-    { id:"PO-103", branch:"فرع الرياض - العليا", supplier:"مطاحن الملك",             items:3, total:1900, urgency:"عادي", status:"pending" as const, time:"قبل ساعتين" },
-    { id:"PO-104", branch:"فرع جدة - الحمراء",   supplier:"شركة الدواجن الوطنية",  items:6, total:8200, urgency:"عاجل", status:"pending" as const, time:"قبل ساعة" },
-    { id:"PO-105", branch:"فرع جدة - الحمراء",   supplier:"مزرعة الخير",            items:4, total:5400, urgency:"عاجل", status:"pending" as const, time:"قبل ساعتين" },
-    { id:"PO-106", branch:"فرع مكة - المعابدة",  supplier:"مطاحن الملك",            items:3, total:3100, urgency:"عادي", status:"pending" as const, time:"قبل ساعتين" },
-    { id:"PO-107", branch:"فرع الدمام",           supplier:"مزرعة الخير",            items:5, total:5600, urgency:"عاجل", status:"pending" as const, time:"قبل 3 ساعات" },
+    { id:"PO-101", branch:"فرع الرياض - العليا", city:"الرياض",  supplier:"شركة الدواجن الوطنية",  items:4, total:4800, urgency:"عادي", status:"pending" as "pending"|"approved", time:"قبل 30 دقيقة" },
+    { id:"PO-102", branch:"فرع الرياض - العليا", city:"الرياض",  supplier:"شركة الدواجن الوطنية",  items:2, total:2200, urgency:"عادي", status:"pending" as "pending"|"approved", time:"قبل ساعة" },
+    { id:"PO-103", branch:"فرع الرياض - العليا", city:"الرياض",  supplier:"مطاحن الملك",            items:3, total:1900, urgency:"عادي", status:"pending" as "pending"|"approved", time:"قبل ساعتين" },
+    { id:"PO-104", branch:"فرع جدة - الحمراء",   city:"جدة",     supplier:"شركة الدواجن الوطنية",  items:6, total:8200, urgency:"عاجل", status:"pending" as "pending"|"approved", time:"قبل ساعة" },
+    { id:"PO-105", branch:"فرع جدة - الحمراء",   city:"جدة",     supplier:"مزرعة الخير",            items:4, total:5400, urgency:"عاجل", status:"pending" as "pending"|"approved", time:"قبل ساعتين" },
+    { id:"PO-106", branch:"فرع مكة - المعابدة",  city:"مكة",     supplier:"مطاحن الملك",            items:3, total:3100, urgency:"عادي", status:"pending" as "pending"|"approved", time:"قبل ساعتين" },
+    { id:"PO-107", branch:"فرع الدمام",           city:"الدمام",  supplier:"مزرعة الخير",            items:5, total:5600, urgency:"عاجل", status:"pending" as "pending"|"approved", time:"قبل 3 ساعات" },
   ]);
   const [groupBy, setGroupBy] = useState<"branch"|"supplier">("branch");
   const [expandedId, setExpandedId] = useState<string|null>(null);
+  const [filterCity, setFilterCity]         = useState("الكل");
+  const [filterSupplier, setFilterSupplier] = useState("الكل");
+  const [filterUrgency, setFilterUrgency]   = useState("الكل");
+  const [partialRejectId, setPartialRejectId] = useState<string|null>(null);
+  const [partialRejectReason, setPartialRejectReason] = useState("");
 
   const approveOne      = (id:string)     => setOrders(p=>p.map(o=>o.id===id?{...o,status:"approved" as const}:o));
   const approveByBranch = (branch:string) => setOrders(p=>p.map(o=>o.branch===branch&&o.status==="pending"?{...o,status:"approved" as const}:o));
   const approveBySupplier = (sup:string)  => setOrders(p=>p.map(o=>o.supplier===sup&&o.status==="pending"?{...o,status:"approved" as const}:o));
   const approveAll      = ()              => setOrders(p=>p.map(o=>({...o,status:"approved" as const})));
 
-  const pending = orders.filter(o=>o.status==="pending");
+  const cityList     = ["الكل",...[...new Set(orders.map(o=>o.city))]];
+  const supplierList = ["الكل",...[...new Set(orders.map(o=>o.supplier))]];
+
+  // Apply filters
+  const filteredOrders = orders.filter(o=>{
+    if(filterCity!=="الكل" && o.city!==filterCity) return false;
+    if(filterSupplier!=="الكل" && o.supplier!==filterSupplier) return false;
+    if(filterUrgency!=="الكل" && o.urgency!==filterUrgency) return false;
+    return true;
+  });
+
+  const pending = filteredOrders.filter(o=>o.status==="pending");
 
   // Group orders
-  const groupKeys = [...new Set(orders.map(o=>groupBy==="branch"?o.branch:o.supplier))];
+  const groupKeys = [...new Set(filteredOrders.map(o=>groupBy==="branch"?o.branch:o.supplier))];
 
   return (
     <div className="space-y-5" dir="rtl">
@@ -11119,6 +11625,36 @@ function ProcNewOrders({}: PageProps) {
         <KpiCard label="طلبات جديدة معلقة" value={String(pending.length)} sub="من الفروع" icon={<ShoppingCart size={18} className="text-amber-600"/>} accent="amber"/>
         <KpiCard label="تم اعتمادها" value={String(orders.filter(o=>o.status==="approved").length)} sub="هذا الجلسة" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
         <KpiCard label="الموردون المعنيون" value={String(new Set(pending.map(o=>o.supplier)).size)} sub="يحتاجون موافقة" icon={<Truck size={18} className="text-blue-600"/>} accent="blue"/>
+      </div>
+
+      {/* Filters panel */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المدينة</label>
+            <select value={filterCity} onChange={e=>setFilterCity(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {cityList.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">المورد</label>
+            <select value={filterSupplier} onChange={e=>setFilterSupplier(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {supplierList.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">الأولوية</label>
+            <select value={filterUrgency} onChange={e=>setFilterUrgency(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","عاجل","عادي"].map(u=><option key={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
+        {(filterCity!=="الكل"||filterSupplier!=="الكل"||filterUrgency!=="الكل") && (
+          <button onClick={()=>{setFilterCity("الكل");setFilterSupplier("الكل");setFilterUrgency("الكل");}}
+            className="mt-2 text-xs text-purple-600 hover:underline flex items-center gap-1">
+            <RotateCcw size={11}/> مسح الفلاتر · يظهر {filteredOrders.length} من {orders.length} طلب
+          </button>
+        )}
       </div>
 
       {/* Consumption notice */}
@@ -11148,7 +11684,7 @@ function ProcNewOrders({}: PageProps) {
       {/* Grouped orders */}
       <div className="space-y-3">
         {groupKeys.map(groupKey=>{
-          const groupOrders = orders.filter(o=>(groupBy==="branch"?o.branch:o.supplier)===groupKey);
+          const groupOrders = filteredOrders.filter(o=>(groupBy==="branch"?o.branch:o.supplier)===groupKey);
           const groupPending = groupOrders.filter(o=>o.status==="pending");
           const groupTotal   = groupOrders.reduce((s,o)=>s+o.total,0);
           return (
@@ -11267,11 +11803,38 @@ function ProcNewOrders({}: PageProps) {
                         </div>
                       )}
                       {r.status==="pending" && (
-                        <div className="flex gap-2 pt-1">
-                          <Btn size="sm" variant="success" onClick={()=>{ approveOne(r.id); setExpandedId(null); }}><CheckCircle2 size={12}/> اعتماد بعد المراجعة</Btn>
-                          <Btn size="sm" variant="danger"><ThumbsDown size={12}/> رفض مع ملاحظة</Btn>
-                          <Btn size="sm" onClick={()=>setExpandedId(null)}>إغلاق</Btn>
-                        </div>
+                        partialRejectId===r.id ? (
+                          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2 mt-1" dir="rtl">
+                            <p className="text-xs font-bold text-orange-800">⚠ رفض جزئي — اذكر سبب الرفض وحدد الأصناف</p>
+                            <select className="w-full text-sm border border-orange-200 rounded-lg px-3 py-2 bg-white">
+                              <option value="">— اختر سبب الرفض الجزئي —</option>
+                              <option>سعر أعلى من المتفق عليه</option>
+                              <option>كمية أعلى من الحاجة الفعلية</option>
+                              <option>صنف غير مطلوب حالياً</option>
+                              <option>مشكلة في المورد</option>
+                              <option>أخرى</option>
+                            </select>
+                            <input value={partialRejectReason} onChange={e=>setPartialRejectReason(e.target.value)}
+                              placeholder="ملاحظة إضافية (اختياري)..."
+                              className="w-full text-sm border border-orange-200 rounded-lg px-3 py-2 bg-white outline-none"/>
+                            <div className="flex gap-2">
+                              <Btn size="sm" variant="danger" onClick={()=>{setPartialRejectId(null);setPartialRejectReason("");setExpandedId(null);}}>
+                                <ThumbsDown size={11}/> تأكيد الرفض الجزئي
+                              </Btn>
+                              <Btn size="sm" onClick={()=>setPartialRejectId(null)}>إلغاء</Btn>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 pt-1 flex-wrap">
+                            <Btn size="sm" variant="success" onClick={()=>{ approveOne(r.id); setExpandedId(null); }}><CheckCircle2 size={12}/> اعتماد بعد المراجعة</Btn>
+                            <button onClick={()=>setPartialRejectId(r.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 text-xs font-semibold hover:bg-orange-100">
+                              <AlertTriangle size={11}/> رفض جزئي
+                            </button>
+                            <Btn size="sm" variant="danger"><ThumbsDown size={12}/> رفض كلي</Btn>
+                            <Btn size="sm" onClick={()=>setExpandedId(null)}>إغلاق</Btn>
+                          </div>
+                        )
                       )}
                     </div>
                   )}
@@ -11286,18 +11849,156 @@ function ProcNewOrders({}: PageProps) {
 }
 
 function ProcGrouped({}: PageProps) {
+  const [viewMode, setViewMode] = useState<"supplier"|"city">("supplier");
+  const [expandedGroup, setExpandedGroup] = useState<string|null>(null);
+
+  const supplierGroups = [
+    { key:"شركة الدواجن الوطنية", city:"الرياض / جدة / الدمام", branches:12, items:[
+      {name:"دجاج طازج",   unit:"كجم", totalQty:680, maxCapacity:700, price:32},
+      {name:"صدر دجاج",    unit:"كجم", totalQty:320, maxCapacity:300, price:45},
+      {name:"أجنحة دجاج",  unit:"كجم", totalQty:220, maxCapacity:250, price:38},
+    ], total:28400 },
+    { key:"مطاحن الملك", city:"الرياض / مكة", branches:8, items:[
+      {name:"دقيق أبيض",   unit:"كجم", totalQty:1200, maxCapacity:1500, price:18},
+      {name:"سكر ناعم",    unit:"كجم", totalQty:480,  maxCapacity:500,  price:14},
+    ], total:14200 },
+    { key:"مزرعة الخير", city:"جدة / مكة / الدمام", branches:15, items:[
+      {name:"خضار متنوعة", unit:"كجم", totalQty:540,  maxCapacity:400, price:12},
+      {name:"طماطم طازجة", unit:"كجم", totalQty:310,  maxCapacity:350, price:8},
+      {name:"خيار طازج",   unit:"كجم", totalQty:185,  maxCapacity:200, price:9},
+      {name:"ثوم",          unit:"كجم", totalQty:95,   maxCapacity:80,  price:22},
+      {name:"بصل",          unit:"كجم", totalQty:260,  maxCapacity:300, price:7},
+      {name:"فلفل",         unit:"كجم", totalQty:130,  maxCapacity:100, price:15},
+    ], total:32100 },
+  ];
+
+  const cityGroups = [
+    { city:"الرياض",  ordersCount:3, total:8900,  suppliers:["شركة الدواجن الوطنية","مطاحن الملك"],     urgentCount:0 },
+    { city:"جدة",     ordersCount:2, total:13600, suppliers:["شركة الدواجن الوطنية","مزرعة الخير"],     urgentCount:2 },
+    { city:"مكة",     ordersCount:1, total:3100,  suppliers:["مطاحن الملك"],                            urgentCount:0 },
+    { city:"الدمام",  ordersCount:1, total:5600,  suppliers:["مزرعة الخير"],                            urgentCount:1 },
+  ];
+
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-bold text-gray-800">الطلبات المجمعة</h2>
-      <Card title="مجمعة حسب المورد">
-        {[{supplier:"شركة الدواجن الوطنية",branches:12,items:3,total:28400},{supplier:"مطاحن الملك",branches:8,items:2,total:14200},{supplier:"مزرعة الخير",branches:15,items:6,total:32100}].map((g,i)=>(
-          <div key={i} className="px-5 py-4 flex items-center gap-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
-            <div className="flex-1"><p className="font-semibold text-sm text-gray-800">{g.supplier}</p><p className="text-xs text-gray-400 mt-1">{g.branches} فرع · {g.items} أصناف</p></div>
-            <span className="font-mono font-bold text-gray-800">{fmtAmt(g.total)} ر.س</span>
-            <div className="flex gap-1.5"><Btn size="sm"><Eye size={12}/> تفاصيل</Btn><Btn size="sm" variant="primary"><Truck size={12}/> إرسال للمورد</Btn></div>
-          </div>
-        ))}
-      </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">الطلبات المجمعة</h2>
+          <p className="text-gray-400 text-sm mt-0.5">راجع الكميات المجمعة ونبّه إن تجاوزت طاقة المورد</p>
+        </div>
+        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+          {(["supplier","city"] as const).map(m=>(
+            <button key={m} onClick={()=>setViewMode(m)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode===m?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+              {m==="supplier"?"بالمورد":"بالمدينة"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {viewMode==="supplier" ? (
+        <div className="space-y-3">
+          {supplierGroups.map((g,i)=>{
+            const hasOverCapacity = g.items.some(it=>it.totalQty>it.maxCapacity);
+            return (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50"
+                  onClick={()=>setExpandedGroup(expandedGroup===g.key?null:g.key)}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm text-gray-800">{g.key}</p>
+                      {hasOverCapacity && <Badge className="bg-red-50 text-red-700 border border-red-200 text-[10px]">⚠ تجاوز الطاقة</Badge>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{g.branches} فرع · {g.items.length} أصناف · {g.city}</p>
+                  </div>
+                  <span className="font-mono font-bold text-gray-800">{fmtAmt(g.total)} ر.س</span>
+                  <div className="flex gap-1.5" onClick={e=>e.stopPropagation()}>
+                    <Btn size="sm"><Eye size={12}/> تفاصيل</Btn>
+                    <Btn size="sm" variant="primary"><Truck size={12}/> إرسال للمورد</Btn>
+                  </div>
+                  {expandedGroup===g.key?<ChevronUp size={13} className="text-gray-400 flex-shrink-0"/>:<ChevronDown size={13} className="text-gray-400 flex-shrink-0"/>}
+                </div>
+                {expandedGroup===g.key && (
+                  <div className="border-t border-gray-100 p-4 bg-gray-50/50">
+                    <table className="w-full text-xs" dir="rtl">
+                      <thead><tr className="text-gray-500">
+                        <th className="text-right py-1">الصنف</th>
+                        <th className="text-center py-1">الوحدة</th>
+                        <th className="text-center py-1">الكمية الكلية</th>
+                        <th className="text-center py-1 text-amber-700">الطاقة القصوى</th>
+                        <th className="text-center py-1">الحالة</th>
+                        <th className="text-center py-1">سعر الوحدة</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {g.items.map((it,j)=>{
+                          const pct = Math.round(it.totalQty/it.maxCapacity*100);
+                          const over = it.totalQty>it.maxCapacity;
+                          return (
+                            <tr key={j} className={over?"bg-red-50/40":""}>
+                              <td className="py-2 font-medium text-gray-800">{it.name}</td>
+                              <td className="py-2 text-center text-gray-500">{it.unit}</td>
+                              <td className="py-2 text-center font-mono font-bold text-gray-800">{it.totalQty}</td>
+                              <td className="py-2 text-center font-mono text-amber-700">{it.maxCapacity}</td>
+                              <td className="py-2 text-center">
+                                <div className="w-20 mx-auto">
+                                  <div className="w-full bg-gray-100 rounded-full h-1.5 mb-0.5">
+                                    <div className={`h-1.5 rounded-full ${over?"bg-red-500":pct>80?"bg-amber-500":"bg-emerald-500"}`} style={{width:`${Math.min(pct,100)}%`}}/>
+                                  </div>
+                                  <p className={`text-[9px] font-bold ${over?"text-red-600":pct>80?"text-amber-600":"text-emerald-600"}`}>
+                                    {over?`تجاوز بـ ${it.totalQty-it.maxCapacity} ${it.unit}`:`${pct}%`}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="py-2 text-center font-mono text-blue-700">{it.price} ر.س</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {hasOverCapacity && (
+                      <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                        <AlertTriangle size={12} className="text-red-500 flex-shrink-0"/>
+                        <p className="text-[11px] text-red-700">
+                          <strong>تحذير:</strong> بعض الأصناف تتجاوز الطاقة الاستيعابية للمورد — يُنصح بتوزيع الكمية على مورد احتياطي.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {cityGroups.map((cg,i)=>(
+            <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">🏙</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-gray-800">{cg.city}</p>
+                    {cg.urgentCount>0 && <Badge className="bg-red-50 text-red-700 text-[10px]">{cg.urgentCount} عاجل</Badge>}
+                  </div>
+                  <p className="text-xs text-gray-400">{cg.ordersCount} طلب · {cg.suppliers.length} موردون</p>
+                </div>
+                <span className="font-mono font-bold text-purple-700">{fmtAmt(cg.total)} ر.س</span>
+              </div>
+              <div className="space-y-1 text-xs text-gray-600">
+                {cg.suppliers.map((s,j)=>(
+                  <div key={j} className="flex items-center gap-1.5 py-1 border-b border-gray-50 last:border-0">
+                    <Truck size={10} className="text-gray-400"/>
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+              <button className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs py-2 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 font-semibold transition-colors">
+                <Eye size={11}/> عرض طلبات {cg.city}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -11564,11 +12265,54 @@ function ProcItems({}: PageProps) {
 }
 
 function ProcSuppliers({}: PageProps) {
+  const [expandedSup, setExpandedSup] = useState<string|null>(null);
+  const [activeTab, setActiveTab] = useState<"deliveries"|"prices">("deliveries");
+
   const suppliers = [
-    {name:"شركة الدواجن الوطنية",category:"لحوم ودواجن",contact:"0553421100",rating:4.8,orders:42,monthlyTotal:148000,onTime:96,status:"نشط"},
-    {name:"مطاحن الملك",category:"مواد جافة",contact:"0112345678",rating:4.5,orders:28,monthlyTotal:62000,onTime:91,status:"نشط"},
-    {name:"مزرعة الخير",category:"خضروات وفواكه",contact:"0564312200",rating:4.2,orders:35,monthlyTotal:38500,onTime:84,status:"نشط"},
-    {name:"مستودعات البحر",category:"مأكولات بحرية",contact:"0126789000",rating:3.8,orders:15,monthlyTotal:22000,onTime:77,status:"موقوف مؤقتاً"},
+    { name:"شركة الدواجن الوطنية", category:"لحوم ودواجن", contact:"0553421100", rating:4.8, orders:42, monthlyTotal:148000, onTime:96, status:"نشط",
+      deliveries:[
+        {date:"14 أكتوبر 2025", items:"دجاج طازج 200كجم", status:"في الموعد", rating:5, note:"جودة ممتازة"},
+        {date:"7 أكتوبر 2025",  items:"صدر دجاج 100كجم",  status:"في الموعد", rating:5, note:""},
+        {date:"1 أكتوبر 2025",  items:"دجاج طازج 180كجم", status:"تأخر يوم",  rating:3, note:"تأخر بسبب ظروف الطقس"},
+        {date:"24 سبتمبر 2025", items:"أجنحة دجاج 80كجم",  status:"في الموعد", rating:5, note:""},
+        {date:"17 سبتمبر 2025", items:"دجاج طازج 200كجم", status:"في الموعد", rating:4, note:"كمية ناقصة 5كجم"},
+      ],
+      priceHistory:[
+        {item:"دجاج طازج",  unit:"كجم", prices:[{month:"أغسطس",price:30},{month:"سبتمبر",price:31},{month:"أكتوبر",price:32}]},
+        {item:"صدر دجاج",   unit:"كجم", prices:[{month:"أغسطس",price:43},{month:"سبتمبر",price:43},{month:"أكتوبر",price:45}]},
+      ]
+    },
+    { name:"مطاحن الملك", category:"مواد جافة", contact:"0112345678", rating:4.5, orders:28, monthlyTotal:62000, onTime:91, status:"نشط",
+      deliveries:[
+        {date:"12 أكتوبر 2025", items:"دقيق أبيض 500كجم", status:"في الموعد", rating:5, note:""},
+        {date:"5 أكتوبر 2025",  items:"سكر ناعم 200كجم",  status:"في الموعد", rating:4, note:""},
+        {date:"28 سبتمبر 2025", items:"دقيق أبيض 400كجم", status:"تأخر يومين", rating:2, note:"تأخر ملحوظ — جاري التوثيق"},
+      ],
+      priceHistory:[
+        {item:"دقيق أبيض", unit:"كجم", prices:[{month:"أغسطس",price:17},{month:"سبتمبر",price:18},{month:"أكتوبر",price:18}]},
+        {item:"سكر ناعم",  unit:"كجم", prices:[{month:"أغسطس",price:13},{month:"سبتمبر",price:14},{month:"أكتوبر",price:14}]},
+      ]
+    },
+    { name:"مزرعة الخير", category:"خضروات وفواكه", contact:"0564312200", rating:4.2, orders:35, monthlyTotal:38500, onTime:84, status:"نشط",
+      deliveries:[
+        {date:"13 أكتوبر 2025", items:"خضار متنوعة 150كجم", status:"في الموعد", rating:4, note:""},
+        {date:"9 أكتوبر 2025",  items:"طماطم 100كجم",       status:"تأخر يوم",  rating:3, note:""},
+        {date:"5 أكتوبر 2025",  items:"خيار طازج 60كجم",    status:"في الموعد", rating:5, note:"جودة ممتازة"},
+      ],
+      priceHistory:[
+        {item:"خضار متنوعة", unit:"كجم", prices:[{month:"أغسطس",price:11},{month:"سبتمبر",price:11},{month:"أكتوبر",price:12}]},
+        {item:"طماطم",        unit:"كجم", prices:[{month:"أغسطس",price:8},{month:"سبتمبر",price:8},{month:"أكتوبر",price:8}]},
+      ]
+    },
+    { name:"مستودعات البحر", category:"مأكولات بحرية", contact:"0126789000", rating:3.8, orders:15, monthlyTotal:22000, onTime:77, status:"موقوف مؤقتاً",
+      deliveries:[
+        {date:"3 أكتوبر 2025",  items:"سمك 80كجم",     status:"تأخر 3 أيام", rating:1, note:"تجاوز الحد المقبول — تم تعليق المورد"},
+        {date:"25 سبتمبر 2025", items:"روبيان 40كجم",   status:"في الموعد",   rating:4, note:""},
+      ],
+      priceHistory:[
+        {item:"سمك طازج", unit:"كجم", prices:[{month:"أغسطس",price:55},{month:"سبتمبر",price:58},{month:"أكتوبر",price:60}]},
+      ]
+    },
   ];
   const totalMonthly = suppliers.reduce((s,sup)=>s+sup.monthlyTotal,0);
 
@@ -11582,42 +12326,118 @@ function ProcSuppliers({}: PageProps) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        {suppliers.map((sup,i)=>(
-          <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{sup.name[0]}</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-gray-800 text-sm">{sup.name}</p>
-                  <Badge className={sup.status==="نشط"?"bg-emerald-50 text-emerald-700":"bg-amber-50 text-amber-700"}>{sup.status}</Badge>
+        {suppliers.map((sup,i)=>{
+          const isExpanded = expandedSup===sup.name;
+          const avgDeliveryRating = sup.deliveries.reduce((s,d)=>s+d.rating,0)/sup.deliveries.length;
+          return (
+          <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{sup.name[0]}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-gray-800 text-sm">{sup.name}</p>
+                    <Badge className={sup.status==="نشط"?"bg-emerald-50 text-emerald-700":"bg-amber-50 text-amber-700"}>{sup.status}</Badge>
+                  </div>
+                  <p className="text-xs text-gray-400">{sup.category} · {sup.contact}</p>
                 </div>
-                <p className="text-xs text-gray-400">{sup.category} · {sup.contact}</p>
+                <div className="flex items-center gap-0.5">
+                  {[1,2,3,4,5].map(s=><Star key={s} size={10} fill={s<=Math.round(sup.rating)?"#F59E0B":"none"} className={s<=Math.round(sup.rating)?"text-amber-400":"text-gray-200"}/>)}
+                  <span className="text-[10px] text-gray-500 mr-1">{sup.rating}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-0.5">
-                {[1,2,3,4,5].map(s=><Star key={s} size={10} fill={s<=Math.round(sup.rating)?"#F59E0B":"none"} className={s<=Math.round(sup.rating)?"text-amber-400":"text-gray-200"}/>)}
-                <span className="text-[10px] text-gray-500 mr-1">{sup.rating}</span>
+              <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[9px] text-gray-400">الطلبات</p>
+                  <p className="font-bold text-gray-800">{sup.orders}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[9px] text-gray-400">الشهري</p>
+                  <p className="font-bold text-purple-700 font-mono text-xs">{(sup.monthlyTotal/1000).toFixed(0)}K</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-[9px] text-gray-400">الالتزام</p>
+                  <p className={`font-bold ${sup.onTime>=90?"text-emerald-600":sup.onTime>=80?"text-amber-600":"text-red-600"}`}>{sup.onTime}%</p>
+                </div>
+              </div>
+              <div className="mt-2.5 flex gap-2">
+                <Btn size="sm" variant="primary" className="flex-1"><ShoppingCart size={11}/> طلب جديد</Btn>
+                <button onClick={()=>setExpandedSup(isExpanded?null:sup.name)}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${isExpanded?"bg-purple-600 text-white border-purple-600":"bg-white text-purple-600 border-purple-200 hover:bg-purple-50"}`}>
+                  <Eye size={11}/> {isExpanded?"إخفاء":"التسليمات والأسعار"}
+                </button>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[9px] text-gray-400">الطلبات</p>
-                <p className="font-bold text-gray-800">{sup.orders}</p>
+            {isExpanded && (
+              <div className="border-t border-gray-100">
+                <div className="flex gap-0 border-b border-gray-100">
+                  {(["deliveries","prices"] as const).map(t=>(
+                    <button key={t} onClick={()=>setActiveTab(t)}
+                      className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${activeTab===t?"bg-purple-50 text-purple-700 border-b-2 border-purple-600":"text-gray-500 hover:text-gray-700"}`}>
+                      {t==="deliveries"?"📦 سجل التسليمات":"💰 مقارنة الأسعار"}
+                    </button>
+                  ))}
+                </div>
+                {activeTab==="deliveries" ? (
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-bold text-gray-600">آخر {sup.deliveries.length} تسليمات</p>
+                      <span className="text-[10px] text-gray-400">متوسط التقييم: {avgDeliveryRating.toFixed(1)}/5</span>
+                    </div>
+                    {sup.deliveries.map((d,j)=>(
+                      <div key={j} className={`flex items-start gap-2 p-2 rounded-lg border ${d.status.includes("تأخر")?"border-red-100 bg-red-50/40":"border-gray-100 bg-gray-50/60"}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-700">{d.items}</p>
+                          <p className="text-[10px] text-gray-400">{d.date}</p>
+                          {d.note && <p className="text-[10px] text-amber-600 mt-0.5">{d.note}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <Badge className={d.status.includes("تأخر")?"bg-red-50 text-red-700 border border-red-100 text-[9px]":"bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px]"}>{d.status}</Badge>
+                          <div className="flex items-center gap-0.5">
+                            {[1,2,3,4,5].map(s=><Star key={s} size={8} fill={s<=d.rating?"#F59E0B":"none"} className={s<=d.rating?"text-amber-400":"text-gray-200"}/>)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3">
+                    <p className="text-[11px] font-bold text-gray-600 mb-3">تاريخ الأسعار — آخر 3 أشهر</p>
+                    <table className="w-full text-xs" dir="rtl">
+                      <thead><tr className="text-gray-400 text-[10px]">
+                        <th className="text-right pb-1.5">الصنف</th>
+                        <th className="text-center pb-1.5">أغسطس</th>
+                        <th className="text-center pb-1.5">سبتمبر</th>
+                        <th className="text-center pb-1.5">أكتوبر</th>
+                        <th className="text-center pb-1.5">التغيير</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {sup.priceHistory.map((ph,k)=>{
+                          const first=ph.prices[0].price; const last=ph.prices[ph.prices.length-1].price;
+                          const change=last-first;
+                          return (
+                            <tr key={k}>
+                              <td className="py-1.5 font-medium text-gray-700">{ph.item} <span className="text-gray-400">/{ph.unit}</span></td>
+                              {ph.prices.map((p,m)=>(
+                                <td key={m} className="py-1.5 text-center font-mono">{p.price} ر.س</td>
+                              ))}
+                              <td className="py-1.5 text-center">
+                                <span className={`font-bold text-[10px] ${change>0?"text-red-600":change<0?"text-emerald-600":"text-gray-400"}`}>
+                                  {change>0?`↑ +${change}`:change<0?`↓ ${change}`:"—"} ر.س
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[9px] text-gray-400">الشهري</p>
-                <p className="font-bold text-purple-700 font-mono text-xs">{(sup.monthlyTotal/1000).toFixed(0)}K</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-[9px] text-gray-400">الالتزام</p>
-                <p className={`font-bold ${sup.onTime>=90?"text-emerald-600":sup.onTime>=80?"text-amber-600":"text-red-600"}`}>{sup.onTime}%</p>
-              </div>
-            </div>
-            <div className="mt-2.5 flex gap-2">
-              <Btn size="sm" variant="primary" className="flex-1"><ShoppingCart size={11}/> طلب جديد</Btn>
-              <Btn size="sm" className="flex-1"><Eye size={11}/> السجل</Btn>
-            </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-700">إجمالي الإنفاق الشهري على الموردين</span>
