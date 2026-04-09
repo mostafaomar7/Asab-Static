@@ -360,6 +360,7 @@ const NAV:Record<CRole,NavEntry[]> = {
     { id:"head-expenses",   label:"المصروفات",           icon:<Wallet size={16}/>          },
     { id:"head-purchases",  label:"المشتريات",           icon:<ShoppingCart size={16}/>    },
     { id:"head-inventory",  label:"المخزون",             icon:<Package size={16}/>         },
+    { id:"head-waste",      label:"الهدر والتالف",      icon:<AlertTriangle size={16}/>   },
     { id:"head-assets",     label:"الأصول الثابتة",     icon:<Building2 size={16}/>       },
     { id:"head-shifts",     label:"الشفتات",             icon:<Clock size={16}/>           },
     { id:"head-employees",  label:"كشف حساب الموظفين",  icon:<Users size={16}/>           },
@@ -3088,6 +3089,7 @@ function PageRouter({ role, page, navigate, ops, approve, reject, bulkApprove, f
     if(page==="head-expenses")    return <HeadModulePage moduleKey="expenses"  title="مصروفات — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
     if(page==="head-purchases")   return <HeadModulePage moduleKey="purchases" title="مشتريات — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
     if(page==="head-inventory")   return <HeadModulePage moduleKey="inventory" title="مخزون — اعتماد نهائي"     ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-waste")       return <AccCompanyWaste/>;
     if(page==="head-assets")      return <HeadModulePage moduleKey="assets"    title="أصول — اعتماد نهائي"      ops={ops} finalApprove={finalApprove} reject={reject}/>;
     if(page==="head-shifts")      return <HeadModulePage moduleKey="shifts"    title="ورديات — اعتماد نهائي"    ops={ops} finalApprove={finalApprove} reject={reject}/>;
     if(page==="head-employees")   return <HeadModulePage moduleKey="employees" title="موظفون — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
