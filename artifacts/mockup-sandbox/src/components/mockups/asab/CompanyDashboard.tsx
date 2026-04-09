@@ -337,58 +337,78 @@ const isSection = (e:NavEntry): e is {section:string} => "section" in e;
 const NAV:Record<CRole,NavEntry[]> = {
   "company-admin":[
     { section:"لوحة التحكم" },
-    { id:"ca-dashboard",    label:"الرئيسية",          icon:<LayoutDashboard size={16}/> },
-    { id:"ca-subscription", label:"الاشتراك والخطة",   icon:<CreditCard size={16}/>      },
-    { id:"ca-users",        label:"إدارة المستخدمين",  icon:<Users size={16}/>           },
-    { id:"ca-branches",     label:"العلامات والفروع",  icon:<Building2 size={16}/>       },
-    { id:"ca-modules",      label:"الوحدات النشطة",    icon:<Package size={16}/>         },
+    { id:"ca-dashboard",    label:"الرئيسية",           icon:<LayoutDashboard size={16}/> },
+    { id:"ca-subscription", label:"الاشتراك والخطة",    icon:<CreditCard size={16}/>      },
+    { id:"ca-users",        label:"إدارة المستخدمين",   icon:<Users size={16}/>           },
+    { id:"ca-branches",     label:"العلامات والفروع",   icon:<Building2 size={16}/>       },
+    { id:"ca-modules",      label:"الوحدات النشطة",     icon:<Package size={16}/>         },
     { section:"المالية" },
     { id:"ca-billing",      label:"الفواتير والمدفوعات",icon:<Wallet size={16}/>          },
     { section:"الإعدادات" },
-    { id:"ca-settings",     label:"إعدادات الشركة",    icon:<Settings size={16}/>        },
-    { id:"ca-support",      label:"الدعم الفني",       icon:<Bell size={16}/>            },
+    { id:"ca-settings",     label:"إعدادات الشركة",     icon:<Settings size={16}/>        },
+    { id:"ca-support",      label:"الدعم الفني",        icon:<Bell size={16}/>            },
   ],
   head:[
     { section:"الرئيسية" },
-    { id:"head-dashboard",   label:"لوحة التحكم",      icon:<LayoutDashboard size={16}/> },
-    { id:"head-pending",     label:"العمليات المعلقة", icon:<Clock size={16}/>,  badge:INITIAL_OPS.filter(o=>o.status==="pending").length },
-    { id:"head-approved",    label:"المعتمدة نهائياً", icon:<CheckCircle2 size={16}/>    },
-    { id:"head-brands",      label:"أداء العلامات",    icon:<BarChart3 size={16}/>       },
-    { section:"الفريق" },
-    { id:"head-accountants", label:"فريق المحاسبين",   icon:<Users size={16}/>           },
+    { id:"head-dashboard",  label:"لوحة التحكم",        icon:<LayoutDashboard size={16}/> },
+    { section:"الاعتماد" },
+    { id:"head-pending",    label:"بانتظار الاعتماد",   icon:<Clock size={16}/>, badge:INITIAL_OPS.filter(o=>o.status==="approved").length },
+    { id:"head-approved",   label:"المعتمدة نهائياً",   icon:<CheckCircle2 size={16}/>    },
+    { id:"head-rejected",   label:"المرفوضة",            icon:<XCircle size={16}/>         },
+    { section:"الموديولات" },
+    { id:"head-sales",      label:"المبيعات",            icon:<TrendingUp size={16}/>      },
+    { id:"head-expenses",   label:"المصروفات",           icon:<Wallet size={16}/>          },
+    { id:"head-purchases",  label:"المشتريات",           icon:<ShoppingCart size={16}/>    },
+    { id:"head-inventory",  label:"المخزون",             icon:<Package size={16}/>         },
+    { id:"head-assets",     label:"الأصول الثابتة",     icon:<Building2 size={16}/>       },
+    { id:"head-shifts",     label:"الشفتات",             icon:<Clock size={16}/>           },
+    { id:"head-employees",  label:"كشف حساب الموظفين",  icon:<Users size={16}/>           },
+    { id:"head-cash",       label:"العهد النقدية",       icon:<ArrowLeftRight size={16}/>  },
     { section:"التقارير" },
-    { id:"head-reports",     label:"التقارير المالية", icon:<FileText size={16}/>        },
+    { id:"head-reminders",  label:"التذكيرات",           icon:<Bell size={16}/>, badge:3   },
+    { id:"head-accountants",label:"أداء المحاسبين",      icon:<Users size={16}/>           },
+    { id:"head-erp",        label:"التصدير لـ ERP",      icon:<Zap size={16}/>             },
+    { id:"head-reports",    label:"التقارير المالية",    icon:<FileText size={16}/>        },
   ],
   accountant:[
     { section:"الرئيسية" },
-    { id:"acc-dashboard",  label:"لوحة التحكم",        icon:<LayoutDashboard size={16}/> },
+    { id:"acc-dashboard",  label:"لوحة التحكم",         icon:<LayoutDashboard size={16}/> },
+    { id:"acc-reminders",  label:"التذكيرات",            icon:<Bell size={16}/>, badge:3   },
     { section:"الوحدات" },
-    { id:"acc-sales",      label:"المبيعات",            icon:<TrendingUp size={16}/>      },
-    { id:"acc-expenses",   label:"المصروفات",           icon:<Wallet size={16}/>          },
-    { id:"acc-purchases",  label:"المشتريات",           icon:<ShoppingCart size={16}/>    },
-    { id:"acc-inventory",  label:"المخزون",             icon:<Package size={16}/>         },
-    { id:"acc-assets",     label:"الأصول الثابتة",     icon:<Building2 size={16}/>       },
-    { id:"acc-shifts",     label:"الشفتات",             icon:<Clock size={16}/>           },
-    { section:"الأدوات" },
-    { id:"acc-reminders",  label:"التذكيرات",           icon:<Bell size={16}/>, badge:2   },
+    { id:"acc-sales",      label:"المبيعات",             icon:<TrendingUp size={16}/>      },
+    { id:"acc-expenses",   label:"المصروفات",            icon:<Wallet size={16}/>          },
+    { id:"acc-purchases",  label:"المشتريات",            icon:<ShoppingCart size={16}/>    },
+    { id:"acc-inventory",  label:"المخزون",              icon:<Package size={16}/>         },
+    { id:"acc-waste",      label:"الهدر والتالف",        icon:<AlertTriangle size={16}/>   },
+    { id:"acc-assets",     label:"الأصول الثابتة",      icon:<Building2 size={16}/>       },
+    { id:"acc-shifts",     label:"إدارة الشفتات",        icon:<Clock size={16}/>           },
+    { id:"acc-employees",  label:"كشف حساب الموظفين",   icon:<Users size={16}/>           },
+    { id:"acc-cash",       label:"إدارة العهد النقدية",  icon:<ArrowLeftRight size={16}/>  },
+    { section:"التقارير" },
+    { id:"acc-reports",    label:"التقارير",             icon:<BarChart3 size={16}/>       },
   ],
   branch:[
-    { section:"فرع العليا — برغر التاج" },
-    { id:"br-dashboard",  label:"لوحة الفرع",          icon:<LayoutDashboard size={16}/> },
-    { id:"br-daily",      label:"الرفع اليومي",        icon:<TrendingUp size={16}/>      },
-    { id:"br-requests",   label:"طلبات الشراء",        icon:<ShoppingCart size={16}/>    },
-    { id:"br-inventory",  label:"الجرد اليومي",        icon:<Package size={16}/>         },
-    { id:"br-staff",      label:"الموظفون",             icon:<Users size={16}/>           },
-    { id:"br-shifts",     label:"الشفتات",              icon:<Clock size={16}/>           },
+    { section:"الرئيسية" },
+    { id:"branch-overview",   label:"نظرة عامة",         icon:<LayoutDashboard size={16}/> },
+    { section:"إدارة البيانات" },
+    { id:"branch-upload",     label:"رفع البيانات",      icon:<Upload size={16}/>          },
+    { id:"branch-employees",  label:"الموظفون",           icon:<Users size={16}/>           },
+    { id:"branch-items",      label:"الأصناف",            icon:<Package size={16}/>         },
+    { id:"branch-suppliers",  label:"الموردون",           icon:<Building2 size={16}/>       },
+    { section:"الإعدادات" },
+    { id:"branch-settings",   label:"إعدادات الفرع",     icon:<Settings size={16}/>        },
   ],
   procurement:[
     { section:"الرئيسية" },
-    { id:"pr-dashboard",  label:"لوحة المشتريات",      icon:<LayoutDashboard size={16}/> },
-    { id:"pr-orders",     label:"أوامر الشراء",        icon:<ShoppingCart size={16}/>, badge:4 },
-    { id:"pr-suppliers",  label:"الموردون",             icon:<Building2 size={16}/>       },
-    { id:"pr-items",      label:"الأصناف والأسعار",    icon:<Package size={16}/>         },
-    { section:"التقارير" },
-    { id:"pr-reports",    label:"تقارير المشتريات",    icon:<BarChart3 size={16}/>       },
+    { id:"proc-overview",  label:"لوحة التحكم",          icon:<LayoutDashboard size={16}/> },
+    { section:"الطلبات" },
+    { id:"proc-new",       label:"الطلبات الجديدة",      icon:<ShoppingCart size={16}/>, badge:45 },
+    { id:"proc-grouped",   label:"الطلبات المجمعة",      icon:<Package size={16}/>         },
+    { id:"proc-sent",      label:"المرسلة للموردين",     icon:<Send size={16}/>            },
+    { section:"الإدارة" },
+    { id:"proc-items",     label:"الأصناف",              icon:<Package size={16}/>         },
+    { id:"proc-suppliers", label:"الموردون",              icon:<Building2 size={16}/>       },
+    { id:"proc-reports",   label:"التقارير",             icon:<BarChart3 size={16}/>       },
   ],
 };
 
@@ -402,7 +422,7 @@ const ROLE_META:Record<CRole,{ label:string; icon:string; color:string; desc:str
 
 const DEFAULT_PAGE:Record<CRole,string> = {
   "company-admin":"ca-dashboard", head:"head-dashboard",
-  accountant:"acc-dashboard", branch:"br-dashboard", procurement:"pr-dashboard",
+  accountant:"acc-dashboard", branch:"branch-overview", procurement:"proc-overview",
 };
 
 // ═══════════════════════════════════════════════════
@@ -1306,6 +1326,151 @@ function HeadReports() {
                 <Download size={11}/> تحميل PDF
               </button>
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// HEAD — REJECTED
+// ═══════════════════════════════════════════════════
+function HeadRejected({ ops }:{ ops:COp[] }) {
+  const rejected = ops.filter(o=>o.status==="rejected");
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">العمليات المرفوضة</h2><p className="text-gray-400 text-sm">{rejected.length} عملية مرفوضة — تحتاج إعادة رفع من الفرع</p></div>
+      {rejected.length===0?(
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+          <div className="text-4xl mb-3">✅</div>
+          <p className="font-bold text-gray-700 text-lg">لا توجد عمليات مرفوضة</p>
+          <p className="text-gray-400 text-sm mt-1">جميع العمليات في مسارها الصحيح</p>
+        </div>
+      ):(
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          {rejected.map(op=>(
+            <div key={op.id} className="px-5 py-4 border-b border-gray-50 last:border-0 border-r-4 border-r-red-400">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-10 rounded-full bg-red-400 flex-shrink-0"/>
+                <div className="flex-1"><p className="font-semibold text-gray-800 text-sm">{op.branch}</p><p className="text-xs text-gray-400">{op.moduleLabel} · {op.refNum} · {op.timeAgo}</p></div>
+                <span className="font-mono font-bold text-gray-800">{fmt(op.amount)} ر.س</span>
+                <Badge className="bg-red-50 text-red-700 border border-red-200 text-[10px]">✕ مرفوض</Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// HEAD — MODULE PAGES (نفس المحاسب — اعتماد نهائي فقط)
+// ═══════════════════════════════════════════════════
+function HeadModulePage({ moduleKey, title, ops, finalApprove, reject }:{
+  moduleKey:CModKey; title:string; ops:COp[];
+  finalApprove:(id:string)=>void; reject:(id:string)=>void;
+}) {
+  const mOps = ops.filter(o=>o.module===moduleKey);
+  const awaitingHead = mOps.filter(o=>o.status==="approved");
+  const finalApproved = mOps.filter(o=>o.status==="final-approved");
+  const rejected = mOps.filter(o=>o.status==="rejected");
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">{title}</h2><p className="text-gray-400 text-sm">{awaitingHead.length} عملية بانتظار اعتمادك النهائي</p></div>
+        {awaitingHead.length>0 && <Btn variant="success" size="sm" onClick={()=>awaitingHead.forEach(o=>finalApprove(o.id))}>🔒 اعتماد الكل ({awaitingHead.length})</Btn>}
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="بانتظار اعتمادي" value={String(awaitingHead.length)} sub="موافق عليها من المحاسب" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="معتمدة نهائياً"  value={String(finalApproved.length)} sub="اعتماد نهائي" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="مرفوضة"           value={String(rejected.length)} sub="تحتاج إعادة رفع" icon={<XCircle size={18} className="text-red-500"/>} accent="red"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">بانتظار الاعتماد النهائي</h3></div>
+        {awaitingHead.length===0?(
+          <div className="p-8 text-center text-gray-400 text-sm">✅ لا توجد عمليات معلقة في هذا الموديول</div>
+        ):awaitingHead.map(op=>(
+          <OpRow key={op.id} op={op} forHead onApprove={()=>finalApprove(op.id)} onReject={()=>reject(op.id)} onView={()=>alert(`🔍 تفاصيل:\n${op.refNum}\n${op.branch} · ${fmt(op.amount)} ر.س`)}/>
+        ))}
+      </div>
+      {finalApproved.length>0&&(
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">معتمدة نهائياً</h3></div>
+          {finalApproved.map(op=>(
+            <OpRow key={op.id} op={op} forHead onApprove={()=>{}} onReject={()=>{}} onView={()=>alert(`🔍 ${op.refNum}\n${op.branch} · معتمد نهائياً`)}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// HEAD — REMINDERS
+// ═══════════════════════════════════════════════════
+function HeadReminders() {
+  const reminders = [
+    { id:1, title:"اعتماد بيانات اليوم",  body:"12 عملية بانتظار اعتمادك النهائي",    time:"الآن",          type:"urgent", done:false },
+    { id:2, title:"مراجعة تقرير أسبوعي",  body:"P&L الأسبوع الثالث — جاهز للمراجعة", time:"منذ 2 ساعة",    type:"report", done:false },
+    { id:3, title:"موافقة ميزانية مشتريات",body:"مدير المشتريات طلب اعتماد ميزانية",  time:"منذ 4 ساعات",   type:"finance",done:false },
+    { id:4, title:"متابعة المحاسب — سارة", body:"لم ترفع بيانات فرع العليا منذ أمس",  time:"أمس",           type:"team",   done:true  },
+  ];
+  const [list, setList] = useState(reminders);
+  const toggle = (id:number) => setList(p=>p.map(r=>r.id===id?{...r,done:!r.done}:r));
+  const ICONS:Record<string,string> = { urgent:"🔴", report:"📊", finance:"💰", team:"👥" };
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">التذكيرات</h2><p className="text-gray-400 text-sm">{list.filter(r=>!r.done).length} تذكيرات نشطة</p></div>
+        <Btn size="sm" onClick={()=>setList(p=>p.map(r=>({...r,done:true})))}>✓ تعليم الكل كمنجز</Btn>
+      </div>
+      <div className="space-y-3">
+        {list.map(r=>(
+          <div key={r.id} className={`bg-white rounded-xl border shadow-sm p-4 flex items-start gap-3 transition-all ${r.done?"opacity-50 border-gray-100":"border-gray-100 hover:border-blue-100"}`}>
+            <span className="text-xl mt-0.5">{ICONS[r.type]}</span>
+            <div className="flex-1"><p className={`font-semibold text-sm ${r.done?"line-through text-gray-400":"text-gray-800"}`}>{r.title}</p><p className="text-xs text-gray-400 mt-0.5">{r.body}</p><p className="text-[10px] text-gray-300 mt-1">{r.time}</p></div>
+            <button onClick={()=>toggle(r.id)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 mt-0.5 ${r.done?"bg-emerald-500 border-emerald-500":"border-gray-300 hover:border-emerald-400"}`}>
+              {r.done&&<Check size={10} className="text-white"/>}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// HEAD — ERP EXPORT
+// ═══════════════════════════════════════════════════
+function HeadERP({ ops }:{ ops:COp[] }) {
+  const [posted, setPosted] = useState<string[]>([]);
+  const ready = ops.filter(o=>o.status==="final-approved");
+  const postAll = () => { setPosted(ready.map(o=>o.id)); alert("✅ تم ترحيل جميع العمليات المعتمدة نهائياً إلى ERP\n\nرقم الدفعة: ERP-BATCH-202510-001"); };
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">التصدير لـ ERP</h2><p className="text-gray-400 text-sm">الترحيل يتم بعد الاعتماد النهائي</p></div>
+        {ready.length>0&&posted.length<ready.length&&(
+          <Btn variant="primary" onClick={postAll}><Zap size={13}/> ترحيل الكل ({ready.filter(o=>!posted.includes(o.id)).length})</Btn>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="جاهزة للترحيل"  value={String(ready.filter(o=>!posted.includes(o.id)).length)} sub="معتمدة نهائياً" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="تم ترحيلها"      value={String(posted.length)} sub="هذه الجلسة" icon={<Zap size={18} className="text-purple-600"/>} accent="purple"/>
+        <KpiCard label="بانتظار الاعتماد" value={String(ops.filter(o=>o.status==="approved").length)} sub="لم تُعتمد نهائياً بعد" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">العمليات المعتمدة نهائياً</h3></div>
+        {ready.length===0?(
+          <div className="p-8 text-center text-gray-400 text-sm">لا توجد عمليات معتمدة نهائياً للترحيل حتى الآن</div>
+        ):ready.map(op=>(
+          <div key={op.id} className="px-5 py-3.5 flex items-center gap-3 border-b border-gray-50 last:border-0">
+            <div className="w-1 h-8 rounded-full flex-shrink-0" style={{background:op.brandColor}}/>
+            <div className="flex-1"><p className="font-semibold text-gray-800 text-sm">{op.branch} · {op.moduleLabel}</p><p className="text-xs text-gray-400">{op.refNum}</p></div>
+            <span className="font-mono font-bold text-gray-800">{fmt(op.amount)} ر.س</span>
+            {posted.includes(op.id)?(
+              <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[10px]">🔗 مُرحَّل</Badge>
+            ):(
+              <button onClick={()=>setPosted(p=>[...p,op.id])} className="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700"><Zap size={10}/> ترحيل</button>
+            )}
           </div>
         ))}
       </div>
@@ -2223,6 +2388,162 @@ function AccCompanyReminders() {
 }
 
 // ═══════════════════════════════════════════════════
+// ACCOUNTANT — WASTE MODULE
+// ═══════════════════════════════════════════════════
+function AccCompanyWaste() {
+  const wasteData = [
+    { branch:"فرع العليا",   brand:"برغر التاج",       item:"لحم مفروم",  qty:4.5,  unit:"كجم", cost:360, reason:"انتهاء الصلاحية", date:"اليوم" },
+    { branch:"فرع الحمراء",  brand:"برغر التاج",       item:"خبز برجر",   qty:30,   unit:"قطعة",cost:90,  reason:"تلف تخزين",       date:"اليوم" },
+    { branch:"فرع الملقا",   brand:"بيتزا التاج",      item:"جبن موزاريلا",qty:2,   unit:"كجم", cost:180, reason:"تجاوز الميعاد",   date:"أمس"   },
+    { branch:"فرع الورود",   brand:"مطعم التاج الراقي",item:"دجاج",       qty:6,    unit:"كجم", cost:420, reason:"تلف عند التسليم", date:"أمس"   },
+    { branch:"فرع الكورنيش", brand:"بيتزا التاج",      item:"صلصة طماطم", qty:5,    unit:"لتر", cost:75,  reason:"انتهاء الصلاحية", date:"أمس"   },
+  ];
+  const totalCost = wasteData.reduce((s,w)=>s+w.cost,0);
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">الهدر والتالف</h2><p className="text-gray-400 text-sm">متابعة الهدر عبر فروع مجموعة التاج</p></div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="إجمالي تكلفة الهدر" value={fmt(totalCost)} sub="ر.س هذا الأسبوع" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+        <KpiCard label="سجلات الهدر"        value={String(wasteData.length)} sub="هذا الأسبوع"    icon={<Package size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="متوسط الهدر/فرع"    value={fmt(Math.round(totalCost/12))} sub="ر.س هذا الشهر" icon={<BarChart3 size={18} className="text-purple-600"/>} accent="purple"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">سجلات الهدر</h3>
+          <Btn size="sm" variant="primary" onClick={()=>alert("✅ تم تصدير تقرير الهدر")}><Download size={11}/> تصدير</Btn>
+        </div>
+        <div className="grid grid-cols-6 gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
+          <span className="col-span-2">الصنف / الفرع</span><span>الكمية</span><span>التكلفة</span><span>السبب</span><span>التاريخ</span>
+        </div>
+        {wasteData.map((w,i)=>(
+          <div key={i} className="grid grid-cols-6 gap-4 px-5 py-3.5 border-b border-gray-50 last:border-0 items-center">
+            <div className="col-span-2"><p className="font-semibold text-gray-800 text-sm">{w.item}</p><p className="text-[10px] text-gray-400">{w.branch} · {w.brand}</p></div>
+            <span className="text-sm text-gray-700 font-mono">{w.qty} {w.unit}</span>
+            <span className="text-sm font-bold text-red-600">{fmt(w.cost)} ر.س</span>
+            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">{w.reason}</Badge>
+            <span className="text-xs text-gray-400">{w.date}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ACCOUNTANT — EMPLOYEES
+// ═══════════════════════════════════════════════════
+function AccCompanyEmployees() {
+  const employees = [
+    { name:"أنس محمد",    branch:"فرع العليا",   role:"كاشير", salary:4200, advances:500,  deductions:0,   net:3700, status:"نشط"    },
+    { name:"ليلى سالم",  branch:"فرع العليا",   role:"كاشير", salary:3800, advances:0,    deductions:200, net:3600, status:"نشط"    },
+    { name:"فهد العمري", branch:"فرع الحمراء",  role:"طاهٍ",  salary:5500, advances:1000, deductions:0,   net:4500, status:"نشط"    },
+    { name:"سارة الغامدي",branch:"فرع الملقا",  role:"خدمة",  salary:3500, advances:0,    deductions:350, net:3150, status:"نشط"    },
+    { name:"عمر الحربي", branch:"فرع الكورنيش", role:"مساعد", salary:3200, advances:200,  deductions:0,   net:3000, status:"موقوف"  },
+  ];
+  const totalSalaries = employees.reduce((s,e)=>s+e.net,0);
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">كشف حساب الموظفين</h2><p className="text-gray-400 text-sm">الرواتب والحركات المالية لموظفي مجموعة التاج</p></div>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="إجمالي الرواتب" value={fmt(totalSalaries)} sub="ر.س هذا الشهر" icon={<Users size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="إجمالي السلف"   value={fmt(employees.reduce((s,e)=>s+e.advances,0))} sub="ر.س" icon={<Wallet size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="إجمالي الخصومات" value={fmt(employees.reduce((s,e)=>s+e.deductions,0))} sub="ر.س" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">كشف الرواتب</h3>
+          <Btn size="sm" variant="primary" onClick={()=>alert("✅ تم تصدير كشف الرواتب")}><Download size={11}/> تصدير</Btn>
+        </div>
+        <div className="grid grid-cols-6 gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
+          <span className="col-span-2">الموظف</span><span>الراتب</span><span>السلف</span><span>الخصومات</span><span>الصافي</span>
+        </div>
+        {employees.map((e,i)=>(
+          <div key={i} className="grid grid-cols-6 gap-2 px-5 py-3.5 border-b border-gray-50 last:border-0 items-center">
+            <div className="col-span-2 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{e.name[0]}</div>
+              <div><p className="font-semibold text-gray-800 text-sm">{e.name}</p><p className="text-[10px] text-gray-400">{e.role} · {e.branch}</p></div>
+            </div>
+            <span className="font-mono text-sm text-gray-700">{fmt(e.salary)}</span>
+            <span className="font-mono text-sm text-amber-700">{e.advances>0?`-${fmt(e.advances)}`:"—"}</span>
+            <span className="font-mono text-sm text-red-600">{e.deductions>0?`-${fmt(e.deductions)}`:"—"}</span>
+            <span className="font-mono font-bold text-emerald-700 text-sm">{fmt(e.net)} ر.س</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ACCOUNTANT — CASH CUSTODY
+// ═══════════════════════════════════════════════════
+function AccCompanyCash() {
+  const custodies = [
+    { branch:"فرع العليا",    custodian:"فاطمة السالم",  opening:500, inflows:12400, outflows:11800, closing:1100, status:"متوازن"  },
+    { branch:"فرع الحمراء",   custodian:"خالد العتيبي",  opening:500, inflows:9200,  outflows:9600,  closing:100,  status:"عجز"     },
+    { branch:"فرع الملقا",    custodian:"أحمد الحربي",   opening:500, inflows:8800,  outflows:8200,  closing:1100, status:"متوازن"  },
+    { branch:"فرع الكورنيش",  custodian:"عبدالله الدوسري",opening:500, inflows:7600, outflows:7600,  closing:500,  status:"متوازن"  },
+    { branch:"فرع الورود",    custodian:"منى الزهراني",  opening:500, inflows:14200, outflows:13900, closing:800,  status:"متوازن"  },
+  ];
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2><p className="text-gray-400 text-sm">متابعة صناديق النقد لفروع مجموعة التاج</p></div>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="إجمالي العهد"   value={fmt(custodies.reduce((s,c)=>s+c.closing,0))} sub="ر.س رصيد حالي" icon={<Wallet size={18} className="text-blue-600"/>} accent="blue"/>
+        <KpiCard label="فروع متوازنة"   value={String(custodies.filter(c=>c.status==="متوازن").length)} sub={`من ${custodies.length} فروع`} icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="فروع بعجز"      value={String(custodies.filter(c=>c.status==="عجز").length)} sub="تحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">حركات الصناديق</h3></div>
+        <div className="grid grid-cols-6 gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
+          <span className="col-span-2">الفرع / المسؤول</span><span>رصيد الافتتاح</span><span>المداخيل</span><span>المصروفات</span><span>الإغلاق</span>
+        </div>
+        {custodies.map((c,i)=>(
+          <div key={i} className="grid grid-cols-6 gap-2 px-5 py-4 border-b border-gray-50 last:border-0 items-center">
+            <div className="col-span-2">
+              <p className="font-semibold text-gray-800 text-sm">{c.branch}</p>
+              <p className="text-[10px] text-gray-400">عهدة: {c.custodian}</p>
+            </div>
+            <span className="font-mono text-sm text-gray-700">{fmt(c.opening)}</span>
+            <span className="font-mono text-sm text-emerald-700">+{fmt(c.inflows)}</span>
+            <span className="font-mono text-sm text-red-600">-{fmt(c.outflows)}</span>
+            <div className="flex items-center gap-2">
+              <span className={`font-mono font-bold text-sm ${c.status==="عجز"?"text-red-600":"text-gray-800"}`}>{fmt(c.closing)} ر.س</span>
+              <Badge className={`text-[10px] ${c.status==="متوازن"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200"}`}>{c.status}</Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ACCOUNTANT — REPORTS
+// ═══════════════════════════════════════════════════
+function AccCompanyReports() {
+  const reports = [
+    { title:"تقرير P&L الشهري",      date:"أكتوبر 2025", type:"مالي",     size:"2.4 MB" },
+    { title:"ملخص المبيعات اليومية", date:"14 أكت 2025", type:"مبيعات",   size:"1.1 MB" },
+    { title:"تقرير المصروفات",       date:"14 أكت 2025", type:"مصروفات",  size:"0.9 MB" },
+    { title:"تقرير المخزون",         date:"13 أكت 2025", type:"مخزون",    size:"1.7 MB" },
+    { title:"كشف الرواتب الشهري",   date:"30 سبت 2025", type:"موظفون",   size:"0.5 MB" },
+  ];
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">التقارير</h2><p className="text-gray-400 text-sm">تقارير مجموعة التاج</p></div>
+      <div className="grid grid-cols-2 gap-4">
+        {reports.map((r,i)=>(
+          <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 hover:border-purple-200 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center flex-shrink-0"><FileText size={18} className="text-purple-600"/></div>
+            <div className="flex-1 min-w-0"><p className="font-semibold text-gray-800 text-sm">{r.title}</p><p className="text-[10px] text-gray-400 mt-0.5">{r.date} · {r.type} · {r.size}</p></div>
+            <button onClick={()=>alert(`⬇️ تحميل: ${r.title}`)} className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-colors flex-shrink-0"><Download size={13}/></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ACCOUNTANT ROOT (with shared state)
 // ═══════════════════════════════════════════════════
 type SharedOpsProps = {
@@ -2235,14 +2556,18 @@ type SharedOpsProps = {
 };
 
 function AccountantRoot({ page, navigate, ops, approve, reject, bulkApprove }:{ page:string; navigate:(p:string)=>void } & SharedOpsProps) {
-  if(page==="acc-dashboard") return <AccDashboard navigate={navigate} ops={ops}/>;
-  if(page==="acc-sales")     return <AccCompanySales ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
-  if(page==="acc-expenses")  return <AccCompanyExpenses ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
-  if(page==="acc-purchases") return <AccCompanyPurchases ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
-  if(page==="acc-inventory") return <AccCompanyInventory navigate={navigate} ops={ops} approve={approve} reject={reject}/>;
-  if(page==="acc-assets")    return <AccCompanyAssets/>;
-  if(page==="acc-shifts")    return <AccCompanyShifts ops={ops}/>;
-  if(page==="acc-reminders") return <AccCompanyReminders/>;
+  if(page==="acc-dashboard")  return <AccDashboard navigate={navigate} ops={ops}/>;
+  if(page==="acc-sales")      return <AccCompanySales ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
+  if(page==="acc-expenses")   return <AccCompanyExpenses ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
+  if(page==="acc-purchases")  return <AccCompanyPurchases ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove}/>;
+  if(page==="acc-inventory")  return <AccCompanyInventory navigate={navigate} ops={ops} approve={approve} reject={reject}/>;
+  if(page==="acc-waste")      return <AccCompanyWaste/>;
+  if(page==="acc-assets")     return <AccCompanyAssets/>;
+  if(page==="acc-shifts")     return <AccCompanyShifts ops={ops}/>;
+  if(page==="acc-employees")  return <AccCompanyEmployees/>;
+  if(page==="acc-cash")       return <AccCompanyCash/>;
+  if(page==="acc-reminders")  return <AccCompanyReminders/>;
+  if(page==="acc-reports")    return <AccCompanyReports/>;
   return <AccDashboard navigate={navigate} ops={ops}/>;
 }
 
@@ -2251,7 +2576,7 @@ function AccountantRoot({ page, navigate, ops, approve, reject, bulkApprove }:{ 
 // ═══════════════════════════════════════════════════
 const MY_BRANCH = { name:"فرع العليا", brand:"برغر التاج", city:"الرياض", target:130000, salesM:128000, expM:41000 };
 
-function BranchDashboard() {
+function BranchOverview() {
   const pct=Math.round((MY_BRANCH.salesM/MY_BRANCH.target)*100);
   const todaySales=18340;
   return (
@@ -2298,7 +2623,7 @@ function BranchDashboard() {
   );
 }
 
-function BranchDaily() {
+function BranchUpload() {
   const [salesAmt,setSalesAmt]=useState("");
   const [expAmt,setExpAmt]=useState("");
   const [submitted,setSubmitted]=useState(false);
@@ -2373,7 +2698,7 @@ function BranchRequests() {
   );
 }
 
-function BranchInventory() {
+function BranchItems() {
   const [showInvForm,setShowInvForm]=useState(false);
   const [invCounts,setInvCounts]=useState<Record<string,string>>({});
   const [invSubmitted,setInvSubmitted]=useState(false);
@@ -2431,7 +2756,7 @@ function BranchInventory() {
   );
 }
 
-function BranchStaff() {
+function BranchEmployees() {
   const staff=[{ name:"أنس محمد",   role:"كاشير", shift:"صباحي", status:"present",  phone:"+966 50 111 2222" },{ name:"ليلى سالم",  role:"كاشير", shift:"مسائي", status:"upcoming", phone:"+966 55 222 3333" },{ name:"فهد العمري", role:"طاهٍ",  shift:"صباحي", status:"present",  phone:"+966 53 333 4444" },{ name:"سارة الغامدي",role:"خدمة", shift:"مسائي", status:"upcoming", phone:"+966 56 444 5555" },{ name:"عمر الحربي", role:"مساعد", shift:"صباحي", status:"absent",   phone:"+966 58 555 6666" }];
   return (
     <div className="space-y-5" dir="rtl">
@@ -2474,10 +2799,58 @@ function BranchShifts() {
   );
 }
 
+function BranchSuppliers() {
+  const suppliers = [
+    { name:"شركة الدواجن الوطنية",   category:"دواجن ولحوم",  contact:"0501234567", status:"معتمد",  lastOrder:"اليوم" },
+    { name:"مؤسسة النخيل للأغذية",   category:"مواد غذائية",  contact:"0557654321", status:"معتمد",  lastOrder:"أمس"   },
+    { name:"شركة الخليج للمواد",      category:"بهارات وتوابل",contact:"0532345678", status:"معتمد",  lastOrder:"3 أيام"},
+    { name:"مجموعة الوفاء للتوزيع",   category:"مشروبات",     contact:"0569876543", status:"قيد المراجعة",lastOrder:"أسبوع"},
+  ];
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">الموردون</h2><p className="text-gray-400 text-sm">موردو {MY_BRANCH.name}</p></div>
+        <Btn variant="primary" size="sm" onClick={()=>alert("📋 طلب مورد جديد أُرسل لمدير المشتريات")}><Plus size={12}/> طلب مورد جديد</Btn>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        {suppliers.map((s,i)=>(
+          <div key={i} className="px-5 py-4 flex items-center gap-4 border-b border-gray-50 last:border-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0 text-lg">🏭</div>
+            <div className="flex-1"><p className="font-semibold text-gray-800 text-sm">{s.name}</p><p className="text-xs text-gray-400">{s.category} · آخر طلب: {s.lastOrder}</p></div>
+            <span className="text-xs text-gray-400" dir="ltr">{s.contact}</span>
+            <Badge className={`text-[10px] ${s.status==="معتمد"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-amber-50 text-amber-700 border border-amber-200"}`}>{s.status}</Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BranchSettings() {
+  const [branchName, setBranchName] = useState(MY_BRANCH.name);
+  const [manager,    setManager]    = useState("فاطمة السالم");
+  const [phone,      setPhone]      = useState("+966 11 234 5678");
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">إعدادات الفرع</h2><p className="text-gray-400 text-sm">{MY_BRANCH.brand}</p></div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <h3 className="font-bold text-gray-800 text-sm border-b border-gray-100 pb-2">بيانات الفرع الأساسية</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div><label className="text-xs font-semibold text-gray-600 block mb-1">اسم الفرع</label><input value={branchName} onChange={e=>setBranchName(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400"/></div>
+          <div><label className="text-xs font-semibold text-gray-600 block mb-1">مدير الفرع</label><input value={manager} onChange={e=>setManager(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400"/></div>
+          <div><label className="text-xs font-semibold text-gray-600 block mb-1">رقم الهاتف</label><input value={phone} onChange={e=>setPhone(e.target.value)} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400" dir="ltr"/></div>
+          <div><label className="text-xs font-semibold text-gray-600 block mb-1">المدينة</label><input value={MY_BRANCH.city} readOnly className="w-full text-sm border border-gray-100 rounded-xl px-3 py-2.5 bg-gray-50 text-gray-400"/></div>
+        </div>
+        <div className="flex justify-end pt-2"><Btn variant="primary" onClick={()=>alert("✅ تم حفظ إعدادات الفرع")}><Check size={13}/> حفظ التغييرات</Btn></div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════
 // PROCUREMENT PAGES
 // ═══════════════════════════════════════════════════
-function ProcDashboard({ navigate }:{ navigate:(p:string)=>void }) {
+function ProcOverview({ navigate }:{ navigate:(p:string)=>void }) {
   const orders=[
     { id:"PO-001",supplier:"شركة المروج للتوريد", items:3,total:12400,status:"pending",  date:"اليوم" },
     { id:"PO-002",supplier:"مؤسسة النخيل للأغذية",items:5,total:8200, status:"approved", date:"أمس"   },
@@ -2489,7 +2862,7 @@ function ProcDashboard({ navigate }:{ navigate:(p:string)=>void }) {
   const totalPending=orders.filter(o=>o.status==="pending").reduce((s,o)=>s+o.total,0);
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">لوحة المشتريات</h2></div><button onClick={()=>navigate("pr-orders")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600"><Plus size={14}/> أمر شراء جديد</button></div>
+      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">لوحة المشتريات</h2></div><button onClick={()=>navigate("proc-new")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600"><Plus size={14}/> أمر شراء جديد</button></div>
       <div className="grid grid-cols-4 gap-4">
         <KpiCard label="أوامر معلقة" value={String(orders.filter(o=>o.status==="pending").length)} sub="تنتظر الاعتماد" icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
         <KpiCard label="قيمة المعلقة" value={fmt(totalPending)} sub="ر.س" icon={<Wallet size={18} className="text-red-500"/>} accent="red"/>
@@ -2511,7 +2884,7 @@ function ProcDashboard({ navigate }:{ navigate:(p:string)=>void }) {
   );
 }
 
-function ProcOrders() {
+function ProcNew() {
   const [orders,setOrders]=useState([
     { id:"PO-001",supplier:"شركة المروج",       brand:"برغر التاج",       items:3,total:12400,status:"pending",  date:"اليوم" },
     { id:"PO-002",supplier:"مؤسسة النخيل",      brand:"بيتزا التاج",      items:5,total:8200, status:"approved", date:"أمس"   },
@@ -2629,6 +3002,64 @@ function ProcReports() {
   );
 }
 
+function ProcGrouped() {
+  const groups = [
+    { supplier:"شركة الدواجن الوطنية", orders:3, total:24800, branches:["فرع العليا","فرع النرجس","فرع الملقا"], status:"pending"  },
+    { supplier:"مؤسسة النخيل للأغذية", orders:2, total:16400, branches:["فرع حراء","فرع طويق"],               status:"approved" },
+    { supplier:"شركة الخليج للمواد",   orders:4, total:31200, branches:["فرع العليا","فرع النرجس","فرع إشبيلية","فرع ابن بجاد"], status:"pending"  },
+  ];
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">الأوامر المجمّعة</h2><p className="text-gray-400 text-sm">تجميع أوامر الشراء حسب المورد عبر كل الفروع</p></div>
+        <Btn variant="primary" size="sm" onClick={()=>alert("📦 تم إرسال الأمر المجمّع للموردين")}><Send size={13}/> إرسال المجمّعة</Btn>
+      </div>
+      <div className="space-y-4">
+        {groups.map((g,i)=>(
+          <div key={i} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-lg">🏭</div>
+              <div className="flex-1"><p className="font-bold text-gray-800">{g.supplier}</p><p className="text-xs text-gray-400">{g.orders} أوامر · {g.branches.length} فروع</p></div>
+              <span className="font-mono font-bold text-gray-800">{fmt(g.total)} ر.س</span>
+              <Badge className={`text-[10px] ${g.status==="pending"?"bg-amber-50 text-amber-700 border border-amber-200":"bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>{g.status==="pending"?"معلق":"معتمد"}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {g.branches.map(b=><span key={b} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-medium">{b}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProcSent() {
+  const sent = [
+    { id:"PO-BATCH-001", supplier:"شركة الدواجن الوطنية",   sentDate:"اليوم 10:24 ص",   total:24800, status:"قيد التسليم", eta:"غداً"      },
+    { id:"PO-BATCH-002", supplier:"مؤسسة النخيل للأغذية",   sentDate:"أمس 2:30 م",       total:16400, status:"تم التسليم",  eta:"تم"        },
+    { id:"PO-BATCH-003", supplier:"شركة الخليج للمواد",      sentDate:"قبل يومين 9:15 ص", total:31200, status:"تم التسليم",  eta:"تم"        },
+    { id:"PO-SINGLE-004",supplier:"مجموعة الوفاء للتوزيع",  sentDate:"منذ 3 أيام",       total:8700,  status:"تم التسليم",  eta:"تم"        },
+  ];
+  return (
+    <div className="space-y-5" dir="rtl">
+      <div><h2 className="text-xl font-bold text-gray-800">الأوامر المُرسَلة</h2><p className="text-gray-400 text-sm">{sent.length} أوامر مُرسَلة</p></div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        {sent.map(s=>(
+          <div key={s.id} className="px-5 py-4 flex items-center gap-4 border-b border-gray-50 last:border-0">
+            <div className="flex-1">
+              <p className="font-semibold text-gray-800 text-sm">{s.supplier}</p>
+              <p className="text-xs text-gray-400">{s.id} · {s.sentDate}</p>
+            </div>
+            <span className="font-mono font-bold text-gray-800">{fmt(s.total)} ر.س</span>
+            <span className="text-xs text-gray-400">ETA: {s.eta}</span>
+            <Badge className={`text-[10px] ${s.status==="قيد التسليم"?"bg-sky-50 text-sky-700 border border-sky-200":"bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>{s.status}</Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════
 // PAGE ROUTER
 // ═══════════════════════════════════════════════════
@@ -2652,30 +3083,44 @@ function PageRouter({ role, page, navigate, ops, approve, reject, bulkApprove, f
     if(page==="head-dashboard")   return <HeadDashboard {...headProps}/>;
     if(page==="head-pending")     return <HeadPending {...headProps}/>;
     if(page==="head-approved")    return <HeadApproved ops={ops}/>;
-    if(page==="head-brands")      return <HeadBrands/>;
+    if(page==="head-rejected")    return <HeadRejected ops={ops}/>;
+    if(page==="head-sales")       return <HeadModulePage moduleKey="sales"     title="مبيعات — اعتماد نهائي"     ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-expenses")    return <HeadModulePage moduleKey="expenses"  title="مصروفات — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-purchases")   return <HeadModulePage moduleKey="purchases" title="مشتريات — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-inventory")   return <HeadModulePage moduleKey="inventory" title="مخزون — اعتماد نهائي"     ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-assets")      return <HeadModulePage moduleKey="assets"    title="أصول — اعتماد نهائي"      ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-shifts")      return <HeadModulePage moduleKey="shifts"    title="ورديات — اعتماد نهائي"    ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-employees")   return <HeadModulePage moduleKey="employees" title="موظفون — اعتماد نهائي"   ops={ops} finalApprove={finalApprove} reject={reject}/>;
+    if(page==="head-cash")        return <HeadModulePage moduleKey="cash"      title="صندوق — اعتماد نهائي"    ops={ops} finalApprove={finalApprove} reject={reject}/>;
     if(page==="head-accountants") return <HeadAccountants/>;
     if(page==="head-reports")     return <HeadReports/>;
+    if(page==="head-reminders")   return <HeadReminders/>;
+    if(page==="head-erp")         return <HeadERP ops={ops}/>;
     return <HeadDashboard {...headProps}/>;
   }
   if(role==="accountant") {
     return <AccountantRoot page={page} navigate={navigate} ops={ops} approve={approve} reject={reject} bulkApprove={bulkApprove} finalApprove={finalApprove} bulkFinalApprove={bulkFinalApprove}/>;
   }
   if(role==="branch") {
-    if(page==="br-dashboard") return <BranchDashboard/>;
-    if(page==="br-daily")     return <BranchDaily/>;
-    if(page==="br-requests")  return <BranchRequests/>;
-    if(page==="br-inventory") return <BranchInventory/>;
-    if(page==="br-staff")     return <BranchStaff/>;
-    if(page==="br-shifts")    return <BranchShifts/>;
-    return <BranchDashboard/>;
+    if(page==="branch-overview")   return <BranchOverview/>;
+    if(page==="branch-upload")     return <BranchUpload/>;
+    if(page==="branch-requests")   return <BranchRequests/>;
+    if(page==="branch-items")      return <BranchItems/>;
+    if(page==="branch-employees")  return <BranchEmployees/>;
+    if(page==="branch-shifts")     return <BranchShifts/>;
+    if(page==="branch-suppliers")  return <BranchSuppliers/>;
+    if(page==="branch-settings")   return <BranchSettings/>;
+    return <BranchOverview/>;
   }
   if(role==="procurement") {
-    if(page==="pr-dashboard") return <ProcDashboard navigate={navigate}/>;
-    if(page==="pr-orders")    return <ProcOrders/>;
-    if(page==="pr-suppliers") return <ProcSuppliers/>;
-    if(page==="pr-items")     return <ProcItems/>;
-    if(page==="pr-reports")   return <ProcReports/>;
-    return <ProcDashboard navigate={navigate}/>;
+    if(page==="proc-overview")  return <ProcOverview navigate={navigate}/>;
+    if(page==="proc-new")       return <ProcNew/>;
+    if(page==="proc-grouped")   return <ProcGrouped/>;
+    if(page==="proc-sent")      return <ProcSent/>;
+    if(page==="proc-suppliers") return <ProcSuppliers/>;
+    if(page==="proc-items")     return <ProcItems/>;
+    if(page==="proc-reports")   return <ProcReports/>;
+    return <ProcOverview navigate={navigate}/>;
   }
   return null;
 }
