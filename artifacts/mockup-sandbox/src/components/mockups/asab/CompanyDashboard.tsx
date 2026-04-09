@@ -7,7 +7,8 @@ import {
   BarChart3, AlertTriangle, Star, RefreshCw, ArrowLeftRight,
   Send, Check, Download, Zap, Lock, ChevronDown, ChevronUp,
   Eye, Paperclip, ThumbsUp, ThumbsDown, Upload, Clipboard,
-  Home, RotateCcw, Filter, GitMerge, ArrowRightToLine, CheckSquare, Edit3
+  Home, RotateCcw, Filter, GitMerge, ArrowRightToLine, CheckSquare, Edit3,
+  Activity, Trash2
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════
@@ -793,6 +794,197 @@ function Shell({ role, page, navigate, onLogout, children, headPendingCount=0 }:
 }
 
 // ═══════════════════════════════════════════════════
+// SALES: RECONCILIATION PANEL (inside expanded OpRow)
+// ═══════════════════════════════════════════════════
+const RECON_EMP: Record<string,string> = {
+  "1001":"أنس محمد","1002":"ليلى سالم","1003":"راشد عمر",
+  "1004":"مها ناصر","1005":"فالح جاسم","1006":"سلمى العمر",
+};
+type VEmpCD = { empId:string; empName:string; amount:string };
+function SalesReconPanel({ op, onApprove, onReject, isPending, forHead }:{
+  op:COp; onApprove:()=>void; onReject:()=>void; isPending:boolean; forHead:boolean;
+}) {
+  const totalSales = op.amount;
+  const [reconCash,      setReconCash]      = useState(Math.round(totalSales*0.23));
+  const [reconBank,      setReconBank]      = useState(Math.round(totalSales*0.46));
+  const [reconEditMode,  setReconEditMode]  = useState(false);
+  const [reconDelivApps, setReconDelivApps] = useState([
+    { app:"طلبات",          icon:"🔴", val:Math.round(totalSales*0.08), orig:Math.round(totalSales*0.08) },
+    { app:"هنقرستيشن",      icon:"🟠", val:Math.round(totalSales*0.15), orig:Math.round(totalSales*0.15) },
+    { app:"جاهز",           icon:"🟡", val:Math.round(totalSales*0.06), orig:Math.round(totalSales*0.06) },
+    { app:"نينجا (Ninja)", icon:"⚫", val:Math.round(totalSales*0.04), orig:Math.round(totalSales*0.04) },
+  ]);
+  const [varEmps, setVarEmps] = useState<VEmpCD[]>([{ empId:"", empName:"", amount:"" }]);
+  const setVarEmpField = (i:number, field:keyof VEmpCD, val:string) =>
+    setVarEmps(p=>p.map((e,j)=>j===i?{...e,[field]:val,...(field==="empId"?{empName:RECON_EMP[val]||""}:{})}:e));
+
+  const totalDelivery   = reconDelivApps.reduce((s,d)=>s+d.val,0);
+  const totalCollection = reconCash + reconBank + totalDelivery;
+  const variance        = totalSales - totalCollection;
+  const hasVariance     = variance !== 0;
+  const assignedTotal   = varEmps.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const remaining       = variance - assignedTotal;
+  const isLocked = op.status==="final-approved";
+
+  return (
+    <div className="space-y-3">
+      {/* Channels table */}
+      {op.channels && (
+        <div>
+          <p className="text-xs font-bold text-gray-600 mb-2">تفصيل قنوات التحصيل (POS)</p>
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="grid grid-cols-4 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500">
+              <span>القناة</span><span className="text-center">نظام POS</span><span className="text-center">التحصيل الفعلي</span><span className="text-center">الفرق</span>
+            </div>
+            {op.channels.map(ch=>{
+              const diff=ch.actual-ch.pos;
+              return (
+                <div key={ch.name} className={`grid grid-cols-4 px-4 py-2.5 border-b border-gray-50 last:border-0 text-xs items-center ${diff!==0?"bg-red-50/40":""}`}>
+                  <span className="font-medium text-gray-700 flex items-center gap-1.5"><span>{ch.icon}</span>{ch.name}</span>
+                  <span className="text-center font-mono text-gray-600">{fmt(ch.pos)}</span>
+                  <span className="text-center font-mono font-bold text-gray-800">{fmt(ch.actual)}</span>
+                  <span className={`text-center font-mono font-bold ${diff===0?"text-emerald-600":"text-red-600"}`}>{diff===0?"✓ 0":diff>0?`+${fmt(diff)}`:fmt(diff)}</span>
+                </div>
+              );
+            })}
+            <div className="grid grid-cols-4 px-4 py-2.5 bg-gray-100 text-xs font-bold border-t border-gray-200">
+              <span className="text-gray-700">الإجمالي</span>
+              <span className="text-center font-mono">{fmt(op.channels.reduce((s,c)=>s+c.pos,0))}</span>
+              <span className="text-center font-mono text-purple-700">{fmt(op.channels.reduce((s,c)=>s+c.actual,0))}</span>
+              <span className={`text-center font-mono ${op.match==="exact"?"text-emerald-600":"text-red-600"}`}>
+                {op.match==="exact"?"✓ متطابق":`${fmt(op.channels.reduce((s,c)=>s+c.actual-c.pos,0))} ر.س`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reconciliation Panel */}
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-indigo-50/40">
+          <p className="text-xs font-bold text-gray-700">تسوية المبيعات</p>
+          {!isLocked && (
+            <button onClick={()=>setReconEditMode(m=>!m)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all ${reconEditMode?"bg-purple-600 text-white border-purple-600":"bg-white text-purple-600 border-purple-200 hover:bg-purple-50"}`}>
+              <Edit3 size={10}/> {reconEditMode?"💾 حفظ":"تعديل الأرقام"}
+            </button>
+          )}
+        </div>
+        <div className="divide-y divide-gray-100" dir="rtl">
+          {/* إجمالي المبيعات */}
+          <div className="flex items-center justify-between px-4 py-3 bg-indigo-50/60">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500"/>
+              <span className="text-xs font-bold text-indigo-900">إجمالي المبيعات</span>
+              <span className="text-[10px] bg-indigo-100 text-indigo-500 px-1.5 py-0.5 rounded-md">(من رفع مدير الفرع — مقفل)</span>
+            </div>
+            <span className="font-mono font-black text-indigo-800 text-sm">{fmt(totalSales)} ر.س</span>
+          </div>
+          {/* نقدي */}
+          <div className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50/60">
+            <div className="flex items-center gap-2"><span className="text-sm">💵</span><span className="text-xs text-gray-700">نقدي (صندوق)</span></div>
+            {reconEditMode&&!isLocked ? (
+              <input type="number" value={reconCash} onChange={e=>setReconCash(+e.target.value)} className="w-32 text-center font-mono font-semibold border-2 border-purple-300 rounded-lg px-2 py-1 text-xs bg-purple-50 focus:outline-none"/>
+            ) : <span className="font-mono font-semibold text-gray-800 text-xs">{fmt(reconCash)} ر.س</span>}
+          </div>
+          {/* بنك */}
+          <div className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50/60">
+            <div className="flex items-center gap-2"><span className="text-sm">🏦</span><span className="text-xs text-gray-700">بنك / كارت (بنك الرياض)</span></div>
+            {reconEditMode&&!isLocked ? (
+              <input type="number" value={reconBank} onChange={e=>setReconBank(+e.target.value)} className="w-32 text-center font-mono font-semibold border-2 border-purple-300 rounded-lg px-2 py-1 text-xs bg-purple-50 focus:outline-none"/>
+            ) : <span className="font-mono font-semibold text-gray-800 text-xs">{fmt(reconBank)} ر.س</span>}
+          </div>
+          {/* تطبيقات التوصيل */}
+          <div className="px-4 py-1.5 bg-gray-50/80">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">تطبيقات التوصيل</p>
+          </div>
+          {reconDelivApps.map((d,i)=>{
+            const appDiff=d.orig-d.val;
+            return (
+              <div key={i} className={`flex items-center justify-between px-4 py-2.5 hover:bg-gray-50/60 ${appDiff>0?"bg-amber-50/40":""}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{d.icon}</span><span className="text-xs text-gray-700">{d.app}</span>
+                  {appDiff>0 && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-bold">تعديل −{fmt(appDiff)}</span>}
+                </div>
+                {reconEditMode&&!isLocked ? (
+                  <input type="number" value={d.val} onChange={e=>setReconDelivApps(apps=>apps.map((a,j)=>j===i?{...a,val:+e.target.value}:a))} className="w-32 text-center font-mono font-semibold border-2 border-purple-300 rounded-lg px-2 py-1 text-xs bg-purple-50 focus:outline-none"/>
+                ) : <span className={`font-mono font-semibold text-xs ${appDiff>0?"text-amber-700":"text-gray-800"}`}>{fmt(d.val)} ر.س</span>}
+              </div>
+            );
+          })}
+          {/* تحميل الفرق على موظفين */}
+          {hasVariance && !isLocked && (
+            <div className="mx-4 my-2 bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-red-100/60 border-b border-red-200">
+                <AlertTriangle size={13} className="text-red-600 flex-shrink-0"/>
+                <p className="text-xs font-bold text-red-800">تحميل الفرق على موظفين — الفرق: <span className="font-mono">{fmt(variance)} ر.س</span></p>
+                <span className={`mr-auto text-[10px] font-bold px-2 py-0.5 rounded-lg ${remaining<=0?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700"}`}>
+                  {remaining<=0?"✓ محمَّل بالكامل":`متبقي ${fmt(remaining)} ر.س`}
+                </span>
+              </div>
+              <div className="p-3 space-y-2">
+                {varEmps.map((e,i)=>(
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[9px] text-gray-400">رقم الموظف</label>
+                      <input placeholder="مثال: 1001" value={e.empId} onChange={ev=>setVarEmpField(i,"empId",ev.target.value)}
+                        className="w-20 text-center font-mono border border-red-200 rounded-lg px-2 py-1 text-[10px] bg-white focus:outline-none focus:border-red-400"/>
+                    </div>
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      <label className="text-[9px] text-gray-400">اسم الموظف</label>
+                      <div className="h-7 flex items-center px-2 rounded-lg bg-white border border-gray-100 text-[10px] text-gray-700">{e.empName||<span className="text-gray-300">يُعبأ تلقائياً</span>}</div>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[9px] text-gray-400">المبلغ (ر.س)</label>
+                      <input placeholder="0.00" type="number" value={e.amount} onChange={ev=>setVarEmpField(i,"amount",ev.target.value)}
+                        className="w-24 text-center font-mono border border-red-200 rounded-lg px-2 py-1 text-[10px] bg-white focus:outline-none focus:border-red-400"/>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[9px] text-gray-400 opacity-0">⚡</label>
+                      <button onClick={()=>setVarEmpField(i,"amount",String(Math.max(0,remaining+(parseFloat(e.amount)||0))))}
+                        className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold hover:bg-amber-200 border border-amber-200">⚡ المتبقي</button>
+                    </div>
+                    {varEmps.length>1 && (
+                      <button onClick={()=>setVarEmps(p=>p.filter((_,j)=>j!==i))} className="mt-3 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><X size={12}/></button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1">
+                  <button onClick={()=>setVarEmps(p=>[...p,{empId:"",empName:"",amount:""}])} className="flex items-center gap-1 text-[10px] text-red-600 hover:underline font-semibold"><Plus size={10}/> إضافة موظف آخر</button>
+                  {remaining<=0 && <Btn size="sm" variant="success"><CheckCircle2 size={10}/> تأكيد التحميل</Btn>}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* إجمالي التحصيل */}
+          <div className={`flex items-center justify-between px-4 py-3 font-bold border-t-2 ${variance===0?"bg-emerald-50/70 border-emerald-200":"bg-red-50/70 border-red-200"}`}>
+            <span className={`text-xs ${variance===0?"text-emerald-800":"text-red-800"}`}>إجمالي التحصيل</span>
+            <span className={`font-mono text-sm ${variance===0?"text-emerald-700":"text-red-700"}`}>{fmt(totalCollection)} ر.س</span>
+          </div>
+          {variance!==0 ? (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-red-100 border-t border-red-200">
+              <div className="flex items-center gap-2"><AlertTriangle size={12} className="text-red-600"/><span className="text-xs font-bold text-red-800">الفرق المطلوب تحميله على الموظفين</span></div>
+              <span className="font-mono font-black text-red-800 text-sm">{fmt(variance)} ر.س</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center px-4 py-2.5 bg-emerald-50">
+              <span className="text-xs text-emerald-700 font-bold flex items-center gap-2"><CheckCircle2 size={13}/> إجمالي التحصيل مطابق لإجمالي المبيعات تماماً</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Action buttons */}
+      {isPending && !forHead && (
+        <div className="flex gap-2 justify-end">
+          <button onClick={e=>{e.stopPropagation();onReject();}} className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold hover:bg-red-100">✕ رفض</button>
+          <button onClick={e=>{e.stopPropagation();onApprove();}} className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600">✓ موافقة — إرسال لرئيس الحسابات</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
 // SHARED: OPS ROW COMPONENT
 // ═══════════════════════════════════════════════════
 function OpRow({ op, onApprove, onReject, onView, expanded, onToggle, forHead=false }:{
@@ -857,44 +1049,8 @@ function OpRow({ op, onApprove, onReject, onView, expanded, onToggle, forHead=fa
       {/* ═══ EXPANDED DETAIL PANEL ═══ */}
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-4 space-y-4">
-          {/* SALES: channel breakdown */}
-          {op.module==="sales" && op.channels && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2">تفصيل قنوات التحصيل</p>
-              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <div className="grid grid-cols-4 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500">
-                  <span>القناة</span><span className="text-center">نظام POS</span><span className="text-center">التحصيل الفعلي</span><span className="text-center">الفرق</span>
-                </div>
-                {op.channels.map(ch=>{
-                  const diff = ch.actual - ch.pos;
-                  return (
-                    <div key={ch.name} className={`grid grid-cols-4 px-4 py-2.5 border-b border-gray-50 last:border-0 text-xs items-center ${diff!==0?"bg-red-50/40":""}`}>
-                      <span className="font-medium text-gray-700 flex items-center gap-1.5"><span>{ch.icon}</span>{ch.name}</span>
-                      <span className="text-center font-mono text-gray-600">{fmt(ch.pos)}</span>
-                      <span className="text-center font-mono font-bold text-gray-800">{fmt(ch.actual)}</span>
-                      <span className={`text-center font-mono font-bold ${diff===0?"text-emerald-600":"text-red-600"}`}>
-                        {diff===0?"✓ 0":diff>0?`+${fmt(diff)}`:fmt(diff)}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="grid grid-cols-4 px-4 py-2.5 bg-gray-100 text-xs font-bold border-t border-gray-200">
-                  <span className="text-gray-700">الإجمالي</span>
-                  <span className="text-center font-mono">{fmt(op.channels.reduce((s,c)=>s+c.pos,0))}</span>
-                  <span className="text-center font-mono text-purple-700">{fmt(op.channels.reduce((s,c)=>s+c.actual,0))}</span>
-                  <span className={`text-center font-mono ${op.match==="exact"?"text-emerald-600":"text-red-600"}`}>
-                    {op.match==="exact"?"✓ متطابق":`${fmt(op.channels.reduce((s,c)=>s+c.actual-c.pos,0))} ر.س`}
-                  </span>
-                </div>
-              </div>
-              {(isPending||isApproved) && !forHead && isPending && (
-                <div className="flex gap-2 mt-3 justify-end">
-                  <button onClick={e=>{e.stopPropagation();onReject();}} className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold hover:bg-red-100">✕ رفض</button>
-                  <button onClick={e=>{e.stopPropagation();onApprove();}} className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600">✓ موافقة</button>
-                </div>
-              )}
-            </div>
-          )}
+          {/* SALES: channel breakdown + full reconciliation + variance assignment */}
+          {op.module==="sales" && <SalesReconPanel op={op} onApprove={onApprove} onReject={onReject} isPending={isPending} forHead={forHead}/>}
           {/* EXPENSES: handled by AccCompanyExpenses with full table + VAT + convert-to-asset */}
           {op.module==="expenses" && (
             <p className="text-xs text-gray-400 text-center py-2">افتح البيان لعرض الفواتير كاملاً مع خيار التحويل إلى أصل ثابت</p>
@@ -2756,59 +2912,242 @@ function AccCompanyAssets() {
 // ACCOUNTANT — SHIFTS MODULE
 // ═══════════════════════════════════════════════════
 function AccCompanyShifts({ ops }:{ ops:COp[] }) {
-  const [dateFilter,setDateFilter]=useState("اليوم");
-  const [brandFilter,setBrandFilter]=useState("الكل");
-  const shifts=[
-    { id:"SH001",branch:"فرع العليا",   brand:"برغر التاج",      cashier:"أنس محمد",     shiftType:"صباحي",date:"اليوم",   openAmt:500, closeAmt:4280, sales:18340, status:"closed",  diff:0 },
-    { id:"SH002",branch:"فرع الحمراء",  brand:"برغر التاج",      cashier:"ليلى سالم",    shiftType:"مسائي", date:"اليوم",   openAmt:500, closeAmt:null, sales:null,  status:"open",    diff:0 },
-    { id:"SH003",branch:"فرع الملقا",   brand:"بيتزا التاج",     cashier:"راشد عمر",     shiftType:"صباحي",date:"اليوم",   openAmt:500, closeAmt:3120, sales:15820, status:"closed",  diff:0 },
-    { id:"SH004",branch:"فرع الكورنيش", brand:"بيتزا التاج",     cashier:"مها ناصر",     shiftType:"مسائي", date:"اليوم",   openAmt:500, closeAmt:5670, sales:22100, status:"closed",  diff:350 },
-    { id:"SH005",branch:"فرع الورود",   brand:"مطعم التاج الراقي",cashier:"فالح جاسم",   shiftType:"صباحي",date:"اليوم",   openAmt:500, closeAmt:null, sales:null,  status:"open",    diff:0 },
-    { id:"SH006",branch:"فرع الملك فهد",brand:"مطعم التاج الراقي",cashier:"سلمى العمر", shiftType:"مسائي",date:"أمس",    openAmt:500, closeAmt:6200, sales:28900, status:"closed",  diff:0 },
-    { id:"SH007",branch:"فرع النزهة",   brand:"برغر التاج",      cashier:"هاني السلمي",  shiftType:"صباحي",date:"أمس",    openAmt:500, closeAmt:2900, sales:9800,  status:"closed",  diff:-120 },
-  ] as const;
-  const shown=shifts.filter(s=>(dateFilter==="الكل"||s.date===dateFilter)&&(brandFilter==="الكل"||s.brand===brandFilter));
-  const openCount=shown.filter(s=>s.status==="open").length;
-  const closedToday=shown.filter(s=>s.status==="closed"&&s.date==="اليوم").length;
-  const todaySales=shown.filter(s=>s.date==="اليوم"&&s.status==="closed").reduce((sm,s)=>sm+(s.sales||0),0);
+  type ShiftTab = "live"|"setup"|"close"|"history";
+  const [tab,          setTab]          = useState<ShiftTab>("live");
+  const [brandFilter,  setBrandFilter]  = useState("الكل");
+  const [closingId,    setClosingId]    = useState<string|null>(null);
+  const [closeAmts,    setCloseAmts]    = useState<Record<string,string>>({});
+  const [closedShifts, setClosedShifts] = useState<Set<string>>(new Set());
+
+  const LIVE_SHIFTS = [
+    { id:"SH002",branch:"فرع الحمراء",  brand:"برغر التاج",       cashier:"ليلى سالم",  start:"07:00 ص", openAmt:500, estSales:12400, ordersCount:48 },
+    { id:"SH005",branch:"فرع الورود",   brand:"مطعم التاج الراقي",cashier:"فالح جاسم", start:"07:00 ص", openAmt:500, estSales:18900, ordersCount:71 },
+  ];
+  const HISTORY_SHIFTS = [
+    { id:"SH001",branch:"فرع العليا",    brand:"برغر التاج",       cashier:"أنس محمد",    date:"اليوم",  type:"صباحي",openAmt:500, closeAmt:4280, sales:18340, diff:0 },
+    { id:"SH003",branch:"فرع الملقا",    brand:"بيتزا التاج",      cashier:"راشد عمر",    date:"اليوم",  type:"صباحي",openAmt:500, closeAmt:3120, sales:15820, diff:0 },
+    { id:"SH004",branch:"فرع الكورنيش", brand:"بيتزا التاج",      cashier:"مها ناصر",    date:"اليوم",  type:"مسائي",openAmt:500, closeAmt:5670, sales:22100, diff:350 },
+    { id:"SH006",branch:"فرع الملك فهد",brand:"مطعم التاج الراقي",cashier:"سلمى العمر", date:"أمس",    type:"مسائي",openAmt:500, closeAmt:6200, sales:28900, diff:0 },
+    { id:"SH007",branch:"فرع النزهة",   brand:"برغر التاج",       cashier:"هاني السلمي", date:"أمس",    type:"صباحي",openAmt:500, closeAmt:2900, sales:9800,  diff:-120 },
+  ];
+  const ALL_BRANDS = ["الكل",...new Set([...LIVE_SHIFTS,...HISTORY_SHIFTS].map(s=>s.brand))];
+  const shownLive    = LIVE_SHIFTS.filter(s=>brandFilter==="الكل"||s.brand===brandFilter);
+  const shownHistory = HISTORY_SHIFTS.filter(s=>brandFilter==="الكل"||s.brand===brandFilter);
+  const todaySales   = HISTORY_SHIFTS.filter(s=>s.date==="اليوم").reduce((sm,s)=>sm+s.sales,0);
+
+  const SETUP_BRANDS = [
+    { id:"b1",name:"برغر التاج",   branches:["فرع العليا","فرع الحمراء","فرع النزهة"],   currentSetup:{morn:"07:00-15:00",eve:"15:00-23:00",openFloat:500} },
+    { id:"b2",name:"بيتزا التاج",  branches:["فرع الملقا","فرع الكورنيش"],                currentSetup:{morn:"08:00-16:00",eve:"16:00-00:00",openFloat:500} },
+    { id:"b3",name:"مطعم التاج الراقي",branches:["فرع الورود","فرع الملك فهد"],          currentSetup:{morn:"11:00-19:00",eve:"19:00-03:00",openFloat:1000} },
+  ];
+
+  const TABS: { key:ShiftTab; label:string; icon:React.ReactNode }[] = [
+    { key:"live",    label:"مباشر",   icon:<Activity size={13}/> },
+    { key:"setup",   label:"إعداد",   icon:<Settings size={13}/> },
+    { key:"close",   label:"إغلاق",   icon:<Lock size={13}/> },
+    { key:"history", label:"سجل",     icon:<BarChart3 size={13}/> },
+  ];
+
   return (
     <div className="space-y-5" dir="rtl">
-      <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold text-gray-800">موديول الشفتات</h2><p className="text-gray-400 text-sm">متابعة فتح وإغلاق الشفتات — جميع العلامات والفروع</p></div></div>
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">موديول الشفتات</h2><p className="text-gray-400 text-sm mt-0.5">متابعة فتح وإغلاق الشفتات — جميع العلامات والفروع</p></div>
+      </div>
       <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="مفتوح الآن"    value={String(openCount)}   sub="فروع نشطة"        icon={<Clock size={18} className="text-amber-600"/>}     accent="amber"/>
-        <KpiCard label="مغلقة اليوم"   value={String(closedToday)} sub="شفت مغلق"          icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="مبيعات اليوم"  value={fmt(todaySales)}     sub="ر.س"               icon={<Wallet size={18} className="text-purple-600"/>}   accent="purple"/>
-        <KpiCard label="فروق في الكاش" value={String(shifts.filter(s=>s.diff!==0).length)} sub="تحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+        <KpiCard label="مفتوح الآن"      value={String(LIVE_SHIFTS.length)}     sub="فروع نشطة"            icon={<Activity size={18} className="text-amber-600"/>}      accent="amber"/>
+        <KpiCard label="مغلقة اليوم"     value={String(HISTORY_SHIFTS.filter(s=>s.date==="اليوم").length)} sub="شفت مغلق" icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="مبيعات اليوم"    value={fmt(todaySales)}                 sub="ر.س"                   icon={<Wallet size={18} className="text-purple-600"/>}      accent="purple"/>
+        <KpiCard label="فروق في الكاش"   value={String(HISTORY_SHIFTS.filter(s=>s.diff!==0).length)} sub="تحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">{["اليوم","أمس","الكل"].map(d=><button key={d} onClick={()=>setDateFilter(d)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${dateFilter===d?"bg-white text-gray-800 shadow-sm":"text-gray-500"}`}>{d}</button>)}</div>
-          <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-3 py-2"><option>الكل</option>{BRANDS.map(b=><option key={b.id}>{b.name}</option>)}</select>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-7 gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
-          <span className="col-span-2">الفرع / العلامة</span><span>الكاشير</span><span>نوع الشفت</span><span>افتتاح</span><span>المبيعات</span><span>الحالة</span>
-        </div>
-        {shown.map(s=>(
-          <div key={s.id} className={`grid grid-cols-7 gap-2 px-5 py-4 border-b border-gray-50 last:border-0 items-center ${s.diff!==0?"bg-red-50/30":""}`}>
-            <div className="col-span-2">
-              <p className="font-semibold text-gray-800 text-sm">{s.branch}</p>
-              <p className="text-[10px] text-gray-400">{s.brand}</p>
-            </div>
-            <span className="text-xs text-gray-700">{s.cashier}</span>
-            <span className="text-xs text-gray-700">{s.shiftType}</span>
-            <span className="font-mono text-xs text-gray-600">{s.openAmt} ر.س</span>
-            <div>
-              {s.status==="closed"?<><p className="font-mono font-bold text-gray-800 text-xs">{fmt(s.sales||0)} ر.س</p>{s.diff!==0&&<p className="text-[10px] text-red-600">فرق: {s.diff>0?"+":""}{s.diff}</p>}</>:<p className="text-amber-600 font-bold text-xs">جارٍ...</p>}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Badge className={`text-[10px] border ${s.status==="closed"?"bg-emerald-50 text-emerald-700 border-emerald-200":"bg-amber-50 text-amber-700 border-amber-200"}`}>{s.status==="closed"?"✓ مغلق":"● مفتوح"}</Badge>
-              {s.diff!==0&&<AlertTriangle size={12} className="text-red-500"/>}
-            </div>
-          </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1 w-fit">
+        {TABS.map(t=>(
+          <button key={t.key} onClick={()=>setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${tab===t.key?"bg-white text-gray-800 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>
+            {t.icon}{t.label}
+          </button>
         ))}
+        <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="mr-auto text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
+          {ALL_BRANDS.map(b=><option key={b}>{b}</option>)}
+        </select>
       </div>
+
+      {/* LIVE TAB */}
+      {tab==="live" && (
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <Activity size={14} className="text-amber-600 flex-shrink-0"/>
+            <p className="text-amber-800 text-xs font-semibold">{shownLive.length} شفتات نشطة الآن — مراقبة مباشرة</p>
+          </div>
+          {shownLive.length===0 && <p className="text-center text-gray-400 text-sm py-8">لا توجد شفتات مفتوحة حالياً</p>}
+          {shownLive.map(s=>(
+            <div key={s.id} className="bg-white rounded-xl border-2 border-amber-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"/>
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{s.branch}</p>
+                    <p className="text-[10px] text-gray-500">{s.brand}</p>
+                  </div>
+                </div>
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">● جارٍ الآن</Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-0 divide-x divide-x-reverse divide-gray-100 px-5 py-4">
+                <div className="pl-4">
+                  <p className="text-[10px] text-gray-400">الكاشير المسؤول</p>
+                  <p className="font-semibold text-gray-800 text-sm mt-0.5">{s.cashier}</p>
+                </div>
+                <div className="px-4">
+                  <p className="text-[10px] text-gray-400">بداية الشفت</p>
+                  <p className="font-semibold text-gray-800 text-sm mt-0.5">{s.start}</p>
+                </div>
+                <div className="pr-4">
+                  <p className="text-[10px] text-gray-400">الطلبات حتى الآن</p>
+                  <p className="font-bold text-amber-700 text-sm mt-0.5">{s.ordersCount} طلب</p>
+                </div>
+              </div>
+              <div className="px-5 pb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-400">المبيعات المتوقعة</p>
+                  <p className="font-black text-purple-700 text-lg font-mono">{fmt(s.estSales)} ر.س</p>
+                </div>
+                <Btn size="sm" variant="primary" onClick={()=>{setTab("close");setClosingId(s.id);}}>
+                  <Lock size={11}/> إغلاق الشفت
+                </Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* SETUP TAB */}
+      {tab==="setup" && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">إعداد ساعات الشفتات والميزانية الافتتاحية لكل علامة تجارية</p>
+          {SETUP_BRANDS.map(b=>(
+            <div key={b.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 bg-gray-50/60 border-b border-gray-100">
+                <p className="font-bold text-gray-800 text-sm">{b.name}</p>
+                <p className="text-[10px] text-gray-400">{b.branches.join(" · ")}</p>
+              </div>
+              <div className="p-5 grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 block mb-1.5">الشفت الصباحي</label>
+                  <input defaultValue={b.currentSetup.morn} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 block mb-1.5">الشفت المسائي</label>
+                  <input defaultValue={b.currentSetup.eve} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 block mb-1.5">الميزانية الافتتاحية (ر.س)</label>
+                  <input type="number" defaultValue={b.currentSetup.openFloat} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"/>
+                </div>
+              </div>
+              <div className="px-5 pb-4 flex justify-end">
+                <Btn size="sm" variant="primary" onClick={()=>alert(`✅ تم حفظ إعدادات ${b.name}`)}><Check size={11}/> حفظ الإعدادات</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CLOSE TAB */}
+      {tab==="close" && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">اختر شفتاً مفتوحاً لإغلاقه — إدخال المبيعات والنقدية الفعلية</p>
+          {shownLive.map(s=>{
+            const isThisClosing = closingId===s.id;
+            const isClosed      = closedShifts.has(s.id);
+            const closeAmt      = parseFloat(closeAmts[s.id]||"0");
+            const diff          = closeAmt - s.estSales;
+            return (
+              <div key={s.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isThisClosing?"border-purple-300":"border-gray-100"} ${isClosed?"opacity-50":""}`}>
+                <div className="px-5 py-3 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{s.branch}</p>
+                    <p className="text-[10px] text-gray-400">{s.brand} · {s.cashier}</p>
+                  </div>
+                  {isClosed
+                    ? <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px]">✓ مغلق</Badge>
+                    : <button onClick={()=>setClosingId(isThisClosing?null:s.id)} className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${isThisClosing?"bg-purple-600 text-white border-purple-600":"bg-white text-purple-600 border-purple-200 hover:bg-purple-50"}`}>
+                        {isThisClosing?"إلغاء":"فتح نموذج الإغلاق"}
+                      </button>}
+                </div>
+                {isThisClosing && !isClosed && (
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-600 block mb-1.5">المبيعات المتوقعة (POS)</label>
+                        <div className="h-10 flex items-center px-3 bg-gray-50 border border-gray-200 rounded-lg font-mono font-bold text-purple-700 text-sm">{fmt(s.estSales)} ر.س</div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-600 block mb-1.5">النقدية الفعلية في الصندوق</label>
+                        <input type="number" placeholder="0.00" value={closeAmts[s.id]||""}
+                          onChange={e=>setCloseAmts(p=>({...p,[s.id]:e.target.value}))}
+                          className="w-full text-sm border-2 border-purple-300 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 font-mono"/>
+                      </div>
+                    </div>
+                    {closeAmt>0 && (
+                      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${diff===0?"bg-emerald-50 border-emerald-200":"bg-red-50 border-red-200"}`}>
+                        {diff===0 ? <CheckCircle2 size={14} className="text-emerald-600"/> : <AlertTriangle size={14} className="text-red-600"/>}
+                        <p className={`text-xs font-bold ${diff===0?"text-emerald-800":"text-red-800"}`}>
+                          {diff===0?"✓ لا يوجد فرق — الكاش متطابق":`فرق: ${diff>0?"+":`${diff}`} ر.س — يجب مراجعة الكاش`}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Btn variant="success" onClick={()=>{setClosedShifts(p=>new Set([...p,s.id]));setClosingId(null);}}>
+                        <Lock size={11}/> تأكيد إغلاق الشفت
+                      </Btn>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {shownLive.length===0 && <p className="text-center text-gray-400 text-sm py-8">لا توجد شفتات مفتوحة حالياً للإغلاق</p>}
+        </div>
+      )}
+
+      {/* HISTORY TAB */}
+      {tab==="history" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+            <p className="font-bold text-gray-900 text-sm">سجل الشفتات المغلقة</p>
+            <button onClick={()=>alert("جارٍ تصدير السجل...")} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100"><FileText size={11}/> Excel</button>
+          </div>
+          <table className="w-full text-xs" dir="rtl">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-right font-semibold text-gray-600">الفرع / العلامة</th>
+                <th className="px-4 py-3 text-right font-semibold text-gray-600">الكاشير</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">التاريخ</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">نوع الشفت</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">المبيعات</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">الفرق</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {shownHistory.map(s=>(
+                <tr key={s.id} className={`hover:bg-gray-50 ${s.diff!==0?"bg-red-50/30":""}`}>
+                  <td className="px-4 py-3"><p className="font-semibold text-gray-800">{s.branch}</p><p className="text-[10px] text-gray-400">{s.brand}</p></td>
+                  <td className="px-4 py-3 text-gray-700">{s.cashier}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{s.date}</td>
+                  <td className="px-4 py-3 text-center"><Badge className="bg-gray-100 text-gray-600 text-[10px]">{s.type}</Badge></td>
+                  <td className="px-4 py-3 text-center font-mono font-bold text-gray-800">{fmt(s.sales)} ر.س</td>
+                  <td className="px-4 py-3 text-center">
+                    {s.diff===0
+                      ? <span className="text-[10px] text-emerald-600 font-bold">✓ متطابق</span>
+                      : <span className="text-[10px] text-red-600 font-bold flex items-center justify-center gap-1"><AlertTriangle size={10}/>{s.diff>0?"+":""}{s.diff} ر.س</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -2875,41 +3214,224 @@ function AccCompanyReminders() {
 // ACCOUNTANT — WASTE MODULE
 // ═══════════════════════════════════════════════════
 function AccCompanyWaste() {
-  const wasteData = [
-    { branch:"فرع العليا",   brand:"برغر التاج",       item:"لحم مفروم",  qty:4.5,  unit:"كجم", cost:360, reason:"انتهاء الصلاحية", date:"اليوم" },
-    { branch:"فرع الحمراء",  brand:"برغر التاج",       item:"خبز برجر",   qty:30,   unit:"قطعة",cost:90,  reason:"تلف تخزين",       date:"اليوم" },
-    { branch:"فرع الملقا",   brand:"بيتزا التاج",      item:"جبن موزاريلا",qty:2,   unit:"كجم", cost:180, reason:"تجاوز الميعاد",   date:"أمس"   },
-    { branch:"فرع الورود",   brand:"مطعم التاج الراقي",item:"دجاج",       qty:6,    unit:"كجم", cost:420, reason:"تلف عند التسليم", date:"أمس"   },
-    { branch:"فرع الكورنيش", brand:"بيتزا التاج",      item:"صلصة طماطم", qty:5,    unit:"لتر", cost:75,  reason:"انتهاء الصلاحية", date:"أمس"   },
-  ];
-  const totalCost = wasteData.reduce((s,w)=>s+w.cost,0);
+  type WasteClass = "هدر"|"تالف";
+  type WasteResp  = "موظف"|"مطعم";
+  type WAlloc     = { empId:string; empName:string; amount:string };
+  interface WProduct { name:string; qty:number; unit:string; unitPrice:number; class_:WasteClass; resp:WasteResp; empAllocs:WAlloc[] }
+  interface WEntry   { id:string; branch:string; brand:string; date:string; status:"pending"|"approved"|"rejected"; products:WProduct[] }
+
+  const WASTE_EMP: Record<string,string> = {
+    "1001":"أنس محمد","1002":"ليلى سالم","1003":"راشد عمر",
+    "1004":"مها ناصر","1005":"فالح جاسم","1006":"سلمى العمر",
+  };
+
+  const [filterBranch, setFilterBranch] = useState("الكل");
+  const [expandedId,   setExpandedId]   = useState<string|null>(null);
+  const [expandedProd, setExpandedProd] = useState<Record<string,number|null>>({});
+  const [entries, setEntries] = useState<WEntry[]>([
+    { id:"WD-001", branch:"فرع العليا",   brand:"برغر التاج",       date:"اليوم", status:"pending",
+      products:[
+        { name:"لحم مفروم",  qty:4.5, unit:"كجم",  unitPrice:80,  class_:"تالف", resp:"موظف", empAllocs:[{empId:"1001",empName:"أنس محمد",amount:"180"},{empId:"",empName:"",amount:""}] },
+        { name:"خبز برجر",   qty:30,  unit:"قطعة", unitPrice:3,   class_:"هدر",  resp:"مطعم", empAllocs:[{empId:"",empName:"",amount:""}] },
+      ]},
+    { id:"WD-002", branch:"فرع الحمراء",  brand:"برغر التاج",       date:"اليوم", status:"pending",
+      products:[
+        { name:"جبن شيدر",   qty:2,   unit:"كجم",  unitPrice:90,  class_:"تالف", resp:"موظف", empAllocs:[{empId:"1002",empName:"ليلى سالم",amount:"90"},{empId:"1003",empName:"راشد عمر",amount:"90"}] },
+        { name:"مايونيز",     qty:1.5, unit:"كجم",  unitPrice:25,  class_:"هدر",  resp:"مطعم", empAllocs:[{empId:"",empName:"",amount:""}] },
+      ]},
+    { id:"WD-003", branch:"فرع الملقا",   brand:"بيتزا التاج",      date:"أمس",   status:"approved",
+      products:[
+        { name:"جبن موزاريلا",qty:2,   unit:"كجم",  unitPrice:90,  class_:"تالف", resp:"موظف", empAllocs:[{empId:"1004",empName:"مها ناصر",amount:"180"}] },
+      ]},
+    { id:"WD-004", branch:"فرع الورود",   brand:"مطعم التاج الراقي",date:"أمس",   status:"pending",
+      products:[
+        { name:"دجاج طازج",  qty:6,   unit:"كجم",  unitPrice:70,  class_:"تالف", resp:"موظف", empAllocs:[{empId:"1005",empName:"فالح جاسم",amount:"420"}] },
+        { name:"صلصة خاصة",  qty:3,   unit:"لتر",  unitPrice:40,  class_:"هدر",  resp:"مطعم", empAllocs:[{empId:"",empName:"",amount:""}] },
+      ]},
+  ]);
+
+  const updProd = (eid:string, pi:number, fn:(p:WProduct)=>WProduct) =>
+    setEntries(prev=>prev.map(e=>e.id===eid?{...e,products:e.products.map((p,i)=>i===pi?fn(p):p)}:e));
+  const toggleClass = (eid:string,pi:number) => updProd(eid,pi,p=>({...p,class_:p.class_==="هدر"?"تالف":"هدر" as WasteClass}));
+  const toggleResp  = (eid:string,pi:number) => updProd(eid,pi,p=>({...p,resp:p.resp==="موظف"?"مطعم":"موظف" as WasteResp}));
+  const setAllocField = (eid:string,pi:number,ai:number,field:keyof WAlloc,val:string) =>
+    updProd(eid,pi,p=>({...p,empAllocs:p.empAllocs.map((a,k)=>k===ai?{...a,[field]:val,...(field==="empId"?{empName:WASTE_EMP[val]||""}:{})}:a)}));
+  const addAlloc    = (eid:string,pi:number) => updProd(eid,pi,p=>({...p,empAllocs:[...p.empAllocs,{empId:"",empName:"",amount:""}]}));
+  const removeAlloc = (eid:string,pi:number,ai:number) => updProd(eid,pi,p=>({...p,empAllocs:p.empAllocs.filter((_,k)=>k!==ai)}));
+  const approve = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"approved" as const}:e));
+  const reject  = (id:string) => setEntries(p=>p.map(e=>e.id===id?{...e,status:"rejected" as const}:e));
+
+  const pending  = entries.filter(e=>e.status==="pending");
+  const approved = entries.filter(e=>e.status==="approved");
+  const displayed = filterBranch==="الكل"?entries:entries.filter(e=>e.branch===filterBranch);
+  const displayedPending = displayed.filter(e=>e.status==="pending");
+  const WASTE_BRANCHES = [...new Set(entries.map(e=>e.branch))];
+  const totalWasteAmt  = entries.flatMap(e=>e.products).reduce((s,p)=>s+p.qty*p.unitPrice,0);
+  const empChargedAmt  = entries.flatMap(e=>e.products).filter(p=>p.resp==="موظف").flatMap(p=>p.empAllocs).reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
+
   return (
     <div className="space-y-5" dir="rtl">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-xl font-bold text-gray-800">الهدر والتالف</h2><p className="text-gray-400 text-sm">متابعة الهدر عبر فروع مجموعة التاج</p></div>
+        <div><h2 className="text-xl font-bold text-gray-800">موديول الهدر والتالف</h2><p className="text-gray-400 text-sm mt-0.5">مراجعة الهدر — تعديل التصنيف والقيمة المالية وتوزيع التحميل على الموظفين</p></div>
+        {displayedPending.length>0 && (
+          <Btn variant="success" size="sm" onClick={()=>setEntries(p=>p.map(e=>(filterBranch==="الكل"||e.branch===filterBranch)?{...e,status:"approved" as const}:e))}>
+            <CheckCircle2 size={12}/> موافقة على الكل ({displayedPending.length})
+          </Btn>
+        )}
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي تكلفة الهدر" value={fmt(totalCost)} sub="ر.س هذا الأسبوع" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
-        <KpiCard label="سجلات الهدر"        value={String(wasteData.length)} sub="هذا الأسبوع"    icon={<Package size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="متوسط الهدر/فرع"    value={fmt(Math.round(totalCost/12))} sub="ر.س هذا الشهر" icon={<BarChart3 size={18} className="text-purple-600"/>} accent="purple"/>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالفرع أو المطعم</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2"><Search size={13} className="text-gray-400"/><input placeholder="اسم الفرع أو المطعم..." className="flex-1 text-sm outline-none"/></div>
+          </div>
+          <div><label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">{["الكل",...BRANDS.map(b=>b.name)].map(b=><option key={b}>{b}</option>)}</select>
+          </div>
+          <div className="flex items-end">
+            <button onClick={()=>alert("جارٍ تصدير بيانات الهدر والتالف إلى Excel...")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
+              <FileText size={13}/> تصدير Excel
+            </button>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500 mb-2">تصفية حسب الفرع</p>
+          <div className="flex flex-wrap gap-2">
+            {["الكل",...WASTE_BRANCHES].map(b=>{
+              const bPend = b==="الكل"?pending.length:entries.filter(e=>e.branch===b&&e.status==="pending").length;
+              return (
+                <button key={b} onClick={()=>setFilterBranch(b)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${filterBranch===b?"bg-purple-600 text-white border-purple-600":"bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
+                  {b}
+                  {bPend>0&&<span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${filterBranch===b?"bg-white text-purple-700":"bg-amber-500 text-white"}`}>{bPend}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="بانتظار المراجعة"  value={String(pending.length)}  sub="من الفروع"        icon={<Clock size={18} className="text-amber-600"/>}      accent="amber"/>
+        <KpiCard label="معتمد"             value={String(approved.length)} sub="هذا الشهر"         icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+        <KpiCard label="إجمالي الخسائر"   value={`${fmt(totalWasteAmt)} ر.س`} sub="هدر + تالف" icon={<Trash2 size={18} className="text-rose-600"/>}      accent="red"/>
+        <KpiCard label="محمَّل على الموظفين" value={`${fmt(empChargedAmt)} ر.س`} sub="مُعيَّن فعلياً" icon={<Users size={18} className="text-orange-600"/>} accent="orange"/>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 text-sm">سجلات الهدر</h3>
-          <Btn size="sm" variant="primary" onClick={()=>alert("✅ تم تصدير تقرير الهدر")}><Download size={11}/> تصدير</Btn>
+          <h3 className="font-bold text-gray-900 text-sm">بيانات الهدر والتالف</h3>
+          <span className="text-xs text-gray-400">{displayed.length} بيان — اضغط لعرض المنتجات والتحميل</span>
         </div>
-        <div className="grid grid-cols-6 gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
-          <span className="col-span-2">الصنف / الفرع</span><span>الكمية</span><span>التكلفة</span><span>السبب</span><span>التاريخ</span>
-        </div>
-        {wasteData.map((w,i)=>(
-          <div key={i} className="grid grid-cols-6 gap-4 px-5 py-3.5 border-b border-gray-50 last:border-0 items-center">
-            <div className="col-span-2"><p className="font-semibold text-gray-800 text-sm">{w.item}</p><p className="text-[10px] text-gray-400">{w.branch} · {w.brand}</p></div>
-            <span className="text-sm text-gray-700 font-mono">{w.qty} {w.unit}</span>
-            <span className="text-sm font-bold text-red-600">{fmt(w.cost)} ر.س</span>
-            <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px]">{w.reason}</Badge>
-            <span className="text-xs text-gray-400">{w.date}</span>
-          </div>
-        ))}
+        {displayed.map(entry=>{
+          const isExpanded = expandedId===entry.id;
+          const entryTotal = entry.products.reduce((s,p)=>s+p.qty*p.unitPrice,0);
+          const empTotal   = entry.products.filter(p=>p.resp==="موظف").flatMap(p=>p.empAllocs).reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
+          const statusCls  = entry.status==="pending"?"bg-amber-50 text-amber-700 border border-amber-200":entry.status==="approved"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200";
+          const statusLbl  = entry.status==="pending"?"معلق":entry.status==="approved"?"معتمد":"مرفوض";
+          return (
+            <div key={entry.id} className="border-b border-gray-100 last:border-0">
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 cursor-pointer ${isExpanded?"bg-rose-50/20":""}`}
+                onClick={()=>setExpandedId(isExpanded?null:entry.id)}>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{entry.branch}</span>
+                    <Badge className="bg-gray-100 text-gray-500 text-[10px]">{entry.brand}</Badge>
+                    <span className="font-mono text-xs text-rose-600">{entry.id}</span>
+                    <Badge className={`${statusCls} text-[10px]`}>{statusLbl}</Badge>
+                    <Badge className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px]">{entry.products.length} منتج</Badge>
+                  </div>
+                  <div className="flex items-center gap-4 mt-0.5">
+                    <p className="text-xs text-gray-400">{entry.date}</p>
+                    <span className="text-xs font-mono font-bold text-rose-700">إجمالي: {fmt(entryTotal)} ر.س</span>
+                    {empTotal>0&&<span className="text-[10px] text-orange-600 font-semibold">منه على موظفين: {fmt(empTotal)} ر.س</span>}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {entry.status==="pending" && <>
+                    <Btn size="sm" variant="success" onClick={e=>{e.stopPropagation();approve(entry.id)}}><ThumbsUp size={12}/></Btn>
+                    <Btn size="sm" variant="danger"  onClick={e=>{e.stopPropagation();reject(entry.id)}}><ThumbsDown size={12}/></Btn>
+                  </>}
+                </div>
+                {isExpanded?<ChevronUp size={14} className="text-gray-400 flex-shrink-0"/>:<ChevronDown size={14} className="text-gray-400 flex-shrink-0"/>}
+              </div>
+              {isExpanded && (
+                <div className="px-5 pb-5 bg-gray-50/40 space-y-3">
+                  <p className="text-xs font-bold text-gray-600 mt-3">المنتجات المشمولة — تعديل التصنيف والمسؤولية وتوزيع التحميل المالي:</p>
+                  {entry.products.map((prod,pi)=>{
+                    const prodValue  = prod.qty*prod.unitPrice;
+                    const allocTotal = prod.empAllocs.reduce((s,a)=>s+(parseFloat(a.amount)||0),0);
+                    const remaining  = prodValue-allocTotal;
+                    const isAllocOpen= expandedProd[entry.id]===pi;
+                    return (
+                      <div key={pi} className={`bg-white rounded-xl border overflow-hidden ${prod.resp==="موظف"?"border-orange-100":"border-gray-100"}`}>
+                        <div className="px-4 py-3 flex items-center gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-800 text-sm">{prod.name}</span>
+                              <span className="text-[10px] text-gray-500 font-mono">{prod.qty} {prod.unit} × {prod.unitPrice} ر.س</span>
+                              <span className="font-mono font-bold text-rose-600 text-xs">{fmt(prodValue)} ر.س</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={()=>toggleClass(entry.id,pi)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${prod.class_==="تالف"?"bg-rose-100 text-rose-700 border-rose-300":"bg-amber-100 text-amber-700 border-amber-300"}`}>
+                              {prod.class_}
+                            </button>
+                            <button onClick={()=>toggleResp(entry.id,pi)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${prod.resp==="موظف"?"bg-orange-100 text-orange-700 border-orange-300":"bg-blue-100 text-blue-700 border-blue-300"}`}>
+                              {prod.resp==="موظف"?"على موظف":"على المطعم"}
+                            </button>
+                            {prod.resp==="موظف" && (
+                              <button onClick={()=>setExpandedProd(p=>({...p,[entry.id]:isAllocOpen?null:pi}))}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${isAllocOpen?"bg-purple-600 text-white border-purple-600":"bg-purple-50 text-purple-700 border-purple-200"}`}>
+                                تحميل على موظف {isAllocOpen?"▲":"▼"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {prod.resp==="موظف" && isAllocOpen && (
+                          <div className="border-t border-orange-100 bg-orange-50/40 px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-[10px] font-bold text-orange-700">تحديد الموظف المسؤول عن تحميل قيمة الهدر ({fmt(prodValue)} ر.س)</p>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${remaining<=0?"bg-emerald-100 text-emerald-700":"bg-orange-100 text-orange-700"}`}>
+                                {remaining<=0?"✓ محمَّل بالكامل":`متبقي: ${fmt(remaining)} ر.س`}
+                              </span>
+                            </div>
+                            {prod.empAllocs.map((alloc,ai)=>(
+                              <div key={ai} className="flex items-center gap-2">
+                                <div className="flex flex-col gap-0.5">
+                                  <label className="text-[9px] text-orange-600">رقم الموظف</label>
+                                  <input value={alloc.empId} onChange={e=>setAllocField(entry.id,pi,ai,"empId",e.target.value)} placeholder="مثال: 1001"
+                                    className="w-16 text-center font-mono border border-orange-200 rounded-lg px-1.5 py-1 text-[10px] bg-white focus:outline-none"/>
+                                </div>
+                                <div className="flex flex-col gap-0.5 flex-1">
+                                  <label className="text-[9px] text-orange-600">اسم الموظف</label>
+                                  <div className="h-7 flex items-center px-2 rounded-lg bg-white border border-gray-100 text-[10px] text-gray-700">{alloc.empName||<span className="text-gray-300">يُعبأ تلقائياً</span>}</div>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <label className="text-[9px] text-orange-600">المبلغ (ر.س)</label>
+                                  <input type="number" value={alloc.amount} onChange={e=>setAllocField(entry.id,pi,ai,"amount",e.target.value)} placeholder="0.00"
+                                    className="w-20 text-center font-mono border border-orange-200 rounded-lg px-1.5 py-1 text-[10px] bg-white focus:outline-none"/>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <label className="text-[9px] opacity-0">⚡</label>
+                                  <button onClick={()=>setAllocField(entry.id,pi,ai,"amount",String(Math.max(0,remaining+(parseFloat(alloc.amount)||0))))}
+                                    className="px-1.5 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-bold border border-amber-200">⚡</button>
+                                </div>
+                                {prod.empAllocs.length>1 && (
+                                  <button onClick={()=>removeAlloc(entry.id,pi,ai)} className="mt-3 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"><X size={10}/></button>
+                                )}
+                              </div>
+                            ))}
+                            <button onClick={()=>addAlloc(entry.id,pi)} className="flex items-center gap-1 text-[10px] text-orange-600 hover:underline font-semibold"><Plus size={10}/> إضافة موظف آخر</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -2918,42 +3440,184 @@ function AccCompanyWaste() {
 // ACCOUNTANT — EMPLOYEES
 // ═══════════════════════════════════════════════════
 function AccCompanyEmployees() {
-  const employees = [
-    { name:"أنس محمد",    branch:"فرع العليا",   role:"كاشير", salary:4200, advances:500,  deductions:0,   net:3700, status:"نشط"    },
-    { name:"ليلى سالم",  branch:"فرع العليا",   role:"كاشير", salary:3800, advances:0,    deductions:200, net:3600, status:"نشط"    },
-    { name:"فهد العمري", branch:"فرع الحمراء",  role:"طاهٍ",  salary:5500, advances:1000, deductions:0,   net:4500, status:"نشط"    },
-    { name:"سارة الغامدي",branch:"فرع الملقا",  role:"خدمة",  salary:3500, advances:0,    deductions:350, net:3150, status:"نشط"    },
-    { name:"عمر الحربي", branch:"فرع الكورنيش", role:"مساعد", salary:3200, advances:200,  deductions:0,   net:3000, status:"موقوف"  },
+  interface EmpMovement { date:string; desc:string; type:"credit"|"debit"; amount:number; ref:string }
+  interface Employee { id:string; name:string; branch:string; brand:string; role:string; salary:number; advances:number; deductions:number; net:number; status:"نشط"|"موقوف"; movements:EmpMovement[] }
+
+  const [selectedEmp, setSelectedEmp] = useState<string|null>(null);
+  const [searchTerm,  setSearchTerm]  = useState("");
+  const [brandFilter, setBrandFilter] = useState("الكل");
+
+  const employees: Employee[] = [
+    { id:"E01",name:"أنس محمد",    branch:"فرع العليا",   brand:"برغر التاج",       role:"كاشير",    salary:4200, advances:500,  deductions:0,   net:3700, status:"نشط",
+      movements:[
+        {date:"اليوم",  desc:"سلفة راتب",           type:"debit",  amount:500,  ref:"ADV-201"},
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:4200, ref:"SAL-1001"},
+        {date:"25 سبت",desc:"خصم غياب (يوم واحد)",   type:"debit",  amount:140,  ref:"DED-088"},
+        {date:"01 سبت",desc:"راتب سبتمبر",           type:"credit", amount:4200, ref:"SAL-0901"},
+      ]},
+    { id:"E02",name:"ليلى سالم",  branch:"فرع العليا",   brand:"برغر التاج",       role:"كاشير",    salary:3800, advances:0,    deductions:200, net:3600, status:"نشط",
+      movements:[
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:3800, ref:"SAL-1002"},
+        {date:"20 سبت",desc:"خصم فرق كاش",           type:"debit",  amount:200,  ref:"DED-089"},
+        {date:"01 سبت",desc:"راتب سبتمبر",           type:"credit", amount:3800, ref:"SAL-0902"},
+      ]},
+    { id:"E03",name:"فهد العمري", branch:"فرع الحمراء",  brand:"برغر التاج",       role:"طاهٍ",     salary:5500, advances:1000, deductions:0,   net:4500, status:"نشط",
+      movements:[
+        {date:"15 أكت",desc:"سلفة راتب",             type:"debit",  amount:1000, ref:"ADV-202"},
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:5500, ref:"SAL-1003"},
+        {date:"01 سبت",desc:"راتب سبتمبر",           type:"credit", amount:5500, ref:"SAL-0903"},
+      ]},
+    { id:"E04",name:"سارة الغامدي",branch:"فرع الملقا",  brand:"بيتزا التاج",      role:"خدمة عملاء",salary:3500, advances:0,   deductions:350, net:3150, status:"نشط",
+      movements:[
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:3500, ref:"SAL-1004"},
+        {date:"10 أكت",desc:"خصم هدر مخزون",         type:"debit",  amount:180,  ref:"DED-090"},
+        {date:"12 أكت",desc:"خصم فرق كاش",           type:"debit",  amount:170,  ref:"DED-091"},
+        {date:"01 سبت",desc:"راتب سبتمبر",           type:"credit", amount:3500, ref:"SAL-0904"},
+      ]},
+    { id:"E05",name:"عمر الحربي", branch:"فرع الكورنيش", brand:"بيتزا التاج",      role:"مساعد",    salary:3200, advances:200,  deductions:0,   net:3000, status:"موقوف",
+      movements:[
+        {date:"05 أكت",desc:"سلفة",                  type:"debit",  amount:200,  ref:"ADV-203"},
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:3200, ref:"SAL-1005"},
+      ]},
+    { id:"E06",name:"فالح جاسم",  branch:"فرع الورود",   brand:"مطعم التاج الراقي",role:"كاشير",    salary:4800, advances:0,    deductions:420, net:4380, status:"نشط",
+      movements:[
+        {date:"01 أكت",desc:"راتب أكتوبر",           type:"credit", amount:4800, ref:"SAL-1006"},
+        {date:"14 أكت",desc:"خصم هدر — دجاج طازج",   type:"debit",  amount:420,  ref:"DED-092"},
+        {date:"01 سبت",desc:"راتب سبتمبر",           type:"credit", amount:4800, ref:"SAL-0906"},
+      ]},
   ];
+
+  const filtered = employees.filter(e=>{
+    if(searchTerm && !e.name.includes(searchTerm) && !e.branch.includes(searchTerm)) return false;
+    if(brandFilter!=="الكل" && e.brand!==brandFilter) return false;
+    return true;
+  });
+  const selected = selectedEmp ? employees.find(e=>e.id===selectedEmp) : null;
   const totalSalaries = employees.reduce((s,e)=>s+e.net,0);
+  const totalAdvances  = employees.reduce((s,e)=>s+e.advances,0);
+  const totalDeductions= employees.reduce((s,e)=>s+e.deductions,0);
+
   return (
     <div className="space-y-5" dir="rtl">
-      <div><h2 className="text-xl font-bold text-gray-800">كشف حساب الموظفين</h2><p className="text-gray-400 text-sm">الرواتب والحركات المالية لموظفي مجموعة التاج</p></div>
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي الرواتب" value={fmt(totalSalaries)} sub="ر.س هذا الشهر" icon={<Users size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="إجمالي السلف"   value={fmt(employees.reduce((s,e)=>s+e.advances,0))} sub="ر.س" icon={<Wallet size={18} className="text-amber-600"/>} accent="amber"/>
-        <KpiCard label="إجمالي الخصومات" value={fmt(employees.reduce((s,e)=>s+e.deductions,0))} sub="ر.س" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">كشف حساب الموظفين</h2><p className="text-gray-400 text-sm mt-0.5">الرواتب والحركات المالية لموظفي مجموعة التاج</p></div>
+        <button onClick={()=>alert("تصدير كشف الرواتب...")} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100"><Download size={12}/> تصدير Excel</button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 text-sm">كشف الرواتب</h3>
-          <Btn size="sm" variant="primary" onClick={()=>alert("✅ تم تصدير كشف الرواتب")}><Download size={11}/> تصدير</Btn>
-        </div>
-        <div className="grid grid-cols-6 gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
-          <span className="col-span-2">الموظف</span><span>الراتب</span><span>السلف</span><span>الخصومات</span><span>الصافي</span>
-        </div>
-        {employees.map((e,i)=>(
-          <div key={i} className="grid grid-cols-6 gap-2 px-5 py-3.5 border-b border-gray-50 last:border-0 items-center">
-            <div className="col-span-2 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{e.name[0]}</div>
-              <div><p className="font-semibold text-gray-800 text-sm">{e.name}</p><p className="text-[10px] text-gray-400">{e.role} · {e.branch}</p></div>
-            </div>
-            <span className="font-mono text-sm text-gray-700">{fmt(e.salary)}</span>
-            <span className="font-mono text-sm text-amber-700">{e.advances>0?`-${fmt(e.advances)}`:"—"}</span>
-            <span className="font-mono text-sm text-red-600">{e.deductions>0?`-${fmt(e.deductions)}`:"—"}</span>
-            <span className="font-mono font-bold text-emerald-700 text-sm">{fmt(e.net)} ر.س</span>
+      <div className="grid grid-cols-4 gap-4">
+        <KpiCard label="إجمالي الرواتب"  value={fmt(totalSalaries)}    sub="ر.س صافي هذا الشهر" icon={<Users size={18} className="text-blue-600"/>}    accent="blue"/>
+        <KpiCard label="إجمالي السلف"    value={fmt(totalAdvances)}    sub="ر.س"                  icon={<Wallet size={18} className="text-amber-600"/>}   accent="amber"/>
+        <KpiCard label="إجمالي الخصومات" value={fmt(totalDeductions)}  sub="ر.س"                  icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+        <KpiCard label="موظفون نشطون"    value={String(employees.filter(e=>e.status==="نشط").length)} sub={`من ${employees.length} موظف`} icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
+      </div>
+      {/* فلاتر */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث — الاسم أو الفرع</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2"><Search size={13} className="text-gray-400"/><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="اسم الموظف أو الفرع..." className="flex-1 text-sm outline-none"/></div>
           </div>
-        ))}
+          <div><label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select value={brandFilter} onChange={e=>setBrandFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل",...BRANDS.map(b=>b.name)].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+      {/* Two-panel layout */}
+      <div className="grid grid-cols-5 gap-4 items-start">
+        {/* Left: Employee list */}
+        <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+            <p className="font-bold text-gray-900 text-sm">قائمة الموظفين ({filtered.length})</p>
+          </div>
+          {filtered.map(e=>(
+            <div key={e.id}
+              onClick={()=>setSelectedEmp(selectedEmp===e.id?null:e.id)}
+              className={`flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 cursor-pointer transition-all ${selectedEmp===e.id?"bg-purple-50 border-r-4 border-r-purple-500":"hover:bg-gray-50/70"} ${e.status==="موقوف"?"opacity-60":""}`}>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{e.name[0]}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="font-semibold text-gray-800 text-sm truncate">{e.name}</p>
+                  {e.status==="موقوف" && <Badge className="bg-red-50 text-red-700 border border-red-200 text-[9px]">موقوف</Badge>}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">{e.role} · {e.branch}</p>
+              </div>
+              <div className="text-left flex-shrink-0">
+                <p className="font-mono font-bold text-emerald-700 text-xs">{fmt(e.net)}</p>
+                <p className="text-[9px] text-gray-400">صافي</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Right: Employee ledger */}
+        <div className="col-span-3">
+          {!selected ? (
+            <div className="bg-white rounded-xl border border-dashed border-gray-200 h-64 flex flex-col items-center justify-center gap-2">
+              <Users size={32} className="text-gray-300"/>
+              <p className="text-gray-400 text-sm">اختر موظفاً من القائمة لعرض كشف حسابه</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-l from-purple-50/50 to-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold">{selected.name[0]}</div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900">{selected.name}</p>
+                    <p className="text-xs text-gray-500">{selected.role} · {selected.branch} · {selected.brand}</p>
+                    <Badge className={`text-[10px] mt-1 ${selected.status==="نشط"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200"}`}>{selected.status}</Badge>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div className="bg-blue-50 rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-blue-600 font-semibold">الراتب الأساسي</p>
+                    <p className="font-mono font-bold text-blue-800 text-sm">{fmt(selected.salary)} ر.س</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-amber-600 font-semibold">السلف</p>
+                    <p className="font-mono font-bold text-amber-800 text-sm">{selected.advances>0?`-${fmt(selected.advances)}`:"لا يوجد"}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-3 text-center border-2 border-emerald-200">
+                    <p className="text-[10px] text-emerald-600 font-semibold">الصافي المستحق</p>
+                    <p className="font-mono font-black text-emerald-800 text-base">{fmt(selected.net)} ر.س</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+                <p className="font-bold text-gray-700 text-xs">سجل الحركات المالية</p>
+              </div>
+              <div className="overflow-hidden">
+                <table className="w-full text-xs" dir="rtl">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-600">التاريخ</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-600">البيان</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">المرجع</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">دائن</th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-gray-600">مدين</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {selected.movements.map((m,k)=>(
+                      <tr key={k} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-500">{m.date}</td>
+                        <td className="px-4 py-3 font-medium text-gray-800">{m.desc}</td>
+                        <td className="px-4 py-3 text-center font-mono text-gray-400 text-[10px]">{m.ref}</td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-emerald-600">{m.type==="credit"?`${fmt(m.amount)} ر.س`:"—"}</td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-red-600">{m.type==="debit"?`${fmt(m.amount)} ر.س`:"—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2.5 font-bold text-gray-700">الرصيد الصافي المستحق</td>
+                      <td className="px-4 py-2.5 text-center font-mono font-black text-emerald-700">{fmt(selected.net)} ر.س</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2962,41 +3626,177 @@ function AccCompanyEmployees() {
 // ACCOUNTANT — CASH CUSTODY
 // ═══════════════════════════════════════════════════
 function AccCompanyCash() {
-  const custodies = [
-    { branch:"فرع العليا",    custodian:"فاطمة السالم",  opening:500, inflows:12400, outflows:11800, closing:1100, status:"متوازن"  },
-    { branch:"فرع الحمراء",   custodian:"خالد العتيبي",  opening:500, inflows:9200,  outflows:9600,  closing:100,  status:"عجز"     },
-    { branch:"فرع الملقا",    custodian:"أحمد الحربي",   opening:500, inflows:8800,  outflows:8200,  closing:1100, status:"متوازن"  },
-    { branch:"فرع الكورنيش",  custodian:"عبدالله الدوسري",opening:500, inflows:7600, outflows:7600,  closing:500,  status:"متوازن"  },
-    { branch:"فرع الورود",    custodian:"منى الزهراني",  opening:500, inflows:14200, outflows:13900, closing:800,  status:"متوازن"  },
+  const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
+  const [searchTerm,     setSearchTerm]     = useState("");
+  const [statusFilter,   setStatusFilter]   = useState("");
+
+  const branches = [
+    { branch:"فرع العليا",    brand:"برغر التاج",       custodian:"فاطمة السالم",    amount:5000, used:3200,
+      txns:[
+        {date:"اليوم",   desc:"صيانة طارئة — مكيف",     type:"debit",  amt:450},
+        {date:"اليوم",   desc:"مواد تنظيف",              type:"debit",  amt:180},
+        {date:"أمس",     desc:"إيداع عهدة أكتوبر",       type:"credit", amt:5000},
+        {date:"12 أكت",  desc:"مستلزمات مكتبية",         type:"debit",  amt:95},
+        {date:"11 أكت",  desc:"إصلاح معدات",             type:"debit",  amt:320},
+        {date:"10 أكت",  desc:"أدوات خدمة",              type:"debit",  amt:210},
+        {date:"10 أكت",  desc:"متفرقات",                  type:"debit",  amt:145},
+        {date:"09 أكت",  desc:"مواد نظافة إضافية",       type:"debit",  amt:800},
+        {date:"09 أكت",  desc:"قطع غيار",                type:"debit",  amt:1000},
+      ], pendingTxns:1 },
+    { branch:"فرع الحمراء",   brand:"برغر التاج",       custodian:"خالد العتيبي",    amount:3000, used:2800,
+      txns:[
+        {date:"أمس",     desc:"إيداع عهدة أكتوبر",       type:"credit", amt:3000},
+        {date:"13 أكت",  desc:"صيانة شبكة كهرباء",       type:"debit",  amt:750},
+        {date:"12 أكت",  desc:"مواد تنظيف وتعقيم",       type:"debit",  amt:420},
+        {date:"11 أكت",  desc:"مستلزمات المطبخ",          type:"debit",  amt:850},
+        {date:"10 أكت",  desc:"إصلاح باب طوارئ",         type:"debit",  amt:380},
+        {date:"09 أكت",  desc:"متفرقات أخرى",            type:"debit",  amt:400},
+      ], pendingTxns:2 },
+    { branch:"فرع الملقا",    brand:"بيتزا التاج",      custodian:"أحمد الحربي",     amount:4000, used:1500,
+      txns:[
+        {date:"أمس",     desc:"إيداع عهدة أكتوبر",       type:"credit", amt:4000},
+        {date:"13 أكت",  desc:"مواد تنظيف",              type:"debit",  amt:600},
+        {date:"12 أكت",  desc:"صيانة مكيفات",            type:"debit",  amt:900},
+      ], pendingTxns:0 },
+    { branch:"فرع الكورنيش",  brand:"بيتزا التاج",      custodian:"عبدالله الدوسري",  amount:3500, used:3400,
+      txns:[
+        {date:"أمس",     desc:"إيداع عهدة أكتوبر",       type:"credit", amt:3500},
+        {date:"13 أكت",  desc:"خدمات كهربائية",          type:"debit",  amt:1200},
+        {date:"12 أكت",  desc:"قطع غيار مطبخ",           type:"debit",  amt:800},
+        {date:"11 أكت",  desc:"مستلزمات متفرقة",         type:"debit",  amt:750},
+        {date:"10 أكت",  desc:"صيانة سبّاكة",            type:"debit",  amt:350},
+        {date:"09 أكت",  desc:"متفرقات",                  type:"debit",  amt:300},
+      ], pendingTxns:3 },
+    { branch:"فرع الورود",    brand:"مطعم التاج الراقي", custodian:"منى الزهراني",    amount:6000, used:2800,
+      txns:[
+        {date:"أمس",     desc:"إيداع عهدة أكتوبر",       type:"credit", amt:6000},
+        {date:"13 أكت",  desc:"ضيافة VIP",               type:"debit",  amt:1200},
+        {date:"12 أكت",  desc:"أدوات مطبخ",              type:"debit",  amt:900},
+        {date:"11 أكت",  desc:"مستلزمات",                type:"debit",  amt:700},
+      ], pendingTxns:0 },
   ];
+
+  const filtered = branches.filter(b=>{
+    if(searchTerm && !b.branch.includes(searchTerm) && !b.custodian.includes(searchTerm)) return false;
+    if(statusFilter==="قريبة من النفاد" && (b.amount-b.used)>=500) return false;
+    if(statusFilter==="طلبات معلقة" && b.pendingTxns===0) return false;
+    return true;
+  });
+
+  const totalPending = branches.reduce((s,b)=>s+b.pendingTxns,0);
+  const lowCount     = branches.filter(b=>b.amount-b.used<500).length;
+
   return (
     <div className="space-y-5" dir="rtl">
-      <div><h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2><p className="text-gray-400 text-sm">متابعة صناديق النقد لفروع مجموعة التاج</p></div>
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="إجمالي العهد"   value={fmt(custodies.reduce((s,c)=>s+c.closing,0))} sub="ر.س رصيد حالي" icon={<Wallet size={18} className="text-blue-600"/>} accent="blue"/>
-        <KpiCard label="فروع متوازنة"   value={String(custodies.filter(c=>c.status==="متوازن").length)} sub={`من ${custodies.length} فروع`} icon={<CheckCircle2 size={18} className="text-emerald-600"/>} accent="emerald"/>
-        <KpiCard label="فروع بعجز"      value={String(custodies.filter(c=>c.status==="عجز").length)} sub="تحتاج مراجعة" icon={<AlertTriangle size={18} className="text-red-500"/>} accent="red"/>
+      <div className="flex items-center justify-between">
+        <div><h2 className="text-xl font-bold text-gray-800">إدارة العهد النقدية</h2><p className="text-gray-400 text-sm mt-0.5">متابعة صناديق النقد لفروع مجموعة التاج</p></div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60"><h3 className="font-bold text-gray-900 text-sm">حركات الصناديق</h3></div>
-        <div className="grid grid-cols-6 gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50 text-[10px] font-semibold text-gray-500">
-          <span className="col-span-2">الفرع / المسؤول</span><span>رصيد الافتتاح</span><span>المداخيل</span><span>المصروفات</span><span>الإغلاق</span>
-        </div>
-        {custodies.map((c,i)=>(
-          <div key={i} className="grid grid-cols-6 gap-2 px-5 py-4 border-b border-gray-50 last:border-0 items-center">
-            <div className="col-span-2">
-              <p className="font-semibold text-gray-800 text-sm">{c.branch}</p>
-              <p className="text-[10px] text-gray-400">عهدة: {c.custodian}</p>
-            </div>
-            <span className="font-mono text-sm text-gray-700">{fmt(c.opening)}</span>
-            <span className="font-mono text-sm text-emerald-700">+{fmt(c.inflows)}</span>
-            <span className="font-mono text-sm text-red-600">-{fmt(c.outflows)}</span>
-            <div className="flex items-center gap-2">
-              <span className={`font-mono font-bold text-sm ${c.status==="عجز"?"text-red-600":"text-gray-800"}`}>{fmt(c.closing)} ر.س</span>
-              <Badge className={`text-[10px] ${c.status==="متوازن"?"bg-emerald-50 text-emerald-700 border border-emerald-200":"bg-red-50 text-red-700 border border-red-200"}`}>{c.status}</Badge>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiCard label="عدد العهود النشطة"  value={String(branches.length)} sub="فروع لديها عهدة مفتوحة" icon={<ArrowLeftRight size={18} className="text-orange-600"/>} accent="orange"/>
+        <KpiCard label="طلبات صرف معلقة"   value={String(totalPending)}    sub="بانتظار المراجعة"       icon={<Clock size={18} className="text-amber-600"/>} accent="amber"/>
+        <KpiCard label="عهود قريبة من النفاد" value={String(lowCount)}    sub="أقل من 500 ر.س متبقٍ"  icon={<AlertTriangle size={18} className="text-red-600"/>} accent="red"/>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث — الفرع أو المسؤول</label>
+            <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+              <Search size={13} className="text-gray-400"/>
+              <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="اسم الفرع أو أمين الصندوق..." className="flex-1 text-sm outline-none"/>
             </div>
           </div>
-        ))}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">العلامة التجارية</label>
+            <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2"><option>الكل</option>{BRANDS.map(b=><option key={b.id}>{b.name}</option>)}</select>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 block mb-1">حالة العهدة</label>
+            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
+              {["الكل","قريبة من النفاد","طلبات معلقة","نشطة"].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          {(searchTerm||statusFilter) && <button onClick={()=>{setSearchTerm("");setStatusFilter("");}} className="text-xs text-purple-600 hover:underline flex items-center gap-1"><RotateCcw size={11}/> مسح الفلاتر</button>}
+          <button onClick={()=>alert("جارٍ تصدير سجل العهد النقدية...")} className="mr-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100"><FileText size={11}/> تصدير Excel</button>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 bg-gray-50/60 border-b border-gray-100">
+          <p className="font-bold text-gray-900 text-sm">كشف العهود النقدية — اضغط على فرع لعرض سجل المعاملات</p>
+        </div>
+        {filtered.map((b,i)=>{
+          const rem    = b.amount - b.used;
+          const pct    = Math.round(b.used/b.amount*100);
+          const isLow  = rem < 500;
+          const isOpen = expandedBranch===b.branch;
+          return (
+            <div key={i} className="border-b border-gray-100 last:border-0">
+              <div className={`px-5 py-4 flex items-center gap-4 hover:bg-gray-50/70 ${isOpen?"bg-orange-50/20":""} ${isLow?"border-r-4 border-r-red-400":""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-800 text-sm">{b.branch}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-xs text-gray-500">{b.custodian}</span>
+                    <Badge className="bg-gray-100 text-gray-500 border border-gray-200 text-[10px]">{b.brand}</Badge>
+                    {isLow && <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-200">⚠ قريبة من النفاد</span>}
+                    {b.pendingTxns>0 && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">{b.pendingTxns} طلب معلق</span>}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-32">
+                      <div className={`h-1.5 rounded-full ${pct>85?"bg-red-400":"bg-orange-400"}`} style={{width:`${pct}%`}}/>
+                    </div>
+                    <span className="text-xs text-gray-400">{pct}% مُصرَف</span>
+                    <span className={`text-xs font-bold font-mono ${isLow?"text-red-600":"text-emerald-600"}`}>{fmt(rem)} ر.س متبقٍ</span>
+                  </div>
+                </div>
+                <Btn size="sm" onClick={()=>setExpandedBranch(isOpen?null:b.branch)}>
+                  {isOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>} المعاملات
+                </Btn>
+              </div>
+              {isOpen && (
+                <div className="px-5 pb-4 bg-gray-50/30">
+                  <p className="text-[11px] font-bold text-gray-500 mb-2 pt-2">سجل معاملات العهدة — {b.custodian}</p>
+                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <table className="w-full text-xs" dir="rtl">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">التاريخ</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">البيان</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600">النوع</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600">المبلغ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {b.txns.map((t,k)=>(
+                          <tr key={k} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-gray-500">{t.date}</td>
+                            <td className="px-3 py-2 font-medium text-gray-800">{t.desc}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type==="credit"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700"}`}>
+                                {t.type==="credit"?"إيداع":"صرف"}
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2 text-center font-mono font-bold ${t.type==="credit"?"text-emerald-600":"text-red-600"}`}>
+                              {t.type==="credit"?"+":"-"}{fmt(t.amt)} ر.س
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                        <tr>
+                          <td colSpan={2} className="px-3 py-2 font-bold text-gray-700">الرصيد الحالي</td>
+                          <td></td>
+                          <td className={`px-3 py-2 text-center font-black font-mono ${isLow?"text-red-600":"text-emerald-700"}`}>{fmt(rem)} ر.س</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
