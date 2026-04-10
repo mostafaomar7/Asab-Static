@@ -4713,6 +4713,8 @@ const INV_BRANCH_DATA: Record<string, {item:string; cat:string; unit:string; pre
 };
 
 function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailId, bulkApprove }:PageProps) {
+  const { t, lang, dir } = useLang();
+  const en = lang === "en";
   const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
   const [dailyBranch,    setDailyBranch]    = useState<string|null>(null);
   const [invType,        setInvType]        = useState<"monthly"|"daily">("monthly");
@@ -4760,11 +4762,11 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
   const branchesWithOps = [...new Set(invOps.map(o=>o.branch))];
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-5" dir={dir}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">موديول المخزون</h2>
-          <p className="text-gray-400 text-sm mt-0.5">مراجعة الجرد اليومي والشهري لكل فرع — مقارنة ومعادلة مخزون</p>
+          <h2 className="text-xl font-bold text-gray-800">{t("موديول المخزون","Inventory Module")}</h2>
+          <p className="text-gray-400 text-sm mt-0.5">{t("مراجعة الجرد اليومي والشهري لكل فرع — مقارنة ومعادلة مخزون","Review daily and monthly inventory per branch — comparison and reconciliation")}</p>
         </div>
         <div className="flex gap-2 items-center">
           <button onClick={()=>exportExcel()}
@@ -4776,7 +4778,7 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
       </div>
 
       {/* Brand/Restaurant search + Daily/Monthly toggle */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir="rtl">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" dir={dir}>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">بحث بالمطعم أو البراند</label>
@@ -4922,7 +4924,7 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
               {/* Inventory items drill-down — month comparison + anomaly detection */}
               {isExpanded && items.length>0 && (
                 <div className="px-5 pb-4 bg-gray-50/50">
-                  <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs mt-2" dir="rtl">
+                  <table className="w-full border border-gray-100 rounded-xl overflow-hidden text-xs mt-2" dir={dir}>
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="px-3 py-2 text-right">الصنف</th>
@@ -4989,8 +4991,8 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
                 const remaining = DEFICIT - assignedTotal;
                 return (
                   <div className="px-5 pb-4 bg-indigo-50/30">
-                    <p className="text-[11px] font-bold text-indigo-700 mb-2 pt-2">معادلة الجرد اليومي — {branch}</p>
-                    <div className="bg-white rounded-xl border border-indigo-100 p-4" dir="rtl">
+                    <p className="text-[11px] font-bold text-indigo-700 mb-2 pt-2">{t("معادلة الجرد اليومي","Daily Inventory Reconciliation")} — {branch}</p>
+                    <div className="bg-white rounded-xl border border-indigo-100 p-4" dir={dir}>
                       <div className="space-y-2 text-sm">
                         {[
                           {label:"رصيد الفتح (أمس)",         val:12400, sign:"",  cls:"text-gray-800" },
