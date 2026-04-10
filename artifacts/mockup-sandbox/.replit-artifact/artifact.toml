@@ -18,5 +18,5 @@ run = "pnpm --filter @workspace/mockup-sandbox run dev"
 
 [services.production]
 serve = "static"
-build = "BASE_PATH=/__mockup pnpm --filter @workspace/mockup-sandbox run build"
+build = "BASE_PATH=/ pnpm --filter @workspace/mockup-sandbox run build"
 publicDir = "artifacts/mockup-sandbox/dist"
