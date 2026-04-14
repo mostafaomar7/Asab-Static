@@ -4773,7 +4773,7 @@ function AccInventory({ navigate, ops, approveOp, rejectOp, setModal, setDetailI
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-all">
             <FileText size={12}/> Excel — كل المطاعم
           </button>
-          <Btn variant="primary" size="sm" onClick={()=>navigate("acc-inventory-items")}><Package size={13}/> تحديد أصناف الجرد</Btn>
+          <Btn variant="primary" size="sm" onClick={()=>navigate("acc-inventory-items")}><Package size={13}/> {t("تحديد أصناف الجرد","Select Inventory Items")}</Btn>
         </div>
       </div>
 
@@ -6152,7 +6152,7 @@ function AccCash({}: PageProps) {
                 {b.daysSinceSettlement>=30 && (
                   <button onClick={()=>setSettlementReqs(p=>({...p,[b.branch]:true}))}
                     className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all flex-shrink-0 ${settlementReqs[b.branch]?"bg-emerald-50 text-emerald-700 border-emerald-200":"bg-red-50 text-red-700 border-red-200 hover:bg-red-100"}`}>
-                    {settlementReqs[b.branch]?<><CheckCircle2 size={11}/> تم إرسال الطلب</>:<><Send size={11}/> طلب تسوية</>}
+                    {settlementReqs[b.branch]?<><CheckCircle2 size={11}/> {t("تم إرسال الطلب","Request Sent")}</>:<><Send size={11}/> {t("طلب تسوية","Request Settlement")}</>}
                   </button>
                 )}
                 <Btn size="sm" onClick={()=>setExpandedBranch(isOpen?null:b.branch)}>
@@ -6313,7 +6313,7 @@ function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAsse
                 <p className="font-bold text-gray-800 text-base">اسحب ملف Excel هنا أو اضغط للتصفح</p>
                 <p className="text-gray-400 text-sm mt-1">يدعم: .xlsx · .xls · .csv — الحجم الأقصى 10MB</p>
               </div>
-              <Btn variant="primary">📂 تصفح الملفات</Btn>
+              <Btn variant="primary">📂 {t("تصفح الملفات","Browse Files")}</Btn>
             </div>
 
             {/* Template download */}
@@ -6433,7 +6433,7 @@ function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAsse
                 ))}
               </div>
               <div className="flex gap-3 justify-end">
-                <Btn onClick={()=>setStep(1)}>← رجوع</Btn>
+                <Btn onClick={()=>setStep(1)}>{t("← رجوع","Back →")}</Btn>
                 <Btn variant="primary" onClick={confirmImport} disabled={selectedRows.length===0}>
                   <Send size={13}/> تأكيد الاستيراد وإرسال الإشعارات ({selectedRows.length} أصل · {Object.keys(branchGroups).length} فروع)
                 </Btn>
@@ -6471,7 +6471,7 @@ function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAsse
               <p className="text-xs text-amber-800 font-semibold flex items-center gap-1.5"><Bell size={12}/> انتظر تأكيد مديري الفروع</p>
               <p className="text-xs text-amber-600 mt-1">سيظهر كل أصل في سجلك بحالة "ينتظر تأكيد الفرع" حتى يقوم مدير الفرع بالتأكيد عبر تطبيق الموبايل.</p>
             </div>
-            <Btn variant="primary" onClick={onClose}><CheckCircle2 size={13}/> العودة إلى سجل الأصول</Btn>
+            <Btn variant="primary" onClick={onClose}><CheckCircle2 size={13}/> {t("العودة إلى سجل الأصول","Return to Asset Registry")}</Btn>
           </div>
         )}
       </div>
@@ -6913,7 +6913,7 @@ function AccAssets({ navigate }: PageProps) {
                       ))}
                     </div>
                     <div className="mt-3 flex gap-2">
-                      <Btn size="sm" onClick={()=>setShowTransfer(a.id)}><ArrowLeftRight size={11}/> نقل عهدة</Btn>
+                      <Btn size="sm" onClick={()=>setShowTransfer(a.id)}><ArrowLeftRight size={11}/> {t("نقل عهدة","Transfer Custody")}</Btn>
                     </div>
                   </div>
                 ))}
@@ -6957,7 +6957,7 @@ function AccAssets({ navigate }: PageProps) {
               <div>
                 <label className="text-[11px] font-semibold text-gray-500 block mb-1">تصنيف الأصل</label>
                 <select value={filterCat} onChange={e=>setFilterCat(e.target.value as "الكل"|AssetCat)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-                  <option value="الكل">الكل</option>
+                  <option value="الكل">{t("الكل","All")}</option>
                   {(["معدات","تقنية","أثاث","مركبات","أخرى"] as AssetCat[]).map(c=>(
                     <option key={c} value={c}>{CAT_ICON[c]} {c}</option>
                   ))}
@@ -7139,7 +7139,7 @@ function AccAssets({ navigate }: PageProps) {
                     <label className="text-xs font-semibold text-gray-600 block mb-1">الفرع *</label>
                     <select value={newAsset.branch} onChange={e=>setNewAsset(p=>({...p,branch:e.target.value}))}
                       className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-purple-400 outline-none">
-                      <option value="">-- اختر الفرع --</option>
+                      <option value="">{t("-- اختر الفرع --","-- Select Branch --")}</option>
                       {ASSET_BRANCHES.map(b=><option key={b}>{b}</option>)}
                     </select>
                   </div>
@@ -7177,9 +7177,9 @@ function AccAssets({ navigate }: PageProps) {
                   <p className="text-xs text-amber-700">بعد الحفظ، سيتلقى مدير الفرع إشعاراً فورياً على تطبيق الموبايل لتأكيد استلام الأصل وإضافته رسمياً لأصول الفرع.</p>
                 </div>
                 <div className="flex gap-3 justify-end">
-                  <Btn onClick={()=>setShowAddModal(false)}>إلغاء</Btn>
+                  <Btn onClick={()=>setShowAddModal(false)}>{t("إلغاء","Cancel")}</Btn>
                   <Btn variant="primary" onClick={submitNewAsset} disabled={!newAsset.name||!newAsset.branch||!newAsset.cost}>
-                    <Send size={13}/> حفظ وإرسال للفرع
+                    <Send size={13}/> {t("حفظ وإرسال للفرع","Save & Send to Branch")}
                   </Btn>
                 </div>
               </div>
@@ -7224,9 +7224,9 @@ function AccAssets({ navigate }: PageProps) {
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:border-indigo-400 outline-none"/>
               </div>
               <div className="flex gap-3 justify-end">
-                <Btn onClick={()=>setShowTransfer(null)}>إلغاء</Btn>
+                <Btn onClick={()=>setShowTransfer(null)}>{t("إلغاء","Cancel")}</Btn>
                 <Btn variant="primary" onClick={()=>submitTransfer(showTransfer)} disabled={!transferForm.to}>
-                  <ArrowLeftRight size={13}/> تأكيد النقل وتوثيقه
+                  <ArrowLeftRight size={13}/> {t("تأكيد النقل وتوثيقه","Confirm & Document Transfer")}
                 </Btn>
               </div>
             </div>
@@ -7259,13 +7259,13 @@ function AccAssets({ navigate }: PageProps) {
                     <p className="text-sm font-medium text-gray-800 truncate" dir="ltr">{att.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{att.type} · {att.size}</p>
                   </div>
-                  <Btn size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity"><Eye size={11}/> عرض</Btn>
+                  <Btn size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity"><Eye size={11}/> {t("عرض","View")}</Btn>
                 </div>
               ))}
             </div>
             <div className="px-5 pb-4 flex gap-2 justify-end border-t border-gray-100 pt-3">
-              <Btn size="sm"><Plus size={11}/> إضافة مرفق</Btn>
-              <Btn size="sm" onClick={()=>setAssetAttach(null)}>إغلاق</Btn>
+              <Btn size="sm"><Plus size={11}/> {t("إضافة مرفق","Add Attachment")}</Btn>
+              <Btn size="sm" onClick={()=>setAssetAttach(null)}>{t("إغلاق","Close")}</Btn>
             </div>
           </div>
         </div>
@@ -7563,7 +7563,7 @@ function AccWaste({}: PageProps) {
                   {entry.status==="pending" && (
                     <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
                       <p className="text-[11px] text-blue-700 font-medium">
-                        💡 <strong>تالف</strong> = يُحمَّل بالقيمة المالية على الموظف (يمكن توزيعه على أكثر من موظف) · <strong>هدر</strong> = خسارة تشغيلية تُحمَّل على المطعم
+                        💡 <strong>{t("تالف","Damaged")}</strong> = {t("يُحمَّل بالقيمة المالية على الموظف (يمكن توزيعه على أكثر من موظف)","Charged financially to the employee (can be split across multiple employees)")} · <strong>{t("هدر","Waste")}</strong> = {t("خسارة تشغيلية تُحمَّل على المطعم","Operational loss charged to the restaurant")}
                       </p>
                     </div>
                   )}
@@ -7713,7 +7713,7 @@ function AccReminders({}: PageProps) {
           <div>
             <label className="text-[11px] font-semibold text-gray-500 block mb-1">الموديول</label>
             <select value={filterModule} onChange={e=>setFilterModule(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-              <option value="الكل">الكل</option>
+              <option value="الكل">{t("الكل","All")}</option>
               {Object.entries(MODULE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
             </select>
           </div>
@@ -7762,12 +7762,12 @@ function AccReminders({}: PageProps) {
                   </button>
                   <button onClick={()=>setBroadcastTarget("specific")}
                     className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-all ${broadcastTarget!=="all"&&broadcastTarget!=="all"?"bg-blue-100 text-blue-700 border-blue-300":"bg-gray-50 text-gray-600 border-gray-200"}`}>
-                    فرع محدد
+                    {t("فرع محدد","Specific Branch")}
                   </button>
                 </div>
                 {broadcastTarget==="specific" && (
                   <select onChange={e=>setBroadcastTarget(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mt-2">
-                    <option value="">اختر الفرع...</option>
+                    <option value="">{t("اختر الفرع...","Select Branch...")}</option>
                     {REM_BRANCHES.map(b=><option key={b} value={b}>{b}</option>)}
                   </select>
                 )}
@@ -7775,7 +7775,7 @@ function AccReminders({}: PageProps) {
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-1.5">الموديول المطلوب</label>
                 <select value={broadcastModule} onChange={e=>setBroadcastModule(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2">
-                  <option value="">اختر الموديول...</option>
+                  <option value="">{t("اختر الموديول...","Select Module...")}</option>
                   {Object.entries(MODULE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
@@ -7790,7 +7790,7 @@ function AccReminders({}: PageProps) {
               <Btn size="sm" variant="primary" onClick={()=>setBroadcastModal(false)}>
                 <Send size={11}/> إرسال {broadcastTarget==="all"?"لكل الفروع":"للفرع المحدد"}
               </Btn>
-              <Btn size="sm" onClick={()=>setBroadcastModal(false)}>إلغاء</Btn>
+              <Btn size="sm" onClick={()=>setBroadcastModal(false)}>{t("إلغاء","Cancel")}</Btn>
             </div>
           </div>
         </div>
@@ -7895,7 +7895,7 @@ function AutoReminderRules({ moduleLabels }:{ moduleLabels:Record<string,string>
           <h3 className="font-bold text-gray-800 text-sm">⚙️ قواعد التذكير التلقائي</h3>
           <p className="text-xs text-gray-400 mt-0.5">يُرسَل تذكير تلقائياً إذا لم يُرفع التقرير بحلول الوقت المحدد</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={()=>setShowAdd(s=>!s)}><Plus size={12}/> إضافة قاعدة</Btn>
+        <Btn size="sm" variant="primary" onClick={()=>setShowAdd(s=>!s)}><Plus size={12}/> {t("إضافة قاعدة","Add Rule")}</Btn>
       </div>
       {showAdd && (
         <div className="px-5 py-4 bg-purple-50/40 border-b border-purple-100">
@@ -7917,8 +7917,8 @@ function AutoReminderRules({ moduleLabels }:{ moduleLabels:Record<string,string>
             </div>
           </div>
           <div className="flex gap-2">
-            <Btn size="sm" variant="success" onClick={addRule}><CheckCircle2 size={11}/> حفظ</Btn>
-            <Btn size="sm" onClick={()=>setShowAdd(false)}>إلغاء</Btn>
+            <Btn size="sm" variant="success" onClick={addRule}><CheckCircle2 size={11}/> {t("حفظ","Save")}</Btn>
+            <Btn size="sm" onClick={()=>setShowAdd(false)}>{t("إلغاء","Cancel")}</Btn>
           </div>
         </div>
       )}
@@ -7955,8 +7955,8 @@ function ReportsPage({}: PageProps) {
             <p className="font-semibold text-gray-800 text-sm">{r}</p>
             <p className="text-xs text-gray-400 mt-1">أكتوبر 2025</p>
             <div className="flex items-center gap-2 mt-3">
-              <Btn size="sm"><Eye size={11}/> عرض</Btn>
-              <Btn size="sm"><Download size={11}/> تحميل</Btn>
+              <Btn size="sm"><Eye size={11}/> {t("عرض","View")}</Btn>
+              <Btn size="sm"><Download size={11}/> {t("تحميل","Download")}</Btn>
             </div>
           </button>
         ))}
@@ -8078,7 +8078,7 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
             </div>
             <span className="font-mono font-bold text-purple-700">{fmtAmt(g.ops.reduce((s,o)=>s+o.amount,0))} {t("ر.س","SAR")}</span>
             <div className="flex items-center gap-2">
-              <Btn size="sm" variant="success" onClick={e=>{ e.stopPropagation(); bulkApprove(g.ops.map(o=>o.id)); }}><CheckCircle2 size={13}/> اعتماد الكل</Btn>
+              <Btn size="sm" variant="success" onClick={e=>{ e.stopPropagation(); bulkApprove(g.ops.map(o=>o.id)); }}><CheckCircle2 size={13}/> {t("اعتماد الكل","Approve All")}</Btn>
               {expanded===g.key?<ChevronUp size={16} className="text-gray-400"/>:<ChevronDown size={16} className="text-gray-400"/>}
             </div>
           </div>

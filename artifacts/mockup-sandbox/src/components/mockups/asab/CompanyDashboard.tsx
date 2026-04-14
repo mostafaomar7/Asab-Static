@@ -312,11 +312,11 @@ function ConvertToAssetModalCD({
           )}
         </div>
         <div className="px-6 pb-5 flex gap-2 justify-end">
-          {step===2 && <Btn onClick={()=>setStep(1)}>→ السابق</Btn>}
-          <Btn onClick={onClose}>إلغاء</Btn>
+          {step===2 && <Btn onClick={()=>setStep(1)}>{t("→ السابق","← Back")}</Btn>}
+          <Btn onClick={onClose}>{t("إلغاء","Cancel")}</Btn>
           {step===1
-            ? <Btn variant="primary" onClick={()=>setStep(2)} disabled={!assetName.trim()}>التالي ←</Btn>
-            : <Btn variant="primary" onClick={handleConfirm}><GitMerge size={13}/> تأكيد التحويل</Btn>
+            ? <Btn variant="primary" onClick={()=>setStep(2)} disabled={!assetName.trim()}>{t("التالي ←","Next →")}</Btn>
+            : <Btn variant="primary" onClick={handleConfirm}><GitMerge size={13}/> {t("تأكيد التحويل","Confirm Transfer")}</Btn>
           }
         </div>
       </div>
@@ -1066,7 +1066,7 @@ function SalesReconPanel({ op, onApprove, onReject, isPending, forHead }:{
                 ))}
                 <div className="flex items-center justify-between pt-1">
                   <button onClick={()=>setVarEmps(p=>[...p,{empId:"",empName:"",amount:""}])} className="flex items-center gap-1 text-[10px] text-red-600 hover:underline font-semibold"><Plus size={10}/> إضافة موظف آخر</button>
-                  {remaining<=0 && <Btn size="sm" variant="success"><CheckCircle2 size={10}/> تأكيد التحميل</Btn>}
+                  {remaining<=0 && <Btn size="sm" variant="success"><CheckCircle2 size={10}/> {t("تأكيد التحميل","Confirm Upload")}</Btn>}
                 </div>
               </div>
             </div>
@@ -2537,8 +2537,8 @@ function AccCompanyExpenses({ ops, approve, reject, bulkApprove }:{ ops:COp[]; a
                     )}
                     {op.status==="pending" && (
                       <div className="flex gap-2 mt-3">
-                        <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> موافقة على البيان</Btn>
-                        <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> رفض</Btn>
+                        <Btn variant="success" size="sm" onClick={()=>approve(op.id)}><ThumbsUp size={12}/> {t("موافقة على البيان","Approve Statement")}</Btn>
+                        <Btn variant="danger" size="sm" onClick={()=>reject(op.id)}><ThumbsDown size={12}/> {t("رفض","Reject")}</Btn>
                       </div>
                     )}
                   </div>
