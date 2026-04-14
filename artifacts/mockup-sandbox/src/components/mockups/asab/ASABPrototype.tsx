@@ -154,6 +154,22 @@ const EN_NAV_LABELS: Record<string, string> = {
   "sup-overview":"Dashboard","sup-new":"New Orders",
   "sup-accepted":"Accepted","sup-rejected":"Rejected",
   "sup-items":"Items & Prices","sup-reports":"Sales Reports",
+  "pl":"P&L Statement",
+  "sales-channel":"Sales Channel Analysis",
+  "smart-compare":"Smart Comparisons",
+  "profit-cash":"Profit-Cash Reconciliation",
+  "breakeven":"Break-Even Analysis",
+  "op-profit":"Operating Profitability",
+  "menu-eng":"Menu Engineering",
+};
+const EN_REPORT_SUBS: Record<string,string> = {
+  "pl":"In-depth financial analysis — 3 levels",
+  "sales-channel":"Comprehensive channel analysis with ratios",
+  "smart-compare":"Monthly & cross-branch comparisons",
+  "profit-cash":"Difference between your money and your profit",
+  "breakeven":"Risk & financial safety analysis",
+  "op-profit":"Performance KPIs and industry comparisons",
+  "menu-eng":"Item performance KPIs and comparisons",
 };
 const EN_ROLE_LABELS: Record<string, { name:string; label:string }> = {
   admin:       { name:"Abdullah Al-Ahmad",  label:"System Admin" },
@@ -10905,6 +10921,8 @@ function AdminCompanies({ navigate }:PageProps) {
 
 function AdminReports({}: PageProps) {
   const { t, lang, dir } = useLang(); const en = lang==="en";
+  const rL = (r:{id:string;label:string}) => en ? (EN_NAV_LABELS[r.id]||r.label) : r.label;
+  const rS = (r:{id:string;sub:string})   => en ? (EN_REPORT_SUBS[r.id]||r.sub)   : r.sub;
   const [adminRepTab,  setAdminRepTab]  = useState<"reports"|"status">("reports");
   const [activeReport, setActiveReport] = useState<string|null>(null);
   const [step,         setStep]         = useState(0);
@@ -10971,14 +10989,14 @@ function AdminReports({}: PageProps) {
         <div className="flex items-center gap-2">
           <button onClick={()=>{ setActiveReport(null); setStep(0); setUploaded(false); }} className="text-purple-600 hover:underline text-sm flex items-center gap-1"><ChevronUp size={13} className="rotate-90"/> {t("مدير التقارير","Reports Manager")}</button>
           <span className="text-gray-300">/</span>
-          <span className="text-gray-600 text-sm font-semibold">{selectedReport.label}</span>
+          <span className="text-gray-600 text-sm font-semibold">{rL(selectedReport)}</span>
           <Badge className={`${selectedReport.bc} ${selectedReport.tc} border ${selectedReport.brd} mr-auto`}>{t("شهري","Monthly")} · {PERIOD}</Badge>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-5">
             <span className="text-2xl">{selectedReport.icon}</span>
-            <div><p className="font-bold text-gray-800">{selectedReport.label}</p><p className="text-xs text-gray-400">{selectedReport.sub}</p></div>
+            <div><p className="font-bold text-gray-800">{rL(selectedReport)}</p><p className="text-xs text-gray-400">{rS(selectedReport)}</p></div>
           </div>
           <div className="flex items-center gap-0 mb-6">
             {[{n:1,label:t("تصدير من ERP","ERP Export"),icon:"🔗"},{n:2,label:t("رفع Excel","Upload Excel"),icon:"📊"},{n:3,label:t("مراجعة","Review"),icon:"👁"},{n:4,label:t("إرسال لكل المطاعم","Send to All"),icon:"📤"}].map((s,i)=>(
@@ -10993,12 +11011,12 @@ function AdminReports({}: PageProps) {
 
           {step===0 && <div className="text-center py-6 space-y-4">
             <div className="text-5xl">{selectedReport.icon}</div>
-            <h3 className="font-bold text-gray-800">{t("تصدير","Export")} {selectedReport.label} {t("من ERP","from ERP")}</h3>
+            <h3 className="font-bold text-gray-800">{t("تصدير","Export")} {rL(selectedReport)} {t("من ERP","from ERP")}</h3>
             <div className="bg-blue-50 rounded-xl p-4 text-right max-w-sm mx-auto">
               <p className="font-semibold text-blue-800 text-sm mb-2">{t("الخطوات:","Steps:")}</p>
               <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
                 <li>{t("افتح نظام ERP → التقارير","Open ERP → Reports")}</li>
-                <li>{t("اختر","Select")} {selectedReport.label}</li>
+                <li>{t("اختر","Select")} {rL(selectedReport)}</li>
                 <li>{t("الفترة:","Period:")} {PERIOD}</li>
                 <li>{t("اضغط تصدير Excel","Click Export Excel")}</li>
               </ol>
@@ -11017,7 +11035,7 @@ function AdminReports({}: PageProps) {
               : <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                     <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0"/>
-                    <div><p className="font-semibold text-sm text-emerald-800">{t("تم رفع الملف بنجاح","File uploaded successfully")}</p><p className="text-xs text-emerald-600">{selectedReport.label}_{PERIOD.replace(" ","_")}.xlsx ✓</p></div>
+                    <div><p className="font-semibold text-sm text-emerald-800">{t("تم رفع الملف بنجاح","File uploaded successfully")}</p><p className="text-xs text-emerald-600">{rL(selectedReport)}_{PERIOD.replace(" ","_")}.xlsx ✓</p></div>
                     <button onClick={()=>setUploaded(false)} className="mr-auto text-emerald-400 hover:text-emerald-600"><X size={14}/></button>
                   </div>
                   <Btn variant="primary" onClick={()=>setStep(2)} className="w-full justify-center">{t("معاينة التقرير →","Preview Report →")}</Btn>
@@ -11026,12 +11044,12 @@ function AdminReports({}: PageProps) {
 
           {step===2 && <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-800">{t("معاينة:","Preview:")} {selectedReport.label} — {PERIOD}</h3>
+              <h3 className="font-bold text-gray-800">{t("معاينة:","Preview:")} {rL(selectedReport)} — {PERIOD}</h3>
               <Badge className="bg-blue-50 text-blue-700">{t("للعرض فقط","View Only")}</Badge>
             </div>
             <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
               <div className="bg-purple-700 text-white px-5 py-3 text-center">
-                <p className="font-bold">{selectedReport.icon} {selectedReport.label} — {PERIOD}</p>
+                <p className="font-bold">{selectedReport.icon} {rL(selectedReport)} — {PERIOD}</p>
                 <p className="text-purple-200 text-xs mt-0.5">{t("جميع المطاعم المشتركة","All subscribed restaurants")} · {RESTAURANTS.length} {t("مطاعم","restaurants")}</p>
               </div>
               <table className="w-full" dir="rtl"><tbody className="divide-y divide-gray-200">
@@ -11053,7 +11071,7 @@ function AdminReports({}: PageProps) {
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-amber-700 text-sm">
               <Bell size={14} className="flex-shrink-0"/>
-              {t("سيُرسَل تقرير","Report")} <strong>{selectedReport.label} — {PERIOD}</strong> {t("لجميع أصحاب المطاعم بالبريد الإلكتروني + إشعار داخل التطبيق.","will be sent to all restaurant owners via email + in-app notification.")}
+              {t("سيُرسَل تقرير","Report")} <strong>{rL(selectedReport)} — {PERIOD}</strong> {t("لجميع أصحاب المطاعم بالبريد الإلكتروني + إشعار داخل التطبيق.","will be sent to all restaurant owners via email + in-app notification.")}
             </div>
             <div className="space-y-1.5 max-h-60 overflow-y-auto">
               {RESTAURANTS.map((r)=>(
@@ -11077,7 +11095,7 @@ function AdminReports({}: PageProps) {
               <CheckCircle2 size={36} className="text-emerald-600"/>
             </div>
             <h3 className="text-xl font-bold text-gray-800">{t("تم الإرسال بنجاح!","Sent Successfully!")}</h3>
-            <p className="text-gray-500 text-sm">{t("تم إرسال","Sent")} <strong>{selectedReport.label} — {PERIOD}</strong> {t("لـ","to")} {RESTAURANTS.length} {t("مطاعم","restaurants")}</p>
+            <p className="text-gray-500 text-sm">{t("تم إرسال","Sent")} <strong>{rL(selectedReport)} — {PERIOD}</strong> {t("لـ","to")} {RESTAURANTS.length} {t("مطاعم","restaurants")}</p>
             <div className="flex gap-3 justify-center">
               <Btn onClick={()=>{ setActiveReport(null); setAdminRepTab("status"); setStatusFilter(activeReport!); setStep(0); setUploaded(false); }}>
                 <Eye size={13}/> {t("عرض حالة التقارير","View Report Status")}
@@ -11139,8 +11157,8 @@ function AdminReports({}: PageProps) {
                     onClick={()=>{ setActiveReport(rep.id); setStep(0); setUploaded(false); }}>
                     <div className={`w-11 h-11 rounded-xl ${rep.bc} border ${rep.brd} flex items-center justify-center text-xl flex-shrink-0`}>{rep.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-sm ${rep.tc}`}>{rep.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{rep.sub}</p>
+                      <p className={`font-bold text-sm ${rep.tc}`}>{rL(rep)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{rS(rep)}</p>
                     </div>
                     {isSent
                       ? <div className="flex items-center gap-3 flex-shrink-0">
@@ -11174,8 +11192,8 @@ function AdminReports({}: PageProps) {
                     onClick={()=>{ setActiveReport(rep.id); setStep(0); setUploaded(false); }}>
                     <div className={`w-11 h-11 rounded-xl ${rep.bc} border ${rep.brd} flex items-center justify-center text-xl flex-shrink-0`}>{rep.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-sm ${rep.tc}`}>{rep.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{rep.sub}</p>
+                      <p className={`font-bold text-sm ${rep.tc}`}>{rL(rep)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{rS(rep)}</p>
                     </div>
                     {isSent
                       ? <div className="flex items-center gap-3 flex-shrink-0">
@@ -11202,7 +11220,7 @@ function AdminReports({}: PageProps) {
             {allReports.map(r=>(
               <button key={r.id} onClick={()=>setStatusFilter(r.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${statusFilter===r.id?`${r.bc} ${r.tc} ${r.brd}`:"bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
-                <span>{r.icon}</span> {r.label}
+                <span>{r.icon}</span> {rL(r)}
               </button>
             ))}
           </div>
@@ -11227,7 +11245,7 @@ function AdminReports({}: PageProps) {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                   <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
                     <span>{selRep?.icon}</span>
-                    <p className="font-bold text-sm text-gray-700">{selRep?.label} — {PERIOD}</p>
+                    <p className="font-bold text-sm text-gray-700">{selRep ? rL(selRep) : ""} — {PERIOD}</p>
                     <Badge className={`mr-auto ${sentReports.has(statusFilter)?"bg-emerald-50 text-emerald-700":"bg-amber-50 text-amber-700"}`}>{sentReports.has(statusFilter)?t("مُرسَل","Sent"):t("لم يُرسَل بعد","Not Sent Yet")}</Badge>
                   </div>
                   <table className="w-full" dir="rtl">
