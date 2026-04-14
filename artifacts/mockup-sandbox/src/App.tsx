@@ -131,7 +131,7 @@ function ASABLanding() {
     {
       slug: "asab/CompanyDashboard",
       title: "بوابة الشركات",
-      subtitle: "مجموعة التاج — B2B Portal",
+      subtitle: "مجموعة التاج — بوابة المؤسسات",
       description:
         "لوحة إدارة متعددة الفروع لمجموعات المطاعم — مراجعة البيانات وتدقيق العمليات عبر جميع العلامات التجارية",
       roles: ["المدير التنفيذي", "المشرف المالي", "محاسب المجموعة", "محلل البيانات", "مدير مشتريات"],
@@ -176,7 +176,7 @@ function ASABLanding() {
             <div style={{ fontSize: 32, fontWeight: 900, color: "white", lineHeight: 1 }}>
               عصب <span style={{ color: "#00D9FF", fontFamily: "system-ui" }}>ASAB</span>
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Financial Management System</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>نظام الإدارة المالية</div>
           </div>
         </div>
         <h1 style={{ fontSize: 18, color: "#94a3b8", fontWeight: 400, margin: "0 0 8px" }}>
