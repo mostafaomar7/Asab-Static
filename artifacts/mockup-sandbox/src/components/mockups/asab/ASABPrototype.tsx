@@ -8129,7 +8129,8 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
 }
 
 function HeadPending({ navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove }:PageProps) {
-  const { t, dir } = useLang();
+  const { t, lang, dir } = useLang();
+  const en = lang === "en";
   const [filters, setFilters] = useState<Filters>({branch:"",status:"approved",match:"",search:""});
   const [accFilter, setAccFilter] = useState(t("الكل","All"));
   const [brandFilter, setBrandFilter] = useState(t("الكل","All"));
@@ -8444,7 +8445,8 @@ function HeadRejected({ ops }:PageProps) {
 }
 
 function HeadModulePage({ moduleKey, navigate, setModal, setDetailId, ops, finalApproveOp, rejectOp, bulkApprove }:PageProps&{moduleKey:string}) {
-  const { t, dir } = useLang();
+  const { t, lang, dir } = useLang();
+  const en = lang === "en";
   const [filters, setFilters] = useState<Filters>({branch:"",status:"",match:"",search:""});
   const allVal = t("الكل","All");
   const [accFilter, setAccFilter] = useState(allVal);
