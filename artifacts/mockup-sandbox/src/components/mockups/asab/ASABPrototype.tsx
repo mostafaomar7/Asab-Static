@@ -8070,6 +8070,8 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
   setModal:(id:string|null)=>void; setDetailId:(id:string|null)=>void;
   bulkApprove:(ids:string[])=>void;
 }) {
+  const { t, lang } = useLang();
+  const en = lang === "en";
   const awaitingHead = ops.filter(o=>o.status==="approved");
   const [expanded, setExpanded] = useState<string|null>("g0");
 
@@ -8078,8 +8080,6 @@ function HeadApprovalTab({ ops, finalApproveOp, rejectOp, setModal, setDetailId,
     { key:"g0", accountant:"أحمد محمد الشهري", module:"المبيعات والمصروفات", ops:awaitingHead.slice(0,Math.ceil(awaitingHead.length/2)) },
     { key:"g1", accountant:"سارة العمري", module:"المشتريات والمخزون",    ops:awaitingHead.slice(Math.ceil(awaitingHead.length/2)) },
   ].filter(g=>g.ops.length>0);
-
-  const { t } = useLang();
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
