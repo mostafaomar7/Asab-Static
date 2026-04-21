@@ -6028,6 +6028,7 @@ function AccEmployees({ navigate, setModal }:PageProps) {
 }
 
 function AccCash({}: PageProps) {
+  const { t, lang, dir } = useLang();
   const [expandedBranch, setExpandedBranch] = useState<string|null>(null);
   const [searchTerm,     setSearchTerm]     = useState("");
   const [statusFilter,   setStatusFilter]   = useState("");
@@ -6496,6 +6497,7 @@ function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAsse
 }
 
 function AccAssets({ navigate }: PageProps) {
+  const { t, lang, dir } = useLang();
   const { drafts, discardDraft, confirmDraft } = useContext(AssetDraftContext);
   type AssetStatus = "pending_branch"|"pending_accountant"|"confirmed"|"registered";
   type AssetCat    = "معدات"|"تقنية"|"أثاث"|"مركبات"|"أخرى";
@@ -7294,6 +7296,7 @@ function AccAssets({ navigate }: PageProps) {
 // WASTE / DAMAGE MODULE — موديول الهدر والتالف
 // ════════════════════════════════════════════════════════════
 function AccWaste({}: PageProps) {
+  const { t, lang, dir } = useLang();
   type WasteClass = "هدر"|"تالف";
   type Resp = "موظف"|"مطعم";
   type EmpAlloc = { empId:string; empName:string; amount:string };
@@ -7643,6 +7646,7 @@ function AccWaste({}: PageProps) {
 // REMINDERS SYSTEM — نظام التذكيرات للفروع
 // ════════════════════════════════════════════════════════════
 function AccReminders({}: PageProps) {
+  const { t, lang, dir } = useLang();
   type ReminderStatus = "not_sent"|"sent"|"responded";
   type ResponseType = "سيرسل لاحقاً"|"لا مشتريات اليوم"|"تم الجرد — قيد الرفع"|"توضيح: لا يوجد هدر اليوم"|null;
   interface MissingReport { id:string; branch:string; reportType:string; moduleKey:string; requiredBy:string; daysMissing:number; urgency:"high"|"medium"|"low"; reminderStatus:ReminderStatus; response:ResponseType }
@@ -7960,6 +7964,7 @@ function AutoReminderRules({ moduleLabels }:{ moduleLabels:Record<string,string>
 }
 
 function ReportsPage({}: PageProps) {
+  const { t, lang, dir } = useLang();
   const reports = ["تقرير المبيعات الشهري","تقرير المصروفات","تقرير المشتريات","كشف الحسابات","تقرير المخزون","تقرير الأداء العام"];
   return (
     <div className="space-y-5">
