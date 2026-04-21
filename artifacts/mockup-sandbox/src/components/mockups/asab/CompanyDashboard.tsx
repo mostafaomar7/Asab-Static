@@ -919,6 +919,7 @@ type VEmpCD = { empId:string; empName:string; amount:string };
 function SalesReconPanel({ op, onApprove, onReject, isPending, forHead }:{
   op:COp; onApprove:()=>void; onReject:()=>void; isPending:boolean; forHead:boolean;
 }) {
+  const { t, lang, dir } = useCLang();
   const totalSales = op.amount;
   const [reconCash,      setReconCash]      = useState(Math.round(totalSales*0.23));
   const [reconBank,      setReconBank]      = useState(Math.round(totalSales*0.46));

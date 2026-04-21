@@ -6230,6 +6230,7 @@ function AccCash({}: PageProps) {
 // FIXED ASSETS — Mobile ↔ Accountant Coordination + Branch Report
 // ════════════════════════════════════════════════════════════
 function ExcelImportModal({ assets, setAssets, onClose }:{ assets:any[]; setAssets:(fn:(p:any[])=>any[])=>void; onClose:()=>void }) {
+  const { t, lang, dir } = useLang();
   type ImportRow = {
     rowId:number; name:string; cat:string; branch:string; invNum:string;
     cost:number; usefulLife:number; custodian:string; selected:boolean; branchEditing:boolean;
@@ -7891,6 +7892,7 @@ function AccReminders({}: PageProps) {
 }
 
 function AutoReminderRules({ moduleLabels }:{ moduleLabels:Record<string,string> }) {
+  const { t, lang, dir } = useLang();
   type Rule = { id:string; module:string; triggerHour:string; repeatHours:string; active:boolean };
   const [rules, setRules] = useState<Rule[]>([
     { id:"AR1", module:"sales",           triggerHour:"22:00", repeatHours:"2", active:true  },
